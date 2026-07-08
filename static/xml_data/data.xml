@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<models>
+  <model id="SuzukiPredictor">
+    <name>SuzukiReactionPredictor</name>
+    <description>RDKit moleküler tanımlayıcılar ve çoklu makine öğrenmesi modelleri ile Suzuki-Miyaura çapraz kenetlenme reaksiyonları için kapsamlı tahmin ve optimizasyon platformu</description>
+    <detailed_description>
+      <![CDATA[
+      <h3>Model Genel Bakış</h3>
+      <p>Bu gelişmiş sistem, Suzuki-Miyaura reaksiyonlarının verim tahmini ve koşul optimizasyonu için çoklu makine öğrenmesi algoritmalarını RDKit tabanlı moleküler tanımlayıcılarla birleştirir. Kullanıcı dostu arayüzü ile gerçek zamanlı tahminler ve katalizör optimizasyonu sunar.</p>
+      
+      <h3>Teknik Detaylar</h3>
+      <ul>
+        <li><b>Model Mimarisi:</b> 6 farklı makine öğrenmesi algoritması entegrasyonu (Random Forest, Gradient Boosting, XGBoost, LightGBM, SVR, Neural Network)</li>
+        <li><b>Moleküler Tanımlayıcılar:</b> RDKit kütüphanesi ile LogP, dönebilir bağ sayısı, ağır atom sayısı gibi 12+ fizikokimyasal özellik</li>
+        <li><b>Özellik Mühendisliği:</b> Katalizör tipi, baz, çözücü, sıcaklık, süre, miktar gibi 15+ reaksiyon parametresi</li>
+        <li><b>Veri Önişleme:</b> Otomatik eksik veri işleme, standartlaştırma, kategorik kodlama</li>
+        <li><b>Optimizasyon:</b> Katalizör tarama ve en iyi 3 koşul önerisi</li>
+        <li><b>Görselleştirme:</b> Molekül yapılarının 2B gösterimi, etkileşimli grafikler</li>
+      </ul>
+      
+      <h3>Kullanım Senaryoları</h3>
+      <ul>
+        <li><b>Organik Sentez Planlama:</b> Yeni Suzuki reaksiyonlarının verim tahmini</li>
+        <li><b>Katalizör Optimizasyonu:</b> Mevcut reaksiyon koşulları için alternatif katalizör önerileri</li>
+        <li><b>Eğitim Aracı:</b> Kimya öğrencileri için reaksiyon mekanizması analizi</li>
+        <li><b>Araştırma Geliştirme:</b> Yeni substrat kombinasyonlarının test edilmesi</li>
+        <li><b>Yüksek Verimli Tarama:</b> Çoklu reaksiyon koşullarının hızlı değerlendirilmesi</li>
+      </ul>
+      
+      <h3>Model Eğitimi</h3>
+      <p>Model, 5000+ Suzuki reaksiyonu içeren özel veri seti üzerinde eğitilmiştir. Veri seti:</p>
+      <ul>
+        <li>50+ farklı katalizör (Pd tabanlı)</li>
+        <li>30+ farklı baz</li>
+        <li>100+ farklı aryl halid ve boronic asit kombinasyonu</li>
+        <li>25-150°C sıcaklık aralığı</li>
+        <li>0.5-48 saat reaksiyon süreleri</li>
+      </ul>
+      ]]>
+    </detailed_description>
+    <accuracy>89</accuracy>
+    <speed>85</speed>
+    <specs>
+      <spec name="Algoritmalar">Random Forest, XGBoost, LightGBM, SVR, MLP</spec>
+      <spec name="Moleküler Tanımlayıcılar">LogP, TPSA, MolWt, HBA, HBD, RotBonds</spec>
+      <spec name="Reaksiyon Parametreleri">Sıcaklık, Süre, Katalizör, Baz, Çözücü</spec>
+      <spec name="Girdi Formatı">SMILES, Kategorik Değişkenler, Sayısal Değerler</spec>
+      <spec name="Çıktı">Tahmini Verim (%)</spec>
+      <spec name="Platform">Python 3.8+, RDKit, scikit-learn</spec>
+    </specs>
+    <benchmarks>
+      <benchmark name="Ortalama MAE">5.2%</benchmark>
+      <benchmark name="R² Skoru">0.89 ± 0.03</benchmark>
+      <benchmark name="Çapraz Doğrulama">5-fold CV</benchmark>
+      <benchmark name="Tahmin Süresi">100 ms</benchmark>
+    </benchmarks>
+    <pros>
+      <pro>Çoklu model karşılaştırması</pro>
+      <pro>Etkileşimli optimizasyon</pro>
+      <pro>Moleküler görselleştirme</pro>
+      <pro>Kapsamlı özellik seti</pro>
+      <pro>Kullanıcı dostu CLI arayüz</pro>
+      <pro>Gerçek zamanlı tahminler</pro>
+      <pro>Otomatik veri temizleme</pro>
+    </pros>
+    <cons>
+      <con>RDKit kurulumu gerektirir</con>
+      <con>Sadece Suzuki reaksiyonları için</con>
+      <con>Girdi veri kalitesine bağımlı</con>
+      <con>Stereokimya desteği sınırlı</con>
+    </cons>
+  </model>
+
+  <model id="rf_suzuki">
+    <name>RandomForestSuzuki</name>
+    <description>Random Forest tabanlı temel Suzuki reaksiyon analiz modeli</description>
+    <detailed_description>
+      <![CDATA[
+      <h3>Temel Özellikler</h3>
+      <p>Bu model, Suzuki reaksiyonlarının verim tahmini için temel bir Random Forest uygulamasıdır. Katalizör tipi, halojen tipi ve fonksiyonel grup bilgilerini kullanır.</p>
+      
+      <h3>Teknik Detaylar</h3>
+      <ul>
+        <li>100 karar ağacı</li>
+        <li>SHAP değerleri ile özellik önem analizi</li>
+        <li>Permütasyon önem sıralaması</li>
+        <li>Otomatik sütun eşleştirme</li>
+      </ul>
+      
+      <h3>Kullanım Alanları</h3>
+      <ul>
+        <li>Hızlı prototipleme</li>
+        <li>Özellik önem analizi</li>
+        <li>Temel performans karşılaştırması</li>
+      </ul>
+      ]]>
+    </detailed_description>
+    <accuracy>78</accuracy>
+    <speed>90</speed>
+    <specs>
+      <spec name="Algoritma">RandomForestRegressor</spec>
+      <spec name="Ağaç Sayısı">100</spec>
+      <spec name="Özellikler">Katalizör tipi, Halojen tipi, Fonksiyonel grup</spec>
+      <spec name="Analiz">SHAP, Permütasyon önemi</spec>
+      <spec name="Platform">Python 3.8+, scikit-learn</spec>
+    </specs>
+    <benchmarks>
+      <benchmark name="Ortalama MAE">7.5%</benchmark>
+      <benchmark name="Çalışma Süresi">50 ms</benchmark>
+      <benchmark name="R² Skoru">0.76</benchmark>
+    </benchmarks>
+    <pros>
+      <pro>Hızlı eğitim</pro>
+      <pro>Kullanımı kolay</pro>
+      <pro>Özellik önemi analizi</pro>
+    </pros>
+    <cons>
+      <con>Düşük doğruluk</con>
+      <con>Sınırlı özellik seti</con>
+    </cons>
+  </model>
+
+  <model id="xgboost_suzuki">
+    <name>XGBoostSuzuki</name>
+    <description>XGBoost tabanlı gelişmiş Suzuki analiz modeli</description>
+    <detailed_description>
+      <![CDATA[
+      <h3>Geliştirmeler</h3>
+      <p>Bu model, temel Random Forest uygulamasının XGBoost ile geliştirilmiş halidir. Daha iyi hiperparametre optimizasyonu ve özellik işleme yetenekleri içerir.</p>
+      
+      <h3>Teknik Detaylar</h3>
+      <ul>
+        <li>Gradient boosting ile yüksek doğruluk</li>
+        <li>Otomatik hiperparametre optimizasyonu</li>
+        <li>Erken durdurma ile aşırı öğrenme önleme</li>
+        <li>Özellik önem sıralaması</li>
+      </ul>
+      
+      <h3>Avantajlar</h3>
+      <ul>
+        <li>Random Forest'a göre daha yüksek doğruluk</li>
+        <li>Daha iyi genelleme yeteneği</li>
+        <li>Hızlı tahmin süresi</li>
+      </ul>
+      ]]>
+    </detailed_description>
+    <accuracy>82</accuracy>
+    <speed>88</speed>
+    <specs>
+      <spec name="Algoritma">XGBRegressor</spec>
+      <spec name="Ağaç Sayısı">100</spec>
+      <spec name="Öğrenme Oranı">0.1</spec>
+      <spec name="Maksimum Derinlik">6</spec>
+      <spec name="Platform">Python 3.8+, xgboost</spec>
+    </specs>
+    <benchmarks>
+      <benchmark name="Ortalama MAE">6.2%</benchmark>
+      <benchmark name="R² Skoru">0.82</benchmark>
+      <benchmark name="Çalışma Süresi">80 ms</benchmark>
+    </benchmarks>
+    <pros>
+      <pro>Yüksek doğruluk</pro>
+      <pro>Hızlı tahmin</pro>
+      <pro>Özellik önemi</pro>
+      <pro>Aşırı öğrenme önleme</pro>
+    </pros>
+    <cons>
+      <pro>Hiperparametre ayarı gerekli</pro>
+      <pro>Eğitim süresi daha uzun</pro>
+    </cons>
+  </model>
+
+  <model id="lasso_suzuki">
+    <name>LassoCVSuzuki</name>
+    <description>Lasso regresyon ile özellik seçimli model</description>
+    <detailed_description>
+      <![CDATA[
+      <h3>Öne Çıkan Özellik</h3>
+      <p>Bu model, LassoCV regresyonu kullanarak en etkili özellikleri seçer ve lineer bir model oluşturur. Özelliklerin mutlak etkisini ölçmek için idealdir.</p>
+      
+      <h3>Teknik Detaylar</h3>
+      <ul>
+        <li>L1 regularizasyon ile özellik seçimi</li>
+        <li>Cross-validation ile optimizasyon</li>
+        <li>Lineer model ile yorumlanabilirlik</li>
+        <li>Otomatik özellik azaltma</li>
+      </ul>
+      
+      <h3>Kullanım Alanları</h3>
+      <ul>
+        <li>Özellik seçimi ve boyut azaltma</li>
+        <li>Lineer ilişkilerin analizi</li>
+        <li>Yorumlanabilir modeller</li>
+      </ul>
+      ]]>
+    </detailed_description>
+    <accuracy>75</accuracy>
+    <speed>95</speed>
+    <specs>
+      <spec name="Algoritma">LassoCV</spec>
+      <spec name="CV Katları">5</spec>
+      <spec name="Regularizasyon">L1</spec>
+      <spec name="Platform">Python 3.8+, scikit-learn</spec>
+    </specs>
+    <benchmarks>
+      <benchmark name="Ortalama MAE">8.8%</benchmark>
+      <benchmark name="R² Skoru">0.72</benchmark>
+      <benchmark name="Çalışma Süresi">30 ms</benchmark>
+    </benchmarks>
+    <pros>
+      <pro>Çok hızlı</pro>
+      <pro>Yorumlanabilir</pro>
+      <pro>Özellik seçimi yapar</pro>
+      <pro>Düşük bellek kullanımı</pro>
+    </pros>
+    <cons>
+      <con>Düşük doğruluk</con>
+      <con>Sadece lineer ilişkiler</con>
+      <con>Özellik etkileşimlerini yakalayamaz</con>
+    </cons>
+  </model>
+</models>
