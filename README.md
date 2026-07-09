@@ -1,213 +1,139 @@
 ![Model](https://github.com/akkochief/molytica/blob/main/img/Molytica4.png)
-# Molytica (Suzuki-Miyaura Reaction Analyzer)
+# Molytica — Suzuki-Miyaura Reaction Analyzer
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)](https://flask.palletsprojects.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-orange.svg)](https://scikit-learn.org)
 [![XGBoost](https://img.shields.io/badge/XGBoost-1.7+-red.svg)](https://xgboost.readthedocs.io)
-[![Pandas](https://img.shields.io/badge/Pandas-2.0+-purple.svg)](https://pandas.pydata.org)
-[![NumPy](https://img.shields.io/badge/NumPy-1.24+-lightblue.svg)](https://numpy.org)
-[![Matplotlib](https://img.shields.io/badge/Matplotlib-3.7+-darkgreen.svg)](https://matplotlib.org)
-[![RDKit](https://img.shields.io/badge/RDKit-2023+-yellow.svg)](https://www.rdkit.org)
+[![LightGBM](https://img.shields.io/badge/LightGBM-4.0+-9cf.svg)](https://lightgbm.readthedocs.io)
+[![CatBoost](https://img.shields.io/badge/CatBoost-1.2+-yellow.svg)](https://catboost.ai)
+[![RDKit](https://img.shields.io/badge/RDKit-2023+-brightgreen.svg)](https://www.rdkit.org)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
-[![Build](https://img.shields.io/badge/Build-Passing-success.svg)](https://github.com/akkochiefc/molytica)
-[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/akkochief/molytica/releases)
-[![Platform](https://img.shields.io/badge/Platform-Web-lightgrey.svg)](https://github.com/akkochief/molytica)
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)](https://github.com/akkochief/molytica)
 
-A comprehensive web-based analysis platform for analyzing, optimizing, and simulating Suzuki-Miyaura cross-coupling reactions with additional catalyst analysis and yield prediction pages.
+A Flask-based analysis platform for Suzuki-Miyaura cross-coupling reactions. It takes reaction data (substrates, catalyst, base, solvent, temperature/time) and produces yield predictions using both a **physicochemical model** (an Eyring/Hammett/Taft/HSAB-based rule engine) and a **13-model ML ensemble**.
 
-## Features
+This README was rewritten after actually reading `routes/predict_ml_routes.py` — everything below reflects what the code actually does, not aspirational feature-list marketing copy.
 
-- **Reaction Analysis**: Mechanistic analysis of Suzuki-Miyaura reactions
-- **Catalyst Optimization**: Selection and optimization of palladium catalysts
-- **Catalyst Analysis Page**: Comprehensive catalyst database with performance analytics
-- **Yield Prediction Page**: Advanced ML-based yield forecasting models
-- **Yield Calculation**: Theoretical vs experimental yield comparison
-- **Side Product Analysis**: Identification and minimization of potential side products
-- **Reaction Conditions**: Temperature, solvent, and base optimization
-- **Molecular Visualization**: 2D/3D molecular structure rendering
-- **Responsive Design**: Optimized experience across all devices
+## What it actually does
 
-## New Additional Pages
+### 1. Chemistry engine — `ChemicalCalculator`
+The code has embedded reference tables (Hammett sigma constants, Taft steric parameters, ligand properties like cone angle/TEP/Tolman angle, base pKa/solubility values, Kamlet-Taft solvent parameters). From these it computes:
+- Eyring-equation reaction rate, Gibbs free energy, and equilibrium constant
+- LFER (Linear Free Energy Relationships) from Hammett σ (σm, σp, σ+, σ−) and Taft Es steric parameters
+- HSAB (hard-soft acid-base) compatibility: absolute hardness, chemical potential, electronegativity
+- A rule-based `calculate_yield()` function that combines temperature, time, catalyst loading, steric, electronic, HSAB, and mechanistic factors into an "expected" yield — independent of the ML models
 
-### Catalyst Analysis Page
-- **Catalyst Database Browser**: Explore comprehensive catalyst library
-- **Performance Metrics**: Compare catalyst efficiency across different reaction types
-- **Structure-Activity Relationships**: Visualize how catalyst structure affects performance
-- **Recommendation Engine**: Get catalyst suggestions based on your specific reaction
-- **Custom Catalyst Entry**: Add and evaluate your own catalyst designs
+### 2. Feature engineering — `FeatureEngineer`
+`engineer_features()` derives 80+ features from the raw CSV:
+- Temperature×time interactions (product, ratio, log, difference, etc.)
+- Log/sqrt/square/cube/exponential transforms of catalyst quantity
+- SMILES-derived features (length and molecular descriptors) for substrates, product, catalyst, base, and both solvents
+- Steric, LogP, molecular weight, ring count, and halogen count differences/ratios/sums between substrates
+- Composite signals like `hammett_effect`, `taft_effect`, and `mechanistic_predictor` derived from Hammett σp and Taft Es
 
-### Yield Prediction Page
-- **ML-Powered Predictions**: Advanced machine learning models for yield forecasting
-- **Multi-Parameter Analysis**: Consider temperature, time, catalyst loading, and solvent effects
-- **Confidence Intervals**: Statistical confidence ranges for predictions
-- **Historical Data Integration**: Learn from thousands of previous reactions
-- **Real-time Optimization**: Interactive parameter adjustment with instant feedback
-- **Batch Prediction Mode**: Predict yields for multiple reactions simultaneously
+Note: this pipeline only runs on **enriched** datasets — `is_enriched_dataset()` checks for columns like `subs1_SMILES_*` and `hsab_*`; if they're missing, training is refused and the user is pointed to `dataset_routes.py` to enrich the data first.
 
-## Requirements
+### 3. ML prediction engine — `SuzukiPredictor`
+Calling `train()` fits 13 models at once and compares them on a held-out test set using R², MAE, and RMSE:
 
-```
-Flask
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn
-xgboost
-shap
-gitpython
-requests
-scipy
-lightgbm
-rdkit
-plotly
-pubchempy
-ipython
-jupyter
-tqdm
-```
+`Random Forest, Gradient Boosting, Hist Gradient Boosting, XGBoost, LightGBM, CatBoost, Extra Trees, KNN, Ridge, Lasso, ElasticNet, SVR, Neural Network (MLP)`
 
-## Installation
+Features are scaled with `StandardScaler`, missing values filled with `SimpleImputer`. Categorical columns (`catalizor`, `base`, `solv1`, `solv2`) are one-hot encoded. The best model is auto-selected by R²; there's also a weighted **ensemble average** (e.g. Random Forest 18%, Hist Gradient Boosting 18%, XGBoost 14%, etc.). The final prediction blends the ML output with `ChemicalCalculator`'s rule-based yield and returns a confidence score (`_calculate_confidence`).
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/akkochief/molytica.git
-cd molytica
-```
+### 4. Configuration — `ConfigManager` (XML)
+Model hyperparameters, ensemble weights, and chemistry constants are read from `config/info.xml`, not hardcoded. The file is auto-created with defaults if missing, and can be read, updated, and reset via the API.
 
-### 2. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+### 5. Other infrastructure
+- A simple in-memory `Logger` (INFO/SUCCESS/DEBUG/WARNING/ERROR levels), queryable via `/api/get_logs`
+- A TTL + max-size `cache_result` decorator with hit/miss counters
+- Saving/loading trained models to disk with `joblib`
+- Exporting results as CSV, JSON, or Excel
+- A SMILES validation endpoint
 
-### 3. Run the Application
-```bash
-python run.py
-```
+## Real API endpoints (`/predict_ml/...`)
 
-The application will be available at `http://127.0.0.1:5000`.
+| Endpoint | Method | What it does |
+|---|---|---|
+| `/api/get_csv_files` | GET | Lists CSVs under `static/datasets/` |
+| `/api/upload_csv` | POST | Uploads a CSV |
+| `/api/load_data` | POST | Reads the CSV, checks if it's enriched, runs feature engineering |
+| `/api/change_model` / `/api/save_model` / `/api/load_model` / `/api/list_models` | — | Model training/saving/loading |
+| `/api/make_prediction` | POST | Yield prediction for a single reaction |
+| `/api/optimize_catalyst` | POST | Suggests the best catalyst for given conditions |
+| `/api/model_performance` / `/api/model_comparison` | — | R²/MAE/RMSE comparison |
+| `/api/feature_importance` | GET | Feature importance ranking |
+| `/api/get_xml_config` / `/api/update_xml_config` / `/api/reset_xml_config` | — | XML config management |
+| `/api/validate_smiles` | POST | SMILES validation |
+| `/api/export_results` | POST | CSV/JSON/Excel export |
+| `/api/get_logs` / `/api/clear_logs` | — | View/clear application logs |
+| `/api/health` | GET | Predictor/config/data status, cache and log counters |
 
-## Project Structure
+## Project structure (actual directory tree)
 
 ```
 molytica/
-├───code
-├───outputs
-├───static
-│   ├───assets
-│   ├───datasets
-│   ├───images
-│   ├───model
-│   ├───outputs
-│   └───xml_data
-└───templates
-    ├───index.html
-    ├───predict.html
-    └───[other templates]
+├── main.py
+├── requirements.txt
+├── config/
+│   └── info.xml                # model parameters, ensemble weights, chemistry constants
+├── routes/
+│   ├── predict_ml_routes.py    # the ML/chemistry engine this README is based on
+│   ├── predict_routes.py
+│   ├── dataset_routes.py       # data enrichment (produces the enriched dataset)
+│   ├── compare_routes.py
+│   ├── csv_routes.py
+│   ├── xlsx_routes.py
+│   ├── manual_routes.py
+│   └── help_routes.py
+├── static/
+│   ├── datasets/                # raw and enriched CSVs
+│   ├── models/                  # trained models saved via joblib
+│   └── images/YYYYMMDD_HHMMSS/  # parity/residual/importance plots per run
+└── templates/
+    ├── index.html
+    ├── predict.html
+    └── predict_ml.html
 ```
 
-## Scientific Foundation
+> `predict_routes.py`, `dataset_routes.py`, `compare_routes.py`, `csv_routes.py`, `xlsx_routes.py`, `manual_routes.py`, and `help_routes.py` were not read in this review; the descriptions above come from filenames and from what `predict_ml_routes.py` references (e.g. the "dataset not enriched" error points users to `dataset_routes.py`).
 
-This application is based on the following scientific principles:
+## Installation
 
-- **Suzuki-Miyaura Mechanism**: Pd(0)/Pd(II) catalytic cycle
-- **DFT Calculations**: Transition state energies
-- **QSAR Models**: Reactivity predictions
-- **Kinetic Analysis**: Rate constant calculations
-- **Machine Learning**: Random Forest, XGBoost, and Neural Network models for yield prediction
+```bash
+git clone https://github.com/akkochief/molytica.git
+cd molytica
+pip install -r requirements.txt
+python main.py
+```
 
-## Supported Reaction Types
+The app runs at `http://127.0.0.1:5000`.
 
-- Aryl-Aryl coupling
-- Alkyl-Aryl coupling (limited)
+## Expected CSV format (raw data, before enrichment)
 
-## Example Workflows
-
-### Standard Analysis
-1. Input aryl halide and boronic acid SMILES
-2. Select catalyst from database
-3. Choose reaction conditions
-4. Run mechanistic analysis
-5. Review yield predictions and side products
-
-### Catalyst Analysis Workflow
-1. Navigate to **Catalyst Analysis** page
-2. Browse catalyst database or input custom catalyst
-3. Compare performance metrics across different substrates
-4. Use recommendation engine for optimal catalyst selection
-5. Export catalyst performance reports
-
-### Yield Prediction Workflow
-1. Access **Yield Prediction** page
-2. Input reaction parameters (substrates, catalyst, conditions)
-3. Run ML prediction models
-4. Analyze confidence intervals and feature importance
-5. Optimize conditions using real-time parameter adjustment
-6. Export prediction results and optimization suggestions
-
-### Batch Processing
-1. Upload CSV file with multiple reactions
-2. Apply optimization algorithms
-3. Export results as Image And Text
-
-## Dataset Requirements
-
-### CSV File Format
-For batch analysis, your CSV file should contain the following columns:
-
-| Column Name | Description | Example |
-|------------|-------------|---------|
-| `Ar-B(OH)2` | Boronic acid compound name | `phenylboronic acid` |
-| `Ar-X` | Aryl halide compound name | `bromobenzene` |
-| `product` | Expected product name | `1,1'-biphenyl` |
-| `catalizor` | Catalyst SMILES notation | `I[Pd](I)([N]1=CC=CC=C1)C(N2C)N(C)C3=C2N(C)C(N(C)C3=O)=O` |
-| `base` | Base SMILES notation | `[K].[K]OO[C]=O` |
-| `solv1` | Primary solvent | `water` |
-| `solv2` | Secondary solvent | `propan-2-ol` |
+| Column | Description | Example |
+|---|---|---|
+| `Ar-B(OH)2` | Boronic acid | `phenylboronic acid` |
+| `Ar-X` | Aryl halide | `bromobenzene` |
+| `product` | Expected product | `1,1'-biphenyl` |
+| `catalizor` | Catalyst SMILES | `I[Pd](I)([N]1=CC=CC=C1)...` |
+| `base` | Base SMILES/name | `k2co3` |
+| `solv1`, `solv2` | Solvents | `water`, `propan-2-ol` |
 | `amount` | Catalyst amount (mol) | `0.0025` |
-| `centigrades` | Temperature in °C | `40` |
-| `minute` | Reaction time in minutes | `120` |
+| `centigrades` | Temperature (°C) | `40` |
+| `minute` | Time (min) | `120` |
 | `cycle` | Reaction cycle number | `88` |
 | `yield` | Experimental yield (%) | `81` |
 
-### Sample CSV Structure
-```csv
-Ar-B(OH)2,Ar-X,product,catalizor,base,solv1,solv2,amount,centigrades,minute,cycle,yield
-phenylboronic acid,bromobenzene,1,1'-biphenyl,I[Pd](I)([N]1=CC=CC=C1)C(N2C)N(C)C3=C2N(C)C(N(C)C3=O)=O,[K].[K]OO[C]=O,water,propan-2-ol,0.0025,40,120,88,81
-4-methylphenylboronic acid,4-bromobenzaldehyde,4'-methyl-[1,1'-biphenyl]-4-carbaldehyde,I[Pd](I)([N]1=CC=CC=C1)C(N2C)N(C)C3=C2N(C)C(N(C)C3=O)=O,[K].[K]OO[C]=O,water,ethanol,0.003,60,180,92,78
-```
+`predict_ml` doesn't accept a raw CSV for training directly — it first needs the enriched columns (`subs1_SMILES_*`, `hsab_*`, etc.) added by `dataset_routes.py`; otherwise `load_data()` raises an error.
 
-### Analysis Process
+## Scientific foundation
 
-- Analysis may take **2-5 minutes** per reaction depending on complexity
-- Large datasets (>50 reactions) may require **10-30 minutes** of processing time
-- **Catalyst analysis** typically completes in **30-60 seconds** per catalyst
-- **Yield predictions** are generated in **5-15 seconds** per reaction
-- Do not close the browser window during analysis
-- Results will be displayed progressively as each reaction completes
-- Failed analyses will be marked with error messages for troubleshooting
-
-## Navigation
-
-The platform now includes the following main sections:
-
-- **Home**: Main dashboard and quick analysis
-- **Reaction Analysis**: Detailed mechanistic studies
-- **Catalyst Analysis**: Catalyst database and optimization tools
-- **Yield Prediction**: ML-based yield forecasting
-- **Batch Processing**: Multiple reaction analysis
-- **Results Archive**: Historical data and reports
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Authors
-
-- **Lead Developer** - [Sefa Akkoc](https://github.com/akkochief)
-- **Chemistry Advisor** - Assoc. Prof. Dr. Mitat Akkoc
+- Suzuki-Miyaura mechanism: Pd(0)/Pd(II) catalytic cycle
+- Hammett/Taft LFER parameters
+- HSAB theory (hardness, chemical potential)
+- Eyring transition-state kinetics, Gibbs free energy
+- Kamlet-Taft solvent parameters (α, β, π*)
+- Random Forest / gradient boosting family (XGBoost, LightGBM, CatBoost, Hist-GB) and classical regression models (Ridge, Lasso, ElasticNet, SVR, KNN, MLP)
 
 ## References
 
@@ -217,29 +143,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 4. Lennox, A. J. J.; Lloyd-Jones, G. C. *Chem. Soc. Rev.* **2014**, *43*, 412-433.
 5. Ahneman, D. T.; Estrada, J. G.; Lin, S.; Dreher, S. D.; Doyle, A. G. *Science* **2018**, *360*, 186-190.
 
-## Support
+## License
 
-For issues and questions:
-- Open an [Issue](https://github.com/akkochief/molytica/issues)
-- Check the [Wiki](https://github.com/akkochief/molytica/wiki)
+MIT License — see [LICENSE](LICENSE)
 
-**Note**: This software is intended for academic and research purposes. Please contact the developers before commercial use.
+## Note
 
----
-
-## Recent Updates (v0.2)
-
-### New Features
-- **Catalyst Analysis Page**: Comprehensive catalyst database with performance analytics
-- **Yield Prediction Page**: Advanced ML models for accurate yield forecasting
-- **Enhanced Navigation**: Improved user interface with dedicated pages for specialized analyses
-- **Real-time Optimization**: Interactive parameter adjustment tools
-- **Extended Database**: Larger catalyst and reaction database for better predictions
-
-### Improvements
-- **Catalyst Analysis Page**: New dedicated page for catalyst selection and performance comparison
-- **Yield Prediction Page**: Advanced ML-based yield forecasting with real-time optimization
-- **Enhanced User Interface**: Improved navigation with dedicated pages for specialized analyses
-- **Faster Processing**: Optimized algorithms for quicker analysis results
-- **Better Error Handling**: Improved user feedback and troubleshooting guidance
-- **Real-time Parameter Adjustment**: Interactive optimization tools for reaction conditions
+This software is intended for academic and research purposes. Contact the developers before commercial use.
