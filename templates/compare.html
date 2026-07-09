@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Molytica - Model Karşılaştırma</title>
+  <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #f6f7f9;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-header: rgba(255, 255, 255, 0.88);
+      --bg-input: #f1f3f5;
+      --text-primary: #0a0a0a;
+      --text-secondary: #4a4a4a;
+      --text-muted: #7a7a7a;
+      --border-color: rgba(0, 0, 0, 0.08);
+      --border-hover: rgba(0, 0, 0, 0.18);
+      --border-focus: rgba(0, 0, 0, 0.3);
+      --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.06);
+      --btn-bg: #ffffff;
+      --btn-text: #0a0a0a;
+      --btn-hover: #0a0a0a;
+      --btn-hover-text: #ffffff;
+      --footer-bg: #0a0a0a;
+      --footer-text: #d0d0d0;
+      --clock-bg: #eef0f2;
+      --clock-text: #3a3a3a;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 20px;
+      --radius-xl: 100px;
+      --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      --font: 'Inter', -apple-system, system-ui, sans-serif;
+      --toast-bg: #0a0a0a;
+      --toast-text: #ffffff;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #161616;
+      --bg-card: #1a1a1a;
+      --bg-header: rgba(20, 20, 20, 0.92);
+      --bg-input: #282828;
+      --text-primary: #f0f0f0;
+      --text-secondary: #b0b0b0;
+      --text-muted: #707070;
+      --border-color: rgba(255, 255, 255, 0.06);
+      --border-hover: rgba(255, 255, 255, 0.14);
+      --border-focus: rgba(255, 255, 255, 0.25);
+      --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+      --btn-bg: #222222;
+      --btn-text: #f0f0f0;
+      --btn-hover: #f0f0f0;
+      --btn-hover-text: #0a0a0a;
+      --footer-bg: #0a0a0a;
+      --footer-text: #888888;
+      --clock-bg: #282828;
+      --clock-text: #c0c0c0;
+      --toast-bg: #f0f0f0;
+      --toast-text: #0a0a0a;
+    }
+
+    body {
+      background: var(--bg-primary);
+      font-family: var(--font);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      line-height: 1.6;
+      transition: background var(--transition), color var(--transition);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    header {
+      background: var(--bg-header);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      height: 38px;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+      filter: brightness(0);
+    }
+
+    [data-theme="dark"] .logo {
+      filter: brightness(0) invert(1);
+    }
+
+    .logo:hover {
+      transform: scale(1.05) rotate(-1deg);
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      transition: color var(--transition);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #clock {
+      font-size: 0.85rem;
+      font-weight: 450;
+      color: var(--clock-text);
+      background: var(--clock-bg);
+      padding: 4px 14px;
+      border-radius: var(--radius-xl);
+      letter-spacing: 0.4px;
+      font-variant-numeric: tabular-nums;
+      transition: all var(--transition);
+    }
+
+    .theme-toggle {
+      background: var(--clock-bg);
+      border: none;
+      border-radius: var(--radius-xl);
+      padding: 6px 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      color: var(--text-primary);
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .theme-toggle:hover {
+      transform: scale(0.95);
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--border-hover);
+      border-radius: var(--radius-xl);
+      padding: 5px 14px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all var(--transition);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .lang-btn:hover {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      transform: scale(0.95);
+    }
+
+    main {
+      max-width: 1060px;
+      margin: 40px auto;
+      padding: 0 24px;
+      flex: 1;
+      width: 100%;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 32px;
+      animation: fadeUp 0.7s ease forwards;
+    }
+
+    .page-header h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      transition: color var(--transition);
+    }
+
+    .page-header p {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+      transition: color var(--transition);
+    }
+
+    .selector {
+      background: var(--bg-card);
+      padding: 24px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 24px;
+      transition: all var(--transition);
+      animation: fadeUp 0.7s ease 0.15s forwards;
+      opacity: 0;
+    }
+
+    .selector:hover {
+      border-color: var(--border-hover);
+    }
+
+    .mode-toggle {
+      display: flex;
+      background: var(--bg-input);
+      border-radius: var(--radius-xl);
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-xl);
+      cursor: pointer;
+      font-family: var(--font);
+      font-weight: 500;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      transition: all var(--transition);
+    }
+
+    .mode-btn.active {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .mode-btn:hover:not(.active) {
+      color: var(--text-primary);
+    }
+
+    .select-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .select-row.single {
+      grid-template-columns: 1fr auto;
+    }
+
+    .select-row select {
+      padding: 10px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      transition: all var(--transition);
+      outline: none;
+      width: 100%;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .select-row select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+    }
+
+    [data-theme="dark"] .select-row select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    }
+
+    .compare-btn {
+      padding: 10px 28px;
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      border: none;
+      border-radius: var(--radius-xl);
+      font-family: var(--font);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .compare-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      opacity: 0.9;
+    }
+
+    .compare-btn:active {
+      transform: translateY(0);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+      animation: fadeIn 0.5s ease;
+    }
+
+    .loading i {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      display: block;
+      color: var(--text-primary);
+    }
+
+    .error-message {
+      text-align: center;
+      padding: 24px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: var(--radius-md);
+      color: #991b1b;
+      margin: 20px 0;
+    }
+
+    [data-theme="dark"] .error-message {
+      background: #3a1a1a;
+      border-color: #ef5350;
+      color: #ef9a9a;
+    }
+
+    #results {
+      animation: fadeUp 0.6s ease;
+    }
+
+    .model-card {
+      background: var(--bg-card);
+      padding: 20px 24px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      margin-bottom: 16px;
+      transition: all var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .model-card:hover {
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-md);
+    }
+
+    .model-card .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .model-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 12px;
+      border-radius: var(--radius-xl);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    .badge.best { background: #0a0a0a; }
+    .badge.good { background: #444; }
+    .badge.average { background: #777; }
+
+    [data-theme="dark"] .badge.best { background: #f0f0f0; color: #0a0a0a; }
+    [data-theme="dark"] .badge.good { background: #999; }
+    [data-theme="dark"] .badge.average { background: #555; }
+
+    .model-desc {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+    }
+
+    .model-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .model-stats .stat {
+      text-align: center;
+    }
+
+    .model-stats .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .model-stats .stat-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .model-stats .stat-value.high { color: #0a0a0a; }
+    .model-stats .stat-value.medium { color: #444; }
+    .model-stats .stat-value.low { color: #777; }
+
+    [data-theme="dark"] .model-stats .stat-value.high { color: #f0f0f0; }
+    [data-theme="dark"] .model-stats .stat-value.medium { color: #aaa; }
+    [data-theme="dark"] .model-stats .stat-value.low { color: #666; }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      padding: 16px;
+      margin: 20px 0;
+      transition: all var(--transition);
+    }
+
+    .chart-container:hover {
+      border-color: var(--border-hover);
+    }
+
+    .chart-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 0;
+      overflow-x: auto;
+      padding-bottom: 0;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-bottom: 2px solid transparent;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      color: var(--text-primary);
+    }
+
+    .tab.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--text-primary);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 20px;
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      background: var(--bg-card);
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .spec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .spec-item {
+      background: var(--bg-input);
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      transition: all var(--transition);
+    }
+
+    .spec-item:hover {
+      border-color: var(--border-hover);
+    }
+
+    .spec-item .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .spec-item .value {
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-top: 2px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: var(--bg-input);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--bg-input);
+    }
+
+    .winner {
+      display: inline-block;
+      padding: 2px 12px;
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      border-radius: var(--radius-xl);
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    [data-theme="dark"] .winner {
+      background: #f0f0f0;
+      color: #0a0a0a;
+    }
+
+    .comparison-info {
+      background: var(--bg-input);
+      padding: 20px;
+      border-radius: var(--radius-md);
+      margin-top: 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .comparison-info h3 {
+      margin-bottom: 10px;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    .comparison-info h4 {
+      margin: 12px 0 6px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .comparison-info ul {
+      margin-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .comparison-info li {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .detailed-info {
+      background: var(--bg-input);
+      padding: 20px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      margin-bottom: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .detailed-info h3 {
+      margin: 12px 0 8px;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    .detailed-info h3:first-child {
+      margin-top: 0;
+    }
+
+    .detailed-info p {
+      margin-bottom: 10px;
+      color: var(--text-secondary);
+    }
+
+    .detailed-info ul, .detailed-info ol {
+      margin-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .detailed-info li {
+      color: var(--text-secondary);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--toast-bg);
+      color: var(--toast-text);
+      padding: 14px 28px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 500;
+      z-index: 3000;
+      animation: slideDown 0.4s ease;
+      max-width: 400px;
+    }
+
+    .toast.success { border-left: 4px solid #22c55e; }
+    .toast.error { border-left: 4px solid #ef4444; }
+    .toast.info { border-left: 4px solid #3b82f6; }
+
+    footer {
+      background: var(--footer-bg);
+      color: var(--footer-text);
+      padding: 32px 24px 24px;
+      margin-top: 40px;
+      border-top: 1px solid var(--border-color);
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .footer-content {
+      max-width: 1060px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .footer-content .contact {
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+      opacity: 0.7;
+      letter-spacing: 0.2px;
+    }
+
+    .footer-content .contact strong {
+      opacity: 1;
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .social-icons {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      margin: 16px 0 18px;
+    }
+
+    .social-icons a {
+      color: #888;
+      font-size: 1.3rem;
+      transition: all 0.3s ease;
+      opacity: 0.5;
+    }
+
+    .social-icons a:hover {
+      color: #fff;
+      transform: translateY(-2px);
+      opacity: 1;
+    }
+
+    .copyright {
+      font-size: 0.8rem;
+      opacity: 0.35;
+      margin-top: 10px;
+      letter-spacing: 0.3px;
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 12px 20px; }
+      .logo { height: 30px; }
+      header h1 { font-size: 1rem; }
+      #clock { display: none; }
+      .theme-toggle { padding: 4px 10px; font-size: 0.85rem; }
+      .lang-btn { padding: 4px 10px; font-size: 0.65rem; }
+      main { margin: 24px auto; padding: 0 16px; }
+      .page-header h2 { font-size: 1.6rem; }
+      .page-header p { font-size: 0.95rem; }
+      .selector { padding: 16px; }
+      .select-row { grid-template-columns: 1fr; }
+      .select-row.single { grid-template-columns: 1fr; }
+      .compare-btn { width: 100%; justify-content: center; }
+      .model-stats { grid-template-columns: repeat(2, 1fr); }
+      .chart-container { height: 250px; }
+      .spec-grid { grid-template-columns: 1fr; }
+      .tabs { gap: 2px; }
+      .tab { padding: 8px 14px; font-size: 0.8rem; }
+      .tab-content { padding: 14px; }
+      footer { padding: 24px 16px; }
+      .social-icons a { font-size: 1.1rem; gap: 20px; }
+      .toast { bottom: 20px; right: 20px; left: 20px; max-width: none; }
+    }
+
+    @media (max-width: 480px) {
+      header h1 { font-size: 0.85rem; }
+      .lang-btn { font-size: 0.6rem; padding: 3px 8px; }
+      .page-header h2 { font-size: 1.3rem; }
+      .mode-btn { font-size: 0.75rem; padding: 6px 12px; }
+      .model-card { padding: 16px; }
+      .model-stats { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
+      <h1 id="headerTitle">Compare Models</h1>
+    </div>
+    <div class="header-right">
+      <div id="clock"></div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <i class="fas fa-moon" id="themeIcon"></i>
+      </button>
+      <button class="lang-btn" id="langSwitch">TR</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-header">
+      <h2 id="pageTitle">AI Model Karşılaştırma</h2>
+      <p id="pageDesc">Modelleri karşılaştırın ve performanslarını analiz edin</p>
+    </div>
+
+    <div id="loading" class="loading">
+      <i class="fas fa-spinner fa-spin"></i>
+      <span id="loadingText">XML verileri yükleniyor...</span>
+    </div>
+
+    <div id="errorMessage" class="error-message" style="display:none;">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span id="errorText">XML dosyası yüklenirken hata oluştu</span>
+    </div>
+
+    <section id="appContent" class="selector" style="display:none;">
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="single" id="singleModeBtn">Tekli</button>
+        <button class="mode-btn" data-mode="compare" id="compareModeBtn">Karşılaştır</button>
+      </div>
+      <div class="select-row single" id="selectRow">
+        <select id="model1Select">
+          <option value="">Model seçin...</option>
+        </select>
+        <select id="model2Select" style="display:none;">
+          <option value="">Model seçin...</option>
+        </select>
+        <button class="compare-btn" id="showBtn">
+          <i class="fas fa-chart-bar"></i> <span id="showBtnText">Göster</span>
+        </button>
+      </div>
+    </section>
+
+    <div id="results" style="display:none;">
+      <div class="model-card" id="modelCard1">
+        <div class="card-header">
+          <div class="model-name">Model Adı</div>
+          <div class="badge best">En İyi</div>
+        </div>
+        <div class="model-desc">Model açıklaması</div>
+        <div class="model-stats">
+          <div class="stat">
+            <div class="stat-label" id="statLabel1">Doğruluk</div>
+            <div class="stat-value high">0%</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label" id="statLabel2">Hız</div>
+            <div class="stat-value medium">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="model-card" id="modelCard2" style="display:none;">
+        <div class="card-header">
+          <div class="model-name">Model Adı</div>
+          <div class="badge good">İyi</div>
+        </div>
+        <div class="model-desc">Model açıklaması</div>
+        <div class="model-stats">
+          <div class="stat">
+            <div class="stat-label" id="statLabel3">Doğruluk</div>
+            <div class="stat-value high">0%</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label" id="statLabel4">Hız</div>
+            <div class="stat-value medium">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <canvas id="chart"></canvas>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="specs" id="tabSpecs">Özellikler</div>
+        <div class="tab" data-tab="bench" id="tabBench">Testler</div>
+        <div class="tab" data-tab="compare" id="tabCompare" style="display:none;">Karşılaştırma</div>
+        <div class="tab" data-tab="details" id="tabDetails">Detaylı Bilgi</div>
+      </div>
+
+      <div class="tab-content active" id="specsContent">
+        <div class="spec-grid" id="specsGrid"></div>
+      </div>
+
+      <div class="tab-content" id="benchContent">
+        <div class="table-wrap">
+          <table id="benchTable">
+            <thead><tr><th id="benchHeader1">Test</th><th id="benchHeader2">Skor</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-content" id="compareContent">
+        <div class="table-wrap">
+          <table id="compareTable">
+            <thead>
+              <tr><th id="compareFeature">Özellik</th><th id="m1Name">Model 1</th><th id="m2Name">Model 2</th><th id="compareWinner">Kazanan</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="comparison-info" id="comparisonSummary">
+          <h3 id="comparisonTitle">Karşılaştırma Sonucu</h3>
+          <p id="summaryText">Karşılaştırma yapmak için iki model seçin.</p>
+        </div>
+      </div>
+
+      <div class="tab-content" id="detailsContent">
+        <div class="detailed-info" id="detailedInfo1"></div>
+        <div class="detailed-info" id="detailedInfo2" style="display:none;"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="contact">
+        <strong id="contactLabel">İletişim</strong>
+        <span id="contactInfo">akkochief@gmail.com · @akkochief</span>
+      </div>
+      <div class="social-icons">
+        <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+        <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
+        <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+      </div>
+      <div class="copyright" id="copyright">© 2026 Molytica</div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    (function() {
+      'use strict';
+
+      // ==========================================================
+      // Model data (embedded directly, no XML/backend dependency)
+      // Each localized field has "tr" and "en" versions.
+      // ==========================================================
+      var MODELS_DATA = [
+  {
+    "id": "SuzukiPredictor",
+    "name": {
+      "tr": "SuzukiReactionPredictor",
+      "en": "SuzukiReactionPredictor"
+    },
+    "description": {
+      "tr": "RDKit moleküler tanımlayıcılar ve çoklu makine öğrenmesi modelleri ile Suzuki-Miyaura çapraz kenetlenme reaksiyonları için kapsamlı tahmin ve optimizasyon platformu",
+      "en": "Comprehensive prediction and optimization platform for Suzuki-Miyaura cross-coupling reactions using RDKit molecular descriptors and multiple machine learning models"
+    },
+    "detailed_description": {
+      "tr": "<h3>Model Genel Bakış</h3>\n      <p>Bu gelişmiş sistem, Suzuki-Miyaura reaksiyonlarının verim tahmini ve koşul optimizasyonu için çoklu makine öğrenmesi algoritmalarını RDKit tabanlı moleküler tanımlayıcılarla birleştirir. Kullanıcı dostu arayüzü ile gerçek zamanlı tahminler ve katalizör optimizasyonu sunar.</p>\n      \n      <h3>Teknik Detaylar</h3>\n      <ul>\n        <li><b>Model Mimarisi:</b> 6 farklı makine öğrenmesi algoritması entegrasyonu (Random Forest, Gradient Boosting, XGBoost, LightGBM, SVR, Neural Network)</li>\n        <li><b>Moleküler Tanımlayıcılar:</b> RDKit kütüphanesi ile LogP, dönebilir bağ sayısı, ağır atom sayısı gibi 12+ fizikokimyasal özellik</li>\n        <li><b>Özellik Mühendisliği:</b> Katalizör tipi, baz, çözücü, sıcaklık, süre, miktar gibi 15+ reaksiyon parametresi</li>\n        <li><b>Veri Önişleme:</b> Otomatik eksik veri işleme, standartlaştırma, kategorik kodlama</li>\n        <li><b>Optimizasyon:</b> Katalizör tarama ve en iyi 3 koşul önerisi</li>\n        <li><b>Görselleştirme:</b> Molekül yapılarının 2B gösterimi, etkileşimli grafikler</li>\n      </ul>\n      \n      <h3>Kullanım Senaryoları</h3>\n      <ul>\n        <li><b>Organik Sentez Planlama:</b> Yeni Suzuki reaksiyonlarının verim tahmini</li>\n        <li><b>Katalizör Optimizasyonu:</b> Mevcut reaksiyon koşulları için alternatif katalizör önerileri</li>\n        <li><b>Eğitim Aracı:</b> Kimya öğrencileri için reaksiyon mekanizması analizi</li>\n        <li><b>Araştırma Geliştirme:</b> Yeni substrat kombinasyonlarının test edilmesi</li>\n        <li><b>Yüksek Verimli Tarama:</b> Çoklu reaksiyon koşullarının hızlı değerlendirilmesi</li>\n      </ul>\n      \n      <h3>Model Eğitimi</h3>\n      <p>Model, 5000+ Suzuki reaksiyonu içeren özel veri seti üzerinde eğitilmiştir. Veri seti:</p>\n      <ul>\n        <li>50+ farklı katalizör (Pd tabanlı)</li>\n        <li>30+ farklı baz</li>\n        <li>100+ farklı aryl halid ve boronic asit kombinasyonu</li>\n        <li>25-150°C sıcaklık aralığı</li>\n        <li>0.5-48 saat reaksiyon süreleri</li>\n      </ul>",
+      "en": "<h3>Model Overview</h3>\n      <p>This advanced system combines multiple machine learning algorithms with RDKit-based molecular descriptors for yield prediction and condition optimization of Suzuki-Miyaura reactions. It offers real-time predictions and catalyst optimization with a user-friendly interface.</p>\n      \n      <h3>Technical Details</h3>\n      <ul>\n        <li><b>Model Architecture:</b> Integration of 6 different machine learning algorithms (Random Forest, Gradient Boosting, XGBoost, LightGBM, SVR, Neural Network)</li>\n        <li><b>Molecular Descriptors:</b> 12+ physicochemical properties including LogP, rotatable bond count, heavy atom count using RDKit library</li>\n        <li><b>Feature Engineering:</b> 15+ reaction parameters including catalyst type, base, solvent, temperature, time, amount</li>\n        <li><b>Data Preprocessing:</b> Automatic missing data handling, standardization, categorical encoding</li>\n        <li><b>Optimization:</b> Catalyst screening and top 3 condition recommendations</li>\n        <li><b>Visualization:</b> 2D molecular structure display, interactive charts</li>\n      </ul>\n      \n      <h3>Use Cases</h3>\n      <ul>\n        <li><b>Organic Synthesis Planning:</b> Yield prediction for new Suzuki reactions</li>\n        <li><b>Catalyst Optimization:</b> Alternative catalyst recommendations for existing reaction conditions</li>\n        <li><b>Educational Tool:</b> Reaction mechanism analysis for chemistry students</li>\n        <li><b>R&D:</b> Testing new substrate combinations</li>\n        <li><b>High-Throughput Screening:</b> Rapid evaluation of multiple reaction conditions</li>\n      </ul>\n      \n      <h3>Model Training</h3>\n      <p>The model was trained on a custom dataset containing 5000+ Suzuki reactions. The dataset includes:</p>\n      <ul>\n        <li>50+ different catalysts (Pd-based)</li>\n        <li>30+ different bases</li>\n        <li>100+ different aryl halide and boronic acid combinations</li>\n        <li>25-150°C temperature range</li>\n        <li>0.5-48 hour reaction times</li>\n      </ul>"
+    },
+    "accuracy": 89.0,
+    "speed": 85.0,
+    "specs": [
+      {
+        "name": {
+          "tr": "Algoritmalar",
+          "en": "Algorithms"
+        },
+        "value": "Random Forest, XGBoost, LightGBM, SVR, MLP"
+      },
+      {
+        "name": {
+          "tr": "Moleküler Tanımlayıcılar",
+          "en": "Molecular Descriptors"
+        },
+        "value": "LogP, TPSA, MolWt, HBA, HBD, RotBonds"
+      },
+      {
+        "name": {
+          "tr": "Reaksiyon Parametreleri",
+          "en": "Reaction Parameters"
+        },
+        "value": "Sıcaklık, Süre, Katalizör, Baz, Çözücü"
+      },
+      {
+        "name": {
+          "tr": "Girdi Formatı",
+          "en": "Input Format"
+        },
+        "value": "SMILES, Kategorik Değişkenler, Sayısal Değerler"
+      },
+      {
+        "name": {
+          "tr": "Çıktı",
+          "en": "Output"
+        },
+        "value": "Tahmini Verim (%)"
+      },
+      {
+        "name": {
+          "tr": "Platform",
+          "en": "Platform"
+        },
+        "value": "Python 3.8+, RDKit, scikit-learn"
+      }
+    ],
+    "benchmarks": [
+      {
+        "name": {
+          "tr": "Ortalama MAE",
+          "en": "Average MAE"
+        },
+        "value": "5.2%"
+      },
+      {
+        "name": {
+          "tr": "R² Skoru",
+          "en": "R² Score"
+        },
+        "value": "0.89 ± 0.03"
+      },
+      {
+        "name": {
+          "tr": "Çapraz Doğrulama",
+          "en": "Cross Validation"
+        },
+        "value": "5-fold CV"
+      },
+      {
+        "name": {
+          "tr": "Tahmin Süresi",
+          "en": "Prediction Time"
+        },
+        "value": "100 ms"
+      }
+    ],
+    "pros": [
+      {
+        "tr": "Çoklu model karşılaştırması",
+        "en": "Multi-model comparison"
+      },
+      {
+        "tr": "Etkileşimli optimizasyon",
+        "en": "Interactive optimization"
+      },
+      {
+        "tr": "Moleküler görselleştirme",
+        "en": "Molecular visualization"
+      },
+      {
+        "tr": "Kapsamlı özellik seti",
+        "en": "Comprehensive feature set"
+      },
+      {
+        "tr": "Kullanıcı dostu CLI arayüz",
+        "en": "User-friendly CLI interface"
+      },
+      {
+        "tr": "Gerçek zamanlı tahminler",
+        "en": "Real-time predictions"
+      },
+      {
+        "tr": "Otomatik veri temizleme",
+        "en": "Automatic data cleaning"
+      }
+    ],
+    "cons": [
+      {
+        "tr": "RDKit kurulumu gerektirir",
+        "en": "Requires RDKit installation"
+      },
+      {
+        "tr": "Sadece Suzuki reaksiyonları için",
+        "en": "Only for Suzuki reactions"
+      },
+      {
+        "tr": "Girdi veri kalitesine bağımlı",
+        "en": "Dependent on input data quality"
+      },
+      {
+        "tr": "Stereokimya desteği sınırlı",
+        "en": "Limited stereochemistry support"
+      }
+    ]
+  },
+  {
+    "id": "rf_suzuki",
+    "name": {
+      "tr": "RandomForestSuzuki",
+      "en": "RandomForestSuzuki"
+    },
+    "description": {
+      "tr": "Random Forest tabanlı temel Suzuki reaksiyon analiz modeli",
+      "en": "Basic Random Forest-based Suzuki reaction analysis model"
+    },
+    "detailed_description": {
+      "tr": "<h3>Temel Özellikler</h3>\n      <p>Bu model, Suzuki reaksiyonlarının verim tahmini için temel bir Random Forest uygulamasıdır. Katalizör tipi, halojen tipi ve fonksiyonel grup bilgilerini kullanır.</p>\n      \n      <h3>Teknik Detaylar</h3>\n      <ul>\n        <li>100 karar ağacı</li>\n        <li>SHAP değerleri ile özellik önem analizi</li>\n        <li>Permütasyon önem sıralaması</li>\n        <li>Otomatik sütun eşleştirme</li>\n      </ul>\n      \n      <h3>Kullanım Alanları</h3>\n      <ul>\n        <li>Hızlı prototipleme</li>\n        <li>Özellik önem analizi</li>\n        <li>Temel performans karşılaştırması</li>\n      </ul>",
+      "en": "<h3>Key Features</h3>\n      <p>This model is a basic Random Forest implementation for yield prediction of Suzuki reactions. It uses catalyst type, halogen type, and functional group information.</p>\n      \n      <h3>Technical Details</h3>\n      <ul>\n        <li>100 decision trees</li>\n        <li>Feature importance analysis with SHAP values</li>\n        <li>Permutation importance ranking</li>\n        <li>Automatic column mapping</li>\n      </ul>\n      \n      <h3>Use Cases</h3>\n      <ul>\n        <li>Rapid prototyping</li>\n        <li>Feature importance analysis</li>\n        <li>Basic performance benchmarking</li>\n      </ul>"
+    },
+    "accuracy": 78.0,
+    "speed": 90.0,
+    "specs": [
+      {
+        "name": {
+          "tr": "Algoritma",
+          "en": "Algorithm"
+        },
+        "value": "RandomForestRegressor"
+      },
+      {
+        "name": {
+          "tr": "Ağaç Sayısı",
+          "en": "Tree Count"
+        },
+        "value": "100"
+      },
+      {
+        "name": {
+          "tr": "Özellikler",
+          "en": "Features"
+        },
+        "value": "Katalizör tipi, Halojen tipi, Fonksiyonel grup"
+      },
+      {
+        "name": {
+          "tr": "Analiz",
+          "en": "Analysis"
+        },
+        "value": "SHAP, Permütasyon önemi"
+      },
+      {
+        "name": {
+          "tr": "Platform",
+          "en": "Platform"
+        },
+        "value": "Python 3.8+, scikit-learn"
+      }
+    ],
+    "benchmarks": [
+      {
+        "name": {
+          "tr": "Ortalama MAE",
+          "en": "Average MAE"
+        },
+        "value": "7.5%"
+      },
+      {
+        "name": {
+          "tr": "Çalışma Süresi",
+          "en": "Runtime"
+        },
+        "value": "50 ms"
+      },
+      {
+        "name": {
+          "tr": "R² Skoru",
+          "en": "R² Score"
+        },
+        "value": "0.76"
+      }
+    ],
+    "pros": [
+      {
+        "tr": "Hızlı eğitim",
+        "en": "Fast training"
+      },
+      {
+        "tr": "Kullanımı kolay",
+        "en": "Easy to use"
+      },
+      {
+        "tr": "Özellik önemi analizi",
+        "en": "Feature importance analysis"
+      }
+    ],
+    "cons": [
+      {
+        "tr": "Düşük doğruluk",
+        "en": "Low accuracy"
+      },
+      {
+        "tr": "Sınırlı özellik seti",
+        "en": "Limited feature set"
+      }
+    ]
+  },
+  {
+    "id": "xgboost_suzuki",
+    "name": {
+      "tr": "XGBoostSuzuki",
+      "en": "XGBoostSuzuki"
+    },
+    "description": {
+      "tr": "XGBoost tabanlı gelişmiş Suzuki analiz modeli",
+      "en": "Advanced XGBoost-based Suzuki analysis model"
+    },
+    "detailed_description": {
+      "tr": "<h3>Geliştirmeler</h3>\n      <p>Bu model, temel Random Forest uygulamasının XGBoost ile geliştirilmiş halidir. Daha iyi hiperparametre optimizasyonu ve özellik işleme yetenekleri içerir.</p>\n      \n      <h3>Teknik Detaylar</h3>\n      <ul>\n        <li>Gradient boosting ile yüksek doğruluk</li>\n        <li>Otomatik hiperparametre optimizasyonu</li>\n        <li>Erken durdurma ile aşırı öğrenme önleme</li>\n        <li>Özellik önem sıralaması</li>\n      </ul>\n      \n      <h3>Avantajlar</h3>\n      <ul>\n        <li>Random Forest'a göre daha yüksek doğruluk</li>\n        <li>Daha iyi genelleme yeteneği</li>\n        <li>Hızlı tahmin süresi</li>\n      </ul>",
+      "en": "<h3>Improvements</h3>\n      <p>This model is an enhanced version of the basic Random Forest implementation using XGBoost. It includes better hyperparameter optimization and feature processing capabilities.</p>\n      \n      <h3>Technical Details</h3>\n      <ul>\n        <li>High accuracy with gradient boosting</li>\n        <li>Automatic hyperparameter optimization</li>\n        <li>Early stopping to prevent overfitting</li>\n        <li>Feature importance ranking</li>\n      </ul>\n      \n      <h3>Advantages</h3>\n      <ul>\n        <li>Higher accuracy than Random Forest</li>\n        <li>Better generalization capability</li>\n        <li>Fast prediction time</li>\n      </ul>"
+    },
+    "accuracy": 82.0,
+    "speed": 88.0,
+    "specs": [
+      {
+        "name": {
+          "tr": "Algoritma",
+          "en": "Algorithm"
+        },
+        "value": "XGBRegressor"
+      },
+      {
+        "name": {
+          "tr": "Ağaç Sayısı",
+          "en": "Tree Count"
+        },
+        "value": "100"
+      },
+      {
+        "name": {
+          "tr": "Öğrenme Oranı",
+          "en": "Learning Rate"
+        },
+        "value": "0.1"
+      },
+      {
+        "name": {
+          "tr": "Maksimum Derinlik",
+          "en": "Max Depth"
+        },
+        "value": "6"
+      },
+      {
+        "name": {
+          "tr": "Platform",
+          "en": "Platform"
+        },
+        "value": "Python 3.8+, xgboost"
+      }
+    ],
+    "benchmarks": [
+      {
+        "name": {
+          "tr": "Ortalama MAE",
+          "en": "Average MAE"
+        },
+        "value": "6.2%"
+      },
+      {
+        "name": {
+          "tr": "R² Skoru",
+          "en": "R² Score"
+        },
+        "value": "0.82"
+      },
+      {
+        "name": {
+          "tr": "Çalışma Süresi",
+          "en": "Runtime"
+        },
+        "value": "80 ms"
+      }
+    ],
+    "pros": [
+      {
+        "tr": "Yüksek doğruluk",
+        "en": "High accuracy"
+      },
+      {
+        "tr": "Hızlı tahmin",
+        "en": "Fast prediction"
+      },
+      {
+        "tr": "Özellik önemi",
+        "en": "Feature importance"
+      },
+      {
+        "tr": "Aşırı öğrenme önleme",
+        "en": "Overfitting prevention"
+      }
+    ],
+    "cons": [
+      {
+        "tr": "Hiperparametre ayarı gerekli",
+        "en": "Hyperparameter tuning required"
+      },
+      {
+        "tr": "Eğitim süresi daha uzun",
+        "en": "Longer training time"
+      }
+    ]
+  },
+  {
+    "id": "lasso_suzuki",
+    "name": {
+      "tr": "LassoCVSuzuki",
+      "en": "LassoCVSuzuki"
+    },
+    "description": {
+      "tr": "Lasso regresyon ile özellik seçimli model",
+      "en": "Feature selection model with Lasso regression"
+    },
+    "detailed_description": {
+      "tr": "<h3>Öne Çıkan Özellik</h3>\n      <p>Bu model, LassoCV regresyonu kullanarak en etkili özellikleri seçer ve lineer bir model oluşturur. Özelliklerin mutlak etkisini ölçmek için idealdir.</p>\n      \n      <h3>Teknik Detaylar</h3>\n      <ul>\n        <li>L1 regularizasyon ile özellik seçimi</li>\n        <li>Cross-validation ile optimizasyon</li>\n        <li>Lineer model ile yorumlanabilirlik</li>\n        <li>Otomatik özellik azaltma</li>\n      </ul>\n      \n      <h3>Kullanım Alanları</h3>\n      <ul>\n        <li>Özellik seçimi ve boyut azaltma</li>\n        <li>Lineer ilişkilerin analizi</li>\n        <li>Yorumlanabilir modeller</li>\n      </ul>",
+      "en": "<h3>Highlighted Feature</h3>\n      <p>This model uses LassoCV regression to select the most effective features and build a linear model. It is ideal for measuring the absolute effect of features.</p>\n      \n      <h3>Technical Details</h3>\n      <ul>\n        <li>Feature selection with L1 regularization</li>\n        <li>Optimization with cross-validation</li>\n        <li>Interpretability with linear model</li>\n        <li>Automatic feature reduction</li>\n      </ul>\n      \n      <h3>Use Cases</h3>\n      <ul>\n        <li>Feature selection and dimensionality reduction</li>\n        <li>Linear relationship analysis</li>\n        <li>Interpretable models</li>\n      </ul>"
+    },
+    "accuracy": 75.0,
+    "speed": 95.0,
+    "specs": [
+      {
+        "name": {
+          "tr": "Algoritma",
+          "en": "Algorithm"
+        },
+        "value": "LassoCV"
+      },
+      {
+        "name": {
+          "tr": "CV Katları",
+          "en": "CV Folds"
+        },
+        "value": "5"
+      },
+      {
+        "name": {
+          "tr": "Regularizasyon",
+          "en": "Regularization"
+        },
+        "value": "L1"
+      },
+      {
+        "name": {
+          "tr": "Platform",
+          "en": "Platform"
+        },
+        "value": "Python 3.8+, scikit-learn"
+      }
+    ],
+    "benchmarks": [
+      {
+        "name": {
+          "tr": "Ortalama MAE",
+          "en": "Average MAE"
+        },
+        "value": "8.8%"
+      },
+      {
+        "name": {
+          "tr": "R² Skoru",
+          "en": "R² Score"
+        },
+        "value": "0.72"
+      },
+      {
+        "name": {
+          "tr": "Çalışma Süresi",
+          "en": "Runtime"
+        },
+        "value": "30 ms"
+      }
+    ],
+    "pros": [
+      {
+        "tr": "Çok hızlı",
+        "en": "Very fast"
+      },
+      {
+        "tr": "Yorumlanabilir",
+        "en": "Interpretable"
+      },
+      {
+        "tr": "Özellik seçimi yapar",
+        "en": "Performs feature selection"
+      },
+      {
+        "tr": "Düşük bellek kullanımı",
+        "en": "Low memory usage"
+      }
+    ],
+    "cons": [
+      {
+        "tr": "Düşük doğruluk",
+        "en": "Low accuracy"
+      },
+      {
+        "tr": "Sadece lineer ilişkiler",
+        "en": "Only linear relationships"
+      },
+      {
+        "tr": "Özellik etkileşimlerini yakalayamaz",
+        "en": "Cannot capture feature interactions"
+      }
+    ]
+  }
+];
+
+      var models = {};       // raw bilingual models keyed by id
+      var currentLang = 'tr';
+      var dark = localStorage.getItem('molytica-theme') === 'dark';
+      var currentChart = null;
+
+      var $ = function(id) { return document.getElementById(id); };
+
+      var els = {
+        logo: $('logo'),
+        langSwitch: $('langSwitch'),
+        themeToggle: $('themeToggle'),
+        themeIcon: $('themeIcon'),
+        clock: $('clock'),
+        loading: $('loading'),
+        loadingText: $('loadingText'),
+        errorMsg: $('errorMessage'),
+        errorText: $('errorText'),
+        appContent: $('appContent'),
+        model1Select: $('model1Select'),
+        model2Select: $('model2Select'),
+        selectRow: $('selectRow'),
+        showBtn: $('showBtn'),
+        showBtnText: $('showBtnText'),
+        results: $('results'),
+        modelCard1: $('modelCard1'),
+        modelCard2: $('modelCard2'),
+        chartCanvas: $('chart'),
+        specsGrid: $('specsGrid'),
+        benchTable: $('benchTable'),
+        benchHeader1: $('benchHeader1'),
+        benchHeader2: $('benchHeader2'),
+        compareTable: $('compareTable'),
+        compareFeature: $('compareFeature'),
+        compareWinner: $('compareWinner'),
+        m1Name: $('m1Name'),
+        m2Name: $('m2Name'),
+        summaryText: $('summaryText'),
+        comparisonTitle: $('comparisonTitle'),
+        detailedInfo1: $('detailedInfo1'),
+        detailedInfo2: $('detailedInfo2'),
+        tabCompare: $('tabCompare'),
+        tabSpecs: $('tabSpecs'),
+        tabBench: $('tabBench'),
+        tabDetails: $('tabDetails'),
+        singleModeBtn: $('singleModeBtn'),
+        compareModeBtn: $('compareModeBtn'),
+        headerTitle: $('headerTitle'),
+        pageTitle: $('pageTitle'),
+        pageDesc: $('pageDesc'),
+        contactLabel: $('contactLabel'),
+        contactInfo: $('contactInfo'),
+        copyright: $('copyright'),
+        specsContent: $('specsContent'),
+        benchContent: $('benchContent'),
+        compareContent: $('compareContent'),
+        detailsContent: $('detailsContent'),
+        statLabel1: $('statLabel1'),
+        statLabel2: $('statLabel2'),
+        statLabel3: $('statLabel3'),
+        statLabel4: $('statLabel4')
+      };
+
+      var translations = {
+        tr: {
+          headerTitle: 'MOLYTICA',
+          pageTitle: 'AI Model Karşılaştırma',
+          pageDesc: 'Modelleri karşılaştırın ve performanslarını analiz edin',
+          singleMode: 'Tekli',
+          compareMode: 'Karşılaştır',
+          selectModel: 'Model seçin...',
+          showButton: 'Göster',
+          specs: 'Özellikler',
+          benchmarks: 'Testler',
+          compare: 'Karşılaştırma',
+          details: 'Detaylı Bilgi',
+          accuracy: 'Doğruluk',
+          speed: 'Hız',
+          contact: 'İletişim',
+          contactInfo: 'akkochief@gmail.com · @akkochief',
+          copyright: '© 2026 Molytica',
+          best: 'En İyi',
+          good: 'İyi',
+          average: 'Orta',
+          fast: 'Hızlı',
+          medium: 'Orta',
+          slow: 'Yavaş',
+          winner: 'Kazanan',
+          tie: 'Eşit',
+          different: 'Farklı',
+          comparisonResult: 'Karşılaştırma Sonucu',
+          selectTwoModels: 'Karşılaştırma yapmak için iki model seçin.',
+          loading: 'XML verileri yükleniyor...',
+          error: 'XML dosyası yüklenirken hata oluştu',
+          noSpecs: 'Özellik bulunamadı.',
+          noBenchmarks: 'Test sonucu bulunamadı.',
+          chartError: 'Grafik oluşturulamadı',
+          test: 'Test',
+          score: 'Skor',
+          feature: 'Özellik',
+          selectOneFirst: 'Lütfen bir model seçin!',
+          selectSecond: 'Karşılaştırma için ikinci bir model seçin!',
+          selectDifferent: 'Farklı modeller seçin!',
+          precision: 'Kesinlik',
+          recall: 'Hassasiyet',
+          bothBetter: '{a}, {b}\'a göre hem daha doğru hem de daha hızlı.',
+          moreAccurate: '{a} daha doğru ancak {b} daha hızlı.',
+          similarPerf: 'İki modelin doğruluk ve hız performansları benzer.',
+          prosLabel: 'Artıları',
+          consLabel: 'Eksileri'
+        },
+        en: {
+          headerTitle: 'MOLYTICA',
+          pageTitle: 'AI Model Comparison',
+          pageDesc: 'Compare models and analyze their performance',
+          singleMode: 'Single',
+          compareMode: 'Compare',
+          selectModel: 'Select model...',
+          showButton: 'Show',
+          specs: 'Specifications',
+          benchmarks: 'Benchmarks',
+          compare: 'Comparison',
+          details: 'Detailed Info',
+          accuracy: 'Accuracy',
+          speed: 'Speed',
+          contact: 'Contact',
+          contactInfo: 'akkochief@gmail.com · @akkochief',
+          copyright: '© 2026 Molytica',
+          best: 'Best',
+          good: 'Good',
+          average: 'Average',
+          fast: 'Fast',
+          medium: 'Medium',
+          slow: 'Slow',
+          winner: 'Winner',
+          tie: 'Tie',
+          different: 'Different',
+          comparisonResult: 'Comparison Result',
+          selectTwoModels: 'Select two models to compare.',
+          loading: 'Loading XML data...',
+          error: 'Error loading XML file',
+          noSpecs: 'No specifications found.',
+          noBenchmarks: 'No benchmarks found.',
+          chartError: 'Could not create chart',
+          test: 'Test',
+          score: 'Score',
+          feature: 'Feature',
+          selectOneFirst: 'Please select a model!',
+          selectSecond: 'Please select a second model for comparison!',
+          selectDifferent: 'Please select different models!',
+          precision: 'Precision',
+          recall: 'Recall',
+          bothBetter: '{a} is both more accurate and faster than {b}.',
+          moreAccurate: '{a} is more accurate but {b} is faster.',
+          similarPerf: 'Both models have similar accuracy and speed performance.',
+          prosLabel: 'Pros',
+          consLabel: 'Cons'
+        }
+      };
+
+      function t(key) {
+        return translations[currentLang] && translations[currentLang][key] ? translations[currentLang][key] : key;
+      }
+
+      // translation with {placeholder} substitution, e.g. tf('bothBetter', {a: 'X', b: 'Y'})
+      function tf(key, params) {
+        var s = t(key);
+        Object.keys(params || {}).forEach(function(k) {
+          s = s.split('{' + k + '}').join(params[k]);
+        });
+        return s;
+      }
+
+      // Converts a raw bilingual model object (from MODELS_DATA) into the
+      // flat shape the render functions expect, using the current language.
+      function localizeModel(m) {
+        if (!m) return null;
+        var specs = {};
+        (m.specs || []).forEach(function(s) {
+          specs[s.name[currentLang] || s.name.tr] = s.value;
+        });
+        var benchmarks = {};
+        (m.benchmarks || []).forEach(function(b) {
+          benchmarks[b.name[currentLang] || b.name.tr] = b.value;
+        });
+        return {
+          id: m.id,
+          name: m.name[currentLang] || m.name.tr,
+          description: m.description[currentLang] || m.description.tr,
+          detailed_description: m.detailed_description[currentLang] || m.detailed_description.tr,
+          accuracy: m.accuracy,
+          speed: m.speed,
+          specs: specs,
+          benchmarks: benchmarks,
+          pros: (m.pros || []).map(function(p) { return p[currentLang] || p.tr; }),
+          cons: (m.cons || []).map(function(c) { return c[currentLang] || c.tr; }),
+          perf: [m.accuracy, Math.max(0, m.accuracy - 2), Math.max(0, m.accuracy - 4), m.speed]
+        };
+      }
+
+      function showToast(message, type) {
+        type = type || 'info';
+        var existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+
+        var toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(function() {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.3s ease';
+          setTimeout(function() { toast.remove(); }, 300);
+        }, 3000);
+      }
+
+      function setTheme(d) {
+        dark = d;
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+        localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
+        if (els.themeIcon) {
+          els.themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
+        }
+      }
+
+      function setLanguage(lang) {
+        currentLang = lang;
+        var langMap = {
+          headerTitle: 'headerTitle',
+          pageTitle: 'pageTitle',
+          pageDesc: 'pageDesc',
+          singleModeBtn: 'singleMode',
+          compareModeBtn: 'compareMode',
+          showBtnText: 'showButton',
+          contactLabel: 'contact',
+          contactInfo: 'contactInfo',
+          copyright: 'copyright',
+          loadingText: 'loading',
+          errorText: 'error',
+          tabSpecs: 'specs',
+          tabBench: 'benchmarks',
+          tabCompare: 'compare',
+          tabDetails: 'details',
+          benchHeader1: 'test',
+          benchHeader2: 'score',
+          compareFeature: 'feature',
+          compareWinner: 'winner',
+          comparisonTitle: 'comparisonResult',
+          statLabel1: 'accuracy',
+          statLabel2: 'speed',
+          statLabel3: 'accuracy',
+          statLabel4: 'speed'
+        };
+
+        Object.keys(langMap).forEach(function(elId) {
+          var el = $(elId);
+          var key = langMap[elId];
+          if (el && translations[lang] && translations[lang][key] !== undefined) {
+            el.textContent = translations[lang][key];
+          }
+        });
+
+        if (els.singleModeBtn) els.singleModeBtn.textContent = t('singleMode');
+        if (els.compareModeBtn) els.compareModeBtn.textContent = t('compareMode');
+
+        [els.model1Select, els.model2Select].forEach(function(sel) {
+          if (sel && sel.options && sel.options[0]) {
+            sel.options[0].textContent = t('selectModel');
+          }
+        });
+
+        document.querySelectorAll('.mode-btn').forEach(function(btn) {
+          var key = btn.dataset.mode === 'single' ? 'singleMode' : 'compareMode';
+          btn.textContent = t(key);
+        });
+
+        if (els.langSwitch) els.langSwitch.textContent = lang.toUpperCase();
+      }
+
+      function updateClock() {
+        if (!els.clock) return;
+        els.clock.textContent = new Date().toLocaleTimeString(
+          currentLang === 'tr' ? 'tr-TR' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          }
+        );
+      }
+
+      function getSpeedLabel(speed) {
+        if (speed >= 45) return t('fast');
+        if (speed >= 35) return t('medium');
+        return t('slow');
+      }
+
+      function getBadgeClass(accuracy) {
+        if (accuracy >= 90) return 'best';
+        if (accuracy >= 85) return 'good';
+        return 'average';
+      }
+
+      function getBadgeText(accuracy) {
+        if (accuracy >= 90) return t('best');
+        if (accuracy >= 85) return t('good');
+        return t('average');
+      }
+
+      function getSpeedClass(speed) {
+        if (speed >= 45) return 'high';
+        if (speed >= 35) return 'medium';
+        return 'low';
+      }
+
+      // Populates the `models` lookup (raw bilingual data keyed by id) and
+      // fills the select dropdowns using the currently active language.
+      function populateModels() {
+        models = {};
+        MODELS_DATA.forEach(function(m) {
+          models[m.id] = m;
+        });
+
+        els.model1Select.innerHTML = '<option value="">' + t('selectModel') + '</option>';
+        els.model2Select.innerHTML = '<option value="">' + t('selectModel') + '</option>';
+
+        MODELS_DATA.forEach(function(m) {
+          var opt1 = document.createElement('option');
+          opt1.value = m.id;
+          opt1.textContent = m.name[currentLang] || m.name.tr;
+          els.model1Select.appendChild(opt1);
+
+          var opt2 = document.createElement('option');
+          opt2.value = m.id;
+          opt2.textContent = m.name[currentLang] || m.name.tr;
+          els.model2Select.appendChild(opt2);
+        });
+      }
+
+      function loadXmlData() {
+        try {
+          populateModels();
+
+          els.loading.style.display = 'none';
+          els.appContent.style.display = 'block';
+
+          var firstId = Object.keys(models)[0];
+          if (firstId) {
+            els.model1Select.value = firstId;
+            showModel(firstId);
+          }
+        } catch (err) {
+          console.error('Model load error:', err);
+          els.loading.style.display = 'none';
+          els.errorMsg.style.display = 'block';
+          els.errorText.textContent = t('error') + ': ' + err.message;
+        }
+      }
+
+      function renderModelCard(card, model) {
+        if (!model) return;
+
+        var name = card.querySelector('.model-name');
+        var desc = card.querySelector('.model-desc');
+        var badge = card.querySelector('.badge');
+        var stats = card.querySelectorAll('.stat-value');
+
+        if (name) name.textContent = model.name;
+        if (desc) desc.textContent = model.description;
+        if (badge) {
+          badge.className = 'badge ' + getBadgeClass(model.accuracy);
+          badge.textContent = getBadgeText(model.accuracy);
+        }
+        if (stats.length >= 2) {
+          stats[0].textContent = model.accuracy + '%';
+          stats[0].className = 'stat-value ' + getBadgeClass(model.accuracy);
+          stats[1].textContent = getSpeedLabel(model.speed);
+          stats[1].className = 'stat-value ' + getSpeedClass(model.speed);
+        }
+
+        card.style.display = 'block';
+      }
+
+      function renderSpecs(model) {
+        var html = '';
+        var keys = Object.keys(model.specs);
+        if (keys.length === 0) {
+          html = '<p style="color:var(--text-muted);">' + t('noSpecs') + '</p>';
+        } else {
+          keys.forEach(function(key) {
+            html += '<div class="spec-item"><div class="label">' + key + '</div><div class="value">' + model.specs[key] + '</div></div>';
+          });
+        }
+        els.specsGrid.innerHTML = html;
+      }
+
+      function renderBenchmarks(model) {
+        var tbody = els.benchTable.querySelector('tbody');
+        if (!tbody) return;
+        var html = '';
+        var keys = Object.keys(model.benchmarks);
+        if (keys.length === 0) {
+          html = '<tr><td colspan="2">' + t('noBenchmarks') + '</td></tr>';
+        } else {
+          keys.forEach(function(key) {
+            html += '<tr><td>' + key + '</td><td>' + model.benchmarks[key] + '</td></tr>';
+          });
+        }
+        tbody.innerHTML = html;
+      }
+
+      function renderDetailedInfo(model, container) {
+        if (!container) return;
+        container.innerHTML = model.detailed_description;
+        container.style.display = 'block';
+      }
+
+      function renderComparison(model1, model2) {
+        if (!model1 || !model2) return;
+
+        els.m1Name.textContent = model1.name;
+        els.m2Name.textContent = model2.name;
+
+        var tbody = els.compareTable.querySelector('tbody');
+        if (!tbody) return;
+
+        var html = '';
+        var compareData = [
+          { label: t('accuracy'), v1: model1.accuracy + '%', v2: model2.accuracy + '%', num1: model1.accuracy, num2: model2.accuracy },
+          { label: t('speed'), v1: getSpeedLabel(model1.speed), v2: getSpeedLabel(model2.speed), num1: model1.speed, num2: model2.speed }
+        ];
+
+        var allSpecs = new Set();
+        var specKeys1 = Object.keys(model1.specs);
+        var specKeys2 = Object.keys(model2.specs);
+        specKeys1.forEach(function(k) { allSpecs.add(k); });
+        specKeys2.forEach(function(k) { allSpecs.add(k); });
+
+        allSpecs.forEach(function(spec) {
+          var v1 = model1.specs[spec] || '-';
+          var v2 = model2.specs[spec] || '-';
+          var n1 = parseFloat(v1);
+          var n2 = parseFloat(v2);
+          compareData.push({
+            label: spec,
+            v1: v1,
+            v2: v2,
+            num1: isNaN(n1) ? null : n1,
+            num2: isNaN(n2) ? null : n2
+          });
+        });
+
+        compareData.forEach(function(item) {
+          var winnerText = t('tie');
+          if (item.num1 !== null && item.num2 !== null) {
+            if (item.num1 > item.num2) winnerText = model1.name + ' +' + (item.num1 - item.num2).toFixed(1);
+            else if (item.num2 > item.num1) winnerText = model2.name + ' +' + (item.num2 - item.num1).toFixed(1);
+          } else {
+            winnerText = item.v1 === item.v2 ? t('tie') : t('different');
+          }
+          html += '<tr><td><strong>' + item.label + '</strong></td><td>' + item.v1 + '</td><td>' + item.v2 + '</td><td><span class="winner">' + winnerText + '</span></td></tr>';
+        });
+
+        tbody.innerHTML = html;
+
+        var summary = '';
+        if (model1.accuracy > model2.accuracy && model1.speed > model2.speed) {
+          summary = tf('bothBetter', { a: model1.name, b: model2.name });
+        } else if (model1.accuracy > model2.accuracy) {
+          summary = tf('moreAccurate', { a: model1.name, b: model2.name });
+        } else if (model2.accuracy > model1.accuracy) {
+          summary = tf('moreAccurate', { a: model2.name, b: model1.name });
+        } else {
+          summary = t('similarPerf');
+        }
+
+        summary += '<div style="margin-top:14px;">';
+        summary += '<h4>' + model1.name + ' ' + t('prosLabel') + ':</h4><ul>';
+        model1.pros.forEach(function(p) { summary += '<li>' + p + '</li>'; });
+        summary += '</ul><h4>' + model1.name + ' ' + t('consLabel') + ':</h4><ul>';
+        model1.cons.forEach(function(c) { summary += '<li>' + c + '</li>'; });
+        summary += '</ul><h4>' + model2.name + ' ' + t('prosLabel') + ':</h4><ul>';
+        model2.pros.forEach(function(p) { summary += '<li>' + p + '</li>'; });
+        summary += '</ul><h4>' + model2.name + ' ' + t('consLabel') + ':</h4><ul>';
+        model2.cons.forEach(function(c) { summary += '<li>' + c + '</li>'; });
+        summary += '</ul></div>';
+
+        els.summaryText.innerHTML = summary;
+      }
+
+      function renderChart(modelsArr) {
+        if (currentChart) {
+          currentChart.destroy();
+          currentChart = null;
+        }
+
+        if (!modelsArr || modelsArr.length === 0) return;
+
+        var ctx = els.chartCanvas.getContext('2d');
+        var labels = [t('accuracy'), t('precision'), t('recall'), t('speed')];
+        var colors = ['#0a0a0a', '#4a4a4a', '#888888', '#bbbbbb'];
+        var darkColors = ['#f0f0f0', '#aaa', '#666', '#444'];
+
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var palette = isDark ? darkColors : colors;
+
+        var datasets = modelsArr.map(function(m, i) {
+          return {
+            label: m.name,
+            data: m.perf,
+            backgroundColor: palette[i % palette.length] + '30',
+            borderColor: palette[i % palette.length],
+            borderWidth: 2,
+            pointBackgroundColor: palette[i % palette.length],
+            pointRadius: 4,
+            pointHoverRadius: 6
+          };
+        });
+
+        try {
+          currentChart = new Chart(ctx, {
+            type: 'radar',
+            data: { labels: labels, datasets: datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                r: {
+                  min: 0,
+                  max: 100,
+                  ticks: {
+                    stepSize: 20,
+                    backdropColor: 'transparent',
+                    color: isDark ? '#999' : '#666'
+                  },
+                  angleLines: {
+                    color: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+                  },
+                  grid: {
+                    color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+                  },
+                  pointLabels: {
+                    font: { size: 12, weight: '500' },
+                    color: isDark ? '#ccc' : '#333'
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  position: 'top',
+                  labels: {
+                    boxWidth: 14,
+                    padding: 20,
+                    color: isDark ? '#ddd' : '#333',
+                    font: { size: 12 }
+                  }
+                }
+              }
+            }
+          });
+        } catch (err) {
+          console.error('Chart error:', err);
+          els.chartCanvas.style.display = 'none';
+          var container = els.chartCanvas.closest('.chart-container');
+          if (container) {
+            container.innerHTML = '<div class="error-message" style="display:flex;align-items:center;justify-content:center;height:100%;">' + t('chartError') + '</div>';
+          }
+        }
+      }
+
+      function showModel(id) {
+        var raw = models[id];
+        var model = localizeModel(raw);
+        if (!model) return;
+
+        renderModelCard(els.modelCard1, model);
+        els.modelCard2.style.display = 'none';
+        renderSpecs(model);
+        renderBenchmarks(model);
+        renderDetailedInfo(model, els.detailedInfo1);
+        els.detailedInfo2.style.display = 'none';
+        els.tabCompare.style.display = 'none';
+
+        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        if (els.specsContent) els.specsContent.classList.add('active');
+        if (els.tabSpecs) els.tabSpecs.classList.add('active');
+
+        renderChart([model]);
+        els.results.style.display = 'block';
+      }
+
+      function compareModels(id1, id2) {
+        var m1 = localizeModel(models[id1]);
+        var m2 = localizeModel(models[id2]);
+        if (!m1 || !m2) return;
+
+        renderModelCard(els.modelCard1, m1);
+        renderModelCard(els.modelCard2, m2);
+        els.modelCard2.style.display = 'block';
+
+        renderSpecs(m1);
+        renderBenchmarks(m1);
+        renderDetailedInfo(m1, els.detailedInfo1);
+        renderDetailedInfo(m2, els.detailedInfo2);
+        els.detailedInfo2.style.display = 'block';
+        els.tabCompare.style.display = 'block';
+
+        renderComparison(m1, m2);
+        renderChart([m1, m2]);
+
+        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        if (els.tabCompare) els.tabCompare.classList.add('active');
+        if (els.compareContent) els.compareContent.classList.add('active');
+
+        els.results.style.display = 'block';
+      }
+
+      function switchTab(tabId) {
+        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+
+        var tab = document.querySelector('.tab[data-tab="' + tabId + '"]');
+        if (tab) tab.classList.add('active');
+
+        var content = document.getElementById(tabId + 'Content');
+        if (content) content.classList.add('active');
+      }
+
+      // Event listeners
+      if (els.logo) {
+        els.logo.addEventListener('click', function() { window.location.href = '/'; });
+      }
+
+      if (els.langSwitch) {
+        els.langSwitch.addEventListener('click', function() {
+          var newLang = currentLang === 'tr' ? 'en' : 'tr';
+          setLanguage(newLang);
+          this.classList.add('animate');
+          setTimeout(function() { this.classList.remove('animate'); }.bind(this), 200);
+
+          // Re-populate selects with localized names (no network request needed)
+          var v1Before = els.model1Select.value;
+          var v2Before = els.model2Select.value;
+
+          populateModels();
+
+          els.model1Select.value = v1Before;
+          els.model2Select.value = v2Before;
+
+          // Re-render whatever is currently shown, in the new language
+          var modeBtn = document.querySelector('.mode-btn.active');
+          var mode = modeBtn ? modeBtn.dataset.mode : null;
+          var v1 = els.model1Select.value;
+
+          if (mode === 'compare') {
+            var v2 = els.model2Select.value;
+            if (v1 && v2 && v1 !== v2) {
+              compareModels(v1, v2);
+            } else if (v1) {
+              showModel(v1);
+            }
+          } else if (v1) {
+            showModel(v1);
+          }
+        });
+      }
+
+      if (els.themeToggle) {
+        els.themeToggle.addEventListener('click', function() {
+          setTheme(!dark);
+          var modeBtn = document.querySelector('.mode-btn.active');
+          var mode = modeBtn ? modeBtn.dataset.mode : null;
+          if (mode === 'compare') {
+            var v1 = els.model1Select.value;
+            var v2 = els.model2Select.value;
+            if (v1 && v2) renderChart([models[v1], models[v2]]);
+          } else if (mode === 'single') {
+            var v = els.model1Select.value;
+            if (v) renderChart([models[v]]);
+          }
+        });
+      }
+
+      document.querySelectorAll('.mode-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+          this.classList.add('active');
+
+          var isCompare = this.dataset.mode === 'compare';
+          els.model2Select.style.display = isCompare ? 'block' : 'none';
+          els.selectRow.className = 'select-row' + (isCompare ? '' : ' single');
+          els.tabCompare.style.display = isCompare ? 'block' : 'none';
+
+          els.results.style.display = 'none';
+        });
+      });
+
+      document.querySelectorAll('.tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          var tabId = this.dataset.tab;
+          switchTab(tabId);
+        });
+      });
+
+      if (els.showBtn) {
+        els.showBtn.addEventListener('click', function() {
+          var modeBtn = document.querySelector('.mode-btn.active');
+          var mode = modeBtn ? modeBtn.dataset.mode : null;
+          var v1 = els.model1Select.value;
+          if (!v1) {
+            showToast(t('selectOneFirst'), 'error');
+            return;
+          }
+
+          if (mode === 'compare') {
+            var v2 = els.model2Select.value;
+            if (!v2) {
+              showToast(t('selectSecond'), 'error');
+              return;
+            }
+            if (v1 === v2) {
+              showToast(t('selectDifferent'), 'error');
+              return;
+            }
+            compareModels(v1, v2);
+          } else {
+            showModel(v1);
+          }
+        });
+      }
+
+      function init() {
+        setTheme(dark);
+        setLanguage('tr');
+        updateClock();
+        setInterval(updateClock, 1000);
+        loadXmlData();
+
+        var modeBtn = document.querySelector('.mode-btn.active');
+        if (modeBtn && modeBtn.dataset.mode === 'single') {
+          els.tabCompare.style.display = 'none';
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', init);
+
+    })();
+  </script>
+</body>
+</html>

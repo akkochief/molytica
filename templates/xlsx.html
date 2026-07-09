@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Molytica - Excel'den CSV'ye Dönüştürücü</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f6f7f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-header: rgba(255, 255, 255, 0.88);
+            --bg-input: #f1f3f5;
+            --bg-drop: #fafbfc;
+            --text-primary: #0a0a0a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #7a7a7a;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.18);
+            --border-focus: rgba(0, 0, 0, 0.3);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.06);
+            --btn-bg: #ffffff;
+            --btn-text: #0a0a0a;
+            --btn-hover: #0a0a0a;
+            --btn-hover-text: #ffffff;
+            --btn-primary-bg: #0a0a0a;
+            --btn-primary-text: #ffffff;
+            --footer-bg: #0a0a0a;
+            --footer-text: #d0d0d0;
+            --clock-bg: #eef0f2;
+            --clock-text: #3a3a3a;
+            --success-color: #2e7d32;
+            --success-bg: #e8f5e9;
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 20px;
+            --radius-xl: 100px;
+            --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            --font: 'Inter', -apple-system, system-ui, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #161616;
+            --bg-card: #1a1a1a;
+            --bg-header: rgba(20, 20, 20, 0.92);
+            --bg-input: #282828;
+            --bg-drop: #1e1e1e;
+            --text-primary: #f0f0f0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #707070;
+            --border-color: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.14);
+            --border-focus: rgba(255, 255, 255, 0.25);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+            --btn-bg: #222222;
+            --btn-text: #f0f0f0;
+            --btn-hover: #f0f0f0;
+            --btn-hover-text: #0a0a0a;
+            --btn-primary-bg: #f0f0f0;
+            --btn-primary-text: #0a0a0a;
+            --footer-bg: #0a0a0a;
+            --footer-text: #888888;
+            --clock-bg: #282828;
+            --clock-text: #c0c0c0;
+            --success-color: #4caf50;
+            --success-bg: #1b3a1b;
+        }
+
+        body {
+            background: var(--bg-primary);
+            font-family: var(--font);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            line-height: 1.6;
+            transition: background var(--transition), color var(--transition);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        header {
+            background: var(--bg-header);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 14px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: background var(--transition), border-color var(--transition);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo {
+            height: 38px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            filter: brightness(0);
+        }
+        [data-theme="dark"] .logo {
+            filter: brightness(0) invert(1);
+        }
+        .logo:hover {
+            transform: scale(1.05) rotate(-1deg);
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            transition: color var(--transition);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        #clock {
+            font-size: 0.85rem;
+            font-weight: 450;
+            color: var(--clock-text);
+            background: var(--clock-bg);
+            padding: 4px 14px;
+            border-radius: var(--radius-xl);
+            letter-spacing: 0.4px;
+            font-variant-numeric: tabular-nums;
+            transition: all var(--transition);
+        }
+
+        .theme-toggle {
+            background: var(--clock-bg);
+            border: none;
+            border-radius: var(--radius-xl);
+            padding: 6px 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .theme-toggle:hover {
+            transform: scale(0.95);
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: 1.5px solid var(--border-hover);
+            border-radius: var(--radius-xl);
+            padding: 5px 14px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .lang-btn:hover {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            transform: scale(0.95);
+        }
+        .lang-btn.animate {
+            transform: scale(0.92);
+            transition: transform 0.15s ease;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 40px auto;
+            padding: 0 24px;
+            flex: 1;
+            width: 100%;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 32px;
+            animation: fadeUp 0.7s ease forwards;
+        }
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            transition: color var(--transition);
+        }
+        .page-header p {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            transition: color var(--transition);
+        }
+
+        .converter-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition);
+            margin-bottom: 28px;
+        }
+        .converter-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 40px 24px 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition);
+            background: var(--bg-drop);
+            margin-bottom: 20px;
+        }
+        .drop-zone:hover {
+            border-color: var(--border-hover);
+            background: var(--bg-input);
+        }
+        .drop-zone.dragover {
+            border-color: var(--text-primary);
+            background: var(--bg-input);
+        }
+
+        .drop-zone .drop-icon {
+            font-size: 2.8rem;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: block;
+            opacity: 0.6;
+        }
+
+        .drop-zone .drop-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .drop-zone .drop-or {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin: 8px 0 12px;
+            position: relative;
+        }
+        .drop-zone .drop-or::before,
+        .drop-zone .drop-or::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 60px;
+            height: 1px;
+            background: var(--border-color);
+        }
+        .drop-zone .drop-or::before { left: calc(50% + 40px); }
+        .drop-zone .drop-or::after { right: calc(50% + 40px); }
+
+        .drop-zone .btn {
+            display: inline-block;
+            width: auto;
+            padding: 10px 32px;
+            font-size: 0.9rem;
+        }
+
+        .file-info {
+            padding: 16px 20px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-top: 16px;
+            display: none;
+            color: var(--text-primary);
+            transition: all var(--transition);
+        }
+        .file-info.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        .file-info p {
+            margin: 4px 0;
+            font-size: 0.9rem;
+        }
+        .file-info strong {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .success-msg {
+            color: var(--success-color);
+            margin-top: 8px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .options-section {
+            margin-top: 24px;
+        }
+        .options-section h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px 24px;
+        }
+
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .option-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .option-group select,
+        .option-group input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-family: var(--font);
+            font-size: 0.9rem;
+            transition: all var(--transition);
+            outline: none;
+            width: 100%;
+        }
+        .option-group select:focus,
+        .option-group input[type="text"]:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .checkbox-group {
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--text-primary);
+            cursor: pointer;
+        }
+        .checkbox-group label {
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            font-family: var(--font);
+            font-weight: 500;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--btn-hover);
+            transform: translateX(-100%);
+            transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            z-index: -1;
+        }
+        .btn:hover {
+            color: var(--btn-hover-text);
+            border-color: var(--btn-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+        .btn:hover::before {
+            transform: translateX(0);
+        }
+        .btn:active {
+            transform: translateY(0) scale(0.97);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        .btn:disabled::before {
+            display: none;
+        }
+
+        .btn-primary {
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
+            border-color: var(--btn-primary-bg);
+        }
+        .btn-primary::before {
+            background: var(--btn-hover);
+        }
+        .btn-primary:hover {
+            color: var(--btn-hover-text);
+            border-color: var(--btn-hover);
+        }
+
+        .action-section {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        .action-section .btn {
+            flex: 1;
+            min-width: 100px;
+            justify-content: center;
+        }
+
+        .preview-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            margin-top: 28px;
+            animation: fadeUp 0.4s ease;
+        }
+        .preview-section.hidden {
+            display: none;
+        }
+
+        .preview-section h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .preview-container {
+            max-height: 400px;
+            overflow: auto;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+        }
+        .preview-container pre {
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 0;
+        }
+
+        footer {
+            background: var(--footer-bg);
+            color: var(--footer-text);
+            padding: 32px 24px 24px;
+            margin-top: 40px;
+            border-top: 1px solid var(--border-color);
+            transition: background var(--transition), border-color var(--transition);
+        }
+        .footer-content {
+            max-width: 1060px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .footer-content .contact {
+            font-size: 0.9rem;
+            margin-bottom: 14px;
+            opacity: 0.7;
+            letter-spacing: 0.2px;
+        }
+        .footer-content .contact strong {
+            opacity: 1;
+            color: #fff;
+            font-weight: 500;
+        }
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            margin: 16px 0 18px;
+        }
+        .social-icons a {
+            color: #888;
+            font-size: 1.3rem;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+        }
+        .social-icons a:hover {
+            color: #fff;
+            transform: translateY(-2px);
+            opacity: 1;
+        }
+        .copyright {
+            font-size: 0.8rem;
+            opacity: 0.35;
+            margin-top: 10px;
+            letter-spacing: 0.3px;
+        }
+
+        @media (max-width: 768px) {
+            header { padding: 12px 20px; }
+            .logo { height: 30px; }
+            header h1 { font-size: 1rem; }
+            #clock { display: none; }
+            .theme-toggle { padding: 4px 10px; font-size: 0.85rem; }
+            .lang-btn { padding: 4px 10px; font-size: 0.65rem; }
+            .container { padding: 0 16px; margin: 24px auto; }
+            .page-header h1 { font-size: 1.6rem; }
+            .page-header p { font-size: 0.95rem; }
+            .converter-card { padding: 20px; }
+            .drop-zone { padding: 28px 16px 24px; }
+            .drop-zone .drop-icon { font-size: 2.2rem; }
+            .drop-zone .drop-or::before,
+            .drop-zone .drop-or::after { width: 30px; }
+            .drop-zone .drop-or::before { left: calc(50% + 30px); }
+            .drop-zone .drop-or::after { right: calc(50% + 30px); }
+            .options-grid { grid-template-columns: 1fr; gap: 12px; }
+            .action-section { flex-direction: column; }
+            .action-section .btn { flex: 1 1 auto; }
+            footer { padding: 24px 16px; }
+            .social-icons a { font-size: 1.1rem; gap: 20px; }
+        }
+
+        @media (max-width: 480px) {
+            header h1 { font-size: 0.85rem; }
+            .lang-btn { font-size: 0.6rem; padding: 3px 8px; }
+            .page-header h1 { font-size: 1.3rem; }
+            .btn { padding: 8px 16px; font-size: 0.8rem; }
+            .converter-card { padding: 16px; }
+            .drop-zone { padding: 20px 12px 18px; }
+            .drop-zone .drop-or::before,
+            .drop-zone .drop-or::after { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
+            <h1 id="headerTitle">Xlsx</h1>
+        </div>
+        <div class="header-right">
+            <div id="clock"></div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Temayı değiştir">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+            <button class="lang-btn" id="langSwitch">EN</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 id="mainTitle">Excel'den CSV'ye Dönüştürücü</h1>
+            <p id="subtitle">Excel dosyalarını gelişmiş seçeneklerle CSV'ye dönüştürün</p>
+        </div>
+
+        <div class="converter-card">
+            <div class="drop-zone" id="dropZone">
+                <i class="fas fa-cloud-upload-alt drop-icon"></i>
+                <p class="drop-text" id="dropText">XLSX dosyanızı buraya sürükleyip bırakın</p>
+                <span class="drop-or" id="dropOr">veya</span>
+                <button class="btn" id="browseBtn"><i class="fas fa-folder-open"></i> <span id="browseText">Dosya Seç</span></button>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;">
+            </div>
+
+            <div class="file-info" id="fileInfo"></div>
+
+            <div class="options-section">
+                <h3><i class="fas fa-sliders-h"></i> <span id="optionsTitle">Dönüştürme Seçenekleri</span></h3>
+                <div class="options-grid">
+                    <div class="option-group">
+                        <label for="delimiter" id="delimiterLabel">Alan Ayracı</label>
+                        <select id="delimiter">
+                            <option value="," id="delimComma">Virgül ( , )</option>
+                            <option value=";" id="delimSemicolon">Noktalı Virgül ( ; )</option>
+                            <option value="\t" id="delimTab">Sekme ( \t )</option>
+                            <option value="|" id="delimPipe">Dikey Çizgi ( | )</option>
+                            <option value="custom" id="delimCustom">Özel...</option>
+                        </select>
+                        <input type="text" id="customDelimiter" placeholder="Özel ayraç" style="display:none;" maxlength="1">
+                    </div>
+
+                    <div class="option-group">
+                        <label for="encoding" id="encodingLabel">Kodlama</label>
+                        <select id="encoding">
+                            <option value="utf-8" id="encUtf8">UTF-8</option>
+                            <option value="windows-1252" id="encWin1252">Windows-1252</option>
+                            <option value="iso-8859-1" id="encIso8859">ISO-8859-1</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label for="lineEndings" id="lineEndingsLabel">Satır Sonları</label>
+                        <select id="lineEndings">
+                            <option value="\n" id="lineUnix">Unix (LF)</option>
+                            <option value="\r\n" selected id="lineWindows">Windows (CRLF)</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label for="dateFormat" id="dateLabel">Tarih Formatı</label>
+                        <select id="dateFormat">
+                            <option value="yyyy-mm-dd" id="dateIso">YYYY-AA-GG</option>
+                            <option value="mm/dd/yyyy" id="dateUs">AA/GG/YYYY</option>
+                            <option value="dd/mm/yyyy" id="dateEu">GG/AA/YYYY</option>
+                            <option value="iso" id="dateFull">ISO (zaman dahil)</option>
+                            <option value="original" id="dateOriginal">Orijinal koru</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group checkbox-group">
+                        <input type="checkbox" id="includeHeader" checked>
+                        <label for="includeHeader" id="headerLabel">Başlık satırını dahil et</label>
+                    </div>
+
+                    <div class="option-group checkbox-group">
+                        <input type="checkbox" id="quoteAll">
+                        <label for="quoteAll" id="quoteLabel">Tüm alanları tırnak içine al</label>
+                    </div>
+
+                    <div class="option-group">
+                        <label for="sheetSelection" id="sheetLabel">Sayfa Seçimi</label>
+                        <select id="sheetSelection" disabled>
+                            <option value="auto" id="sheetAuto">Otomatik (ilk sayfa)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-section">
+                <button class="btn btn-primary" id="convertBtn" disabled>
+                    <i class="fas fa-exchange-alt"></i> <span id="convertText">Dönüştür</span>
+                </button>
+                <button class="btn" id="downloadBtn" disabled>
+                    <i class="fas fa-download"></i> <span id="downloadText">İndir</span>
+                </button>
+                <button class="btn" id="previewBtn" disabled>
+                    <i class="fas fa-eye"></i> <span id="previewText">Önizleme</span>
+                </button>
+                <button class="btn" id="resetBtn">
+                    <i class="fas fa-redo"></i> <span id="resetText">Sıfırla</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="preview-section hidden" id="previewSection">
+            <h3><i class="fas fa-table"></i> <span id="previewTitle">CSV Önizleme</span></h3>
+            <div class="preview-container">
+                <pre id="csvPreview"></pre>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <div class="contact">
+                <strong id="contactLabel">İletişim</strong>
+                <span id="contactInfo">sefaakkoc@outlook.com · @sefaakkoc</span>
+            </div>
+            <div class="social-icons">
+                <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+            </div>
+            <div class="copyright" id="copyright">© 2025 Molytica</div>
+        </div>
+    </footer>
+
+    <script>
+        (function() {
+            'use strict';
+
+            var translations = {
+                en: {
+                    headerTitle: 'Xlsx',
+                    mainTitle: 'Excel to CSV Converter',
+                    subtitle: 'Convert Excel files to CSV with advanced options',
+                    dropText: 'Drag & Drop your XLSX file here',
+                    dropOr: 'or',
+                    browseText: 'Browse Files',
+                    optionsTitle: 'Conversion Options',
+                    delimiterLabel: 'Field Delimiter',
+                    delimComma: 'Comma ( , )',
+                    delimSemicolon: 'Semicolon ( ; )',
+                    delimTab: 'Tab ( \t )',
+                    delimPipe: 'Pipe ( | )',
+                    delimCustom: 'Custom...',
+                    encodingLabel: 'Encoding',
+                    encUtf8: 'UTF-8',
+                    encWin1252: 'Windows-1252',
+                    encIso8859: 'ISO-8859-1',
+                    lineEndingsLabel: 'Line Endings',
+                    lineUnix: 'Unix (LF)',
+                    lineWindows: 'Windows (CRLF)',
+                    headerLabel: 'Include header row',
+                    quoteLabel: 'Quote all fields',
+                    sheetLabel: 'Sheet Selection',
+                    sheetAuto: 'Auto (first sheet)',
+                    dateLabel: 'Date Format',
+                    dateIso: 'YYYY-MM-DD',
+                    dateUs: 'MM/DD/YYYY',
+                    dateEu: 'DD/MM/YYYY',
+                    dateFull: 'ISO (with time)',
+                    dateOriginal: 'Keep original',
+                    convertText: 'Convert',
+                    downloadText: 'Download',
+                    previewText: 'Preview',
+                    resetText: 'Reset',
+                    previewTitle: 'CSV Preview',
+                    selectedFile: 'Selected File:',
+                    size: 'Size:',
+                    type: 'Type:',
+                    successMsg: 'File converted successfully!',
+                    previewTruncated: 'preview truncated',
+                    contact: 'Contact',
+                    contactInfo: 'akkochief@gmail.com · @akkochief',
+                    copyright: '© 2026 Molytica',
+                },
+                tr: {
+                    headerTitle: 'Xlsx',
+                    mainTitle: 'Excel\'den CSV\'ye Dönüştürücü',
+                    subtitle: 'Excel dosyalarını gelişmiş seçeneklerle CSV\'ye dönüştürün',
+                    dropText: 'XLSX dosyanızı buraya sürükleyip bırakın',
+                    dropOr: 'veya',
+                    browseText: 'Dosya Seç',
+                    optionsTitle: 'Dönüştürme Seçenekleri',
+                    delimiterLabel: 'Alan Ayracı',
+                    delimComma: 'Virgül ( , )',
+                    delimSemicolon: 'Noktalı Virgül ( ; )',
+                    delimTab: 'Sekme ( \t )',
+                    delimPipe: 'Dikey Çizgi ( | )',
+                    delimCustom: 'Özel...',
+                    encodingLabel: 'Kodlama',
+                    encUtf8: 'UTF-8',
+                    encWin1252: 'Windows-1252',
+                    encIso8859: 'ISO-8859-1',
+                    lineEndingsLabel: 'Satır Sonları',
+                    lineUnix: 'Unix (LF)',
+                    lineWindows: 'Windows (CRLF)',
+                    headerLabel: 'Başlık satırını dahil et',
+                    quoteLabel: 'Tüm alanları tırnak içine al',
+                    sheetLabel: 'Sayfa Seçimi',
+                    sheetAuto: 'Otomatik (ilk sayfa)',
+                    dateLabel: 'Tarih Formatı',
+                    dateIso: 'YYYY-AA-GG',
+                    dateUs: 'AA/GG/YYYY',
+                    dateEu: 'GG/AA/YYYY',
+                    dateFull: 'ISO (zaman dahil)',
+                    dateOriginal: 'Orijinal koru',
+                    convertText: 'Dönüştür',
+                    downloadText: 'İndir',
+                    previewText: 'Önizleme',
+                    resetText: 'Sıfırla',
+                    previewTitle: 'CSV Önizleme',
+                    selectedFile: 'Seçilen Dosya:',
+                    size: 'Boyut:',
+                    type: 'Tür:',
+                    successMsg: 'Dosya başarıyla dönüştürüldü!',
+                    previewTruncated: 'önizleme kısaltıldı',
+                    contact: 'İletişim',
+                    contactInfo: 'sefaakkoc@outlook.com · @sefaakkoc',
+                    copyright: '© 2025 Molytica'
+                }
+            };
+
+            var currentLang = 'tr'; // Başlangıç dili Türkçe
+            var dark = localStorage.getItem('molytica-theme') === 'dark';
+            var file = null;
+            var csvData = null;
+            var workbook = null;
+
+            var $ = function(id) { return document.getElementById(id); };
+
+            var els = {
+                dropZone: $('dropZone'),
+                browseBtn: $('browseBtn'),
+                fileInput: $('fileInput'),
+                fileInfo: $('fileInfo'),
+                convertBtn: $('convertBtn'),
+                downloadBtn: $('downloadBtn'),
+                previewBtn: $('previewBtn'),
+                resetBtn: $('resetBtn'),
+                previewSection: $('previewSection'),
+                csvPreview: $('csvPreview'),
+                delimiterSelect: $('delimiter'),
+                customDelimiter: $('customDelimiter'),
+                sheetSelection: $('sheetSelection'),
+                langSwitch: $('langSwitch'),
+                themeToggle: $('themeToggle'),
+                themeIcon: $('themeIcon'),
+                logo: $('logo'),
+                clock: $('clock')
+            };
+
+            function setTheme(d) {
+                dark = d;
+                document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+                localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
+                if (els.themeIcon) {
+                    els.themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
+                }
+            }
+
+            function setLanguage(lang) {
+                currentLang = lang;
+                var t = translations[lang];
+                if (!t) return;
+
+                var map = {
+                    headerTitle: 'headerTitle',
+                    mainTitle: 'mainTitle',
+                    subtitle: 'subtitle',
+                    dropText: 'dropText',
+                    dropOr: 'dropOr',
+                    browseText: 'browseText',
+                    optionsTitle: 'optionsTitle',
+                    delimiterLabel: 'delimiterLabel',
+                    delimComma: 'delimComma',
+                    delimSemicolon: 'delimSemicolon',
+                    delimTab: 'delimTab',
+                    delimPipe: 'delimPipe',
+                    delimCustom: 'delimCustom',
+                    encodingLabel: 'encodingLabel',
+                    encUtf8: 'encUtf8',
+                    encWin1252: 'encWin1252',
+                    encIso8859: 'encIso8859',
+                    lineEndingsLabel: 'lineEndingsLabel',
+                    lineUnix: 'lineUnix',
+                    lineWindows: 'lineWindows',
+                    headerLabel: 'headerLabel',
+                    quoteLabel: 'quoteLabel',
+                    sheetLabel: 'sheetLabel',
+                    sheetAuto: 'sheetAuto',
+                    dateLabel: 'dateLabel',
+                    dateIso: 'dateIso',
+                    dateUs: 'dateUs',
+                    dateEu: 'dateEu',
+                    dateFull: 'dateFull',
+                    dateOriginal: 'dateOriginal',
+                    convertText: 'convertText',
+                    downloadText: 'downloadText',
+                    previewText: 'previewText',
+                    resetText: 'resetText',
+                    previewTitle: 'previewTitle',
+                    contact: 'contact',
+                    contactInfo: 'contactInfo',
+                    copyright: 'copyright'
+                };
+
+                Object.keys(map).forEach(function(id) {
+                    var el = $(id);
+                    if (el) el.textContent = t[map[id]];
+                });
+
+                if (els.langSwitch) {
+                    els.langSwitch.textContent = lang.toUpperCase();
+                }
+                updateFileInfo();
+            }
+
+            function updateClock() {
+                if (!els.clock) return;
+                els.clock.textContent = new Date().toLocaleTimeString(
+                    currentLang === 'tr' ? 'tr-TR' : 'en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }
+                );
+            }
+
+            function formatSize(bytes) {
+                if (bytes === 0) return '0 B';
+                var k = 1024;
+                var sizes = currentLang === 'tr' ? ['B', 'KB', 'MB', 'GB'] : ['B', 'KB', 'MB', 'GB'];
+                var i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            }
+
+            function updateFileInfo() {
+                var t = translations[currentLang];
+                if (file && els.fileInfo) {
+                    els.fileInfo.innerHTML = '' +
+                        '<p><strong>' + t.selectedFile + '</strong> ' + file.name + '</p>' +
+                        '<p><strong>' + t.size + '</strong> ' + formatSize(file.size) + '</p>' +
+                        '<p><strong>' + t.type + '</strong> ' + (file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') + '</p>';
+                    els.fileInfo.classList.add('show');
+                    if (els.convertBtn) els.convertBtn.disabled = false;
+                    if (els.previewBtn) els.previewBtn.disabled = false;
+                }
+            }
+
+            function loadWorkbook() {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var data = new Uint8Array(e.target.result);
+                    workbook = XLSX.read(data, { type: 'array' });
+                    updateSheets();
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            function updateSheets() {
+                if (!workbook || !els.sheetSelection) return;
+                var t = translations[currentLang];
+                els.sheetSelection.innerHTML = '';
+                els.sheetSelection.disabled = false;
+                var auto = document.createElement('option');
+                auto.value = 'auto';
+                auto.textContent = t.sheetAuto;
+                auto.selected = true;
+                els.sheetSelection.appendChild(auto);
+                workbook.SheetNames.forEach(function(name) {
+                    var opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    els.sheetSelection.appendChild(opt);
+                });
+            }
+
+            function toggleCustomDelimiter() {
+                if (els.customDelimiter) {
+                    els.customDelimiter.style.display = els.delimiterSelect.value === 'custom' ? 'block' : 'none';
+                }
+            }
+
+            function getDelimiter() {
+                if (els.delimiterSelect.value === 'custom') {
+                    return els.customDelimiter.value || ',';
+                }
+                return els.delimiterSelect.value;
+            }
+
+            function convertToCSV() {
+                if (!workbook) return;
+
+                var sheetName = els.sheetSelection.value === 'auto' ? workbook.SheetNames[0] : els.sheetSelection.value;
+                var ws = workbook.Sheets[sheetName];
+
+                var dateFormat = $('dateFormat').value;
+                var dateNF = dateFormat === 'original' ? undefined : dateFormat;
+
+                var opts = {
+                    FS: getDelimiter(),
+                    RS: $('lineEndings').value,
+                    blankrows: false,
+                    strip: false,
+                    rawNumbers: true,
+                    dateNF: dateNF,
+                    defval: '',
+                    includeHeader: $('includeHeader').checked,
+                    quoteAll: $('quoteAll').checked
+                };
+
+                csvData = XLSX.utils.sheet_to_csv(ws, opts);
+                if (els.downloadBtn) els.downloadBtn.disabled = false;
+
+                var t = translations[currentLang];
+                var existing = els.fileInfo.querySelector('.success-msg');
+                if (existing) existing.remove();
+                var msg = document.createElement('p');
+                msg.className = 'success-msg';
+                msg.innerHTML = '<i class="fas fa-check-circle"></i> ' + t.successMsg;
+                els.fileInfo.appendChild(msg);
+            }
+
+            function downloadCSV() {
+                if (!csvData) return;
+                var encoding = $('encoding').value;
+                var blob = new Blob([csvData], { type: 'text/csv;charset=' + encoding });
+                var name = file.name.replace(/\.[^/.]+$/, '') + '.csv';
+                saveAs(blob, name);
+            }
+
+            function togglePreview() {
+                if (!csvData) convertToCSV();
+                if (csvData && els.csvPreview && els.previewSection) {
+                    var t = translations[currentLang];
+                    var preview = csvData.length > 1500 ? csvData.substring(0, 1500) + '\n\n... (' + t.previewTruncated + ')' : csvData;
+                    els.csvPreview.textContent = preview;
+                    els.previewSection.classList.toggle('hidden');
+                }
+            }
+
+            function resetConverter() {
+                var t = translations[currentLang];
+                file = null;
+                csvData = null;
+                workbook = null;
+                if (els.fileInput) els.fileInput.value = '';
+                if (els.fileInfo) {
+                    els.fileInfo.innerHTML = '';
+                    els.fileInfo.classList.remove('show');
+                }
+                if (els.convertBtn) els.convertBtn.disabled = true;
+                if (els.downloadBtn) els.downloadBtn.disabled = true;
+                if (els.previewBtn) els.previewBtn.disabled = true;
+                if (els.previewSection) els.previewSection.classList.add('hidden');
+
+                if (els.sheetSelection) {
+                    els.sheetSelection.innerHTML = '<option value="auto" selected>' + t.sheetAuto + '</option>';
+                    els.sheetSelection.disabled = true;
+                }
+                if (els.delimiterSelect) els.delimiterSelect.value = ',';
+                if (els.customDelimiter) {
+                    els.customDelimiter.style.display = 'none';
+                    els.customDelimiter.value = '';
+                }
+                $('encoding').value = 'utf-8';
+                $('lineEndings').value = '\r\n';
+                $('includeHeader').checked = true;
+                $('quoteAll').checked = false;
+                $('dateFormat').value = 'yyyy-mm-dd';
+            }
+
+            function handleFileSelect(e) {
+                var files = e.target.files || (e.dataTransfer ? e.dataTransfer.files : null);
+                if (files && files.length) {
+                    file = files[0];
+                    updateFileInfo();
+                    loadWorkbook();
+                }
+            }
+
+            if (els.dropZone) {
+                els.dropZone.addEventListener('click', function() { if (els.fileInput) els.fileInput.click(); });
+                els.dropZone.addEventListener('dragover', function(e) { e.preventDefault(); els.dropZone.classList.add('dragover'); });
+                els.dropZone.addEventListener('dragleave', function() { els.dropZone.classList.remove('dragover'); });
+                els.dropZone.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    els.dropZone.classList.remove('dragover');
+                    handleFileSelect(e);
+                });
+            }
+
+            if (els.fileInput) {
+                els.fileInput.addEventListener('change', handleFileSelect);
+            }
+
+            if (els.browseBtn) {
+                els.browseBtn.addEventListener('click', function(e) { e.stopPropagation(); if (els.fileInput) els.fileInput.click(); });
+            }
+
+            if (els.convertBtn) els.convertBtn.addEventListener('click', convertToCSV);
+            if (els.downloadBtn) els.downloadBtn.addEventListener('click', downloadCSV);
+            if (els.previewBtn) els.previewBtn.addEventListener('click', togglePreview);
+            if (els.resetBtn) els.resetBtn.addEventListener('click', resetConverter);
+
+            if (els.delimiterSelect) {
+                els.delimiterSelect.addEventListener('change', toggleCustomDelimiter);
+            }
+
+            if (els.logo) {
+                els.logo.addEventListener('click', function() { window.location.href = '/'; });
+            }
+
+            if (els.langSwitch) {
+                els.langSwitch.addEventListener('click', function() {
+                    setLanguage(currentLang === 'en' ? 'tr' : 'en');
+                    this.classList.add('animate');
+                    setTimeout(function() { this.classList.remove('animate'); }.bind(this), 200);
+                });
+            }
+
+            if (els.themeToggle) {
+                els.themeToggle.addEventListener('click', function() { setTheme(!dark); });
+            }
+
+            setTheme(dark);
+            setLanguage('tr'); // Türkçe ile başlat
+            updateClock();
+            setInterval(updateClock, 1000);
+
+        })();
+    </script>
+</body>
+</html>

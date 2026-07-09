@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Molytica - Yardım</title>
+  <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #f6f7f9;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-header: rgba(255, 255, 255, 0.88);
+      --bg-input: #f1f3f5;
+      --text-primary: #0a0a0a;
+      --text-secondary: #4a4a4a;
+      --text-muted: #7a7a7a;
+      --border-color: rgba(0, 0, 0, 0.08);
+      --border-hover: rgba(0, 0, 0, 0.18);
+      --border-focus: rgba(0, 0, 0, 0.3);
+      --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.06);
+      --btn-bg: #ffffff;
+      --btn-text: #0a0a0a;
+      --btn-hover: #0a0a0a;
+      --btn-hover-text: #ffffff;
+      --footer-bg: #0a0a0a;
+      --footer-text: #d0d0d0;
+      --clock-bg: #eef0f2;
+      --clock-text: #3a3a3a;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 20px;
+      --radius-xl: 100px;
+      --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      --font: 'Inter', -apple-system, system-ui, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #161616;
+      --bg-card: #1a1a1a;
+      --bg-header: rgba(20, 20, 20, 0.92);
+      --bg-input: #282828;
+      --text-primary: #f0f0f0;
+      --text-secondary: #b0b0b0;
+      --text-muted: #707070;
+      --border-color: rgba(255, 255, 255, 0.06);
+      --border-hover: rgba(255, 255, 255, 0.14);
+      --border-focus: rgba(255, 255, 255, 0.25);
+      --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+      --btn-bg: #222222;
+      --btn-text: #f0f0f0;
+      --btn-hover: #f0f0f0;
+      --btn-hover-text: #0a0a0a;
+      --footer-bg: #0a0a0a;
+      --footer-text: #888888;
+      --clock-bg: #282828;
+      --clock-text: #c0c0c0;
+    }
+
+    body {
+      background: var(--bg-primary);
+      font-family: var(--font);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      line-height: 1.7;
+      transition: background var(--transition), color var(--transition);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    header {
+      background: var(--bg-header);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      height: 38px;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+      filter: brightness(0);
+    }
+    [data-theme="dark"] .logo {
+      filter: brightness(0) invert(1);
+    }
+    .logo:hover {
+      transform: scale(1.05) rotate(-1deg);
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      transition: color var(--transition);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #clock {
+      font-size: 0.85rem;
+      font-weight: 450;
+      color: var(--clock-text);
+      background: var(--clock-bg);
+      padding: 4px 14px;
+      border-radius: var(--radius-xl);
+      letter-spacing: 0.4px;
+      font-variant-numeric: tabular-nums;
+      transition: all var(--transition);
+    }
+
+    .theme-toggle {
+      background: var(--clock-bg);
+      border: none;
+      border-radius: var(--radius-xl);
+      padding: 6px 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      color: var(--text-primary);
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .theme-toggle:hover {
+      transform: scale(0.95);
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--border-hover);
+      border-radius: var(--radius-xl);
+      padding: 5px 14px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all var(--transition);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .lang-btn:hover {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      transform: scale(0.95);
+    }
+    .lang-btn.animate {
+      transform: scale(0.92);
+      transition: transform 0.15s ease;
+    }
+
+    main {
+      max-width: 1060px;
+      margin: 40px auto;
+      padding: 0 24px;
+      flex: 1;
+      width: 100%;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 36px;
+      animation: fadeUp 0.7s ease forwards;
+    }
+    .page-header h2 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      transition: color var(--transition);
+    }
+    .page-header p {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+      transition: color var(--transition);
+    }
+
+    .help-section {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 36px 40px;
+      box-shadow: var(--shadow-sm);
+      transition: all var(--transition);
+      animation: fadeUp 0.7s ease 0.15s forwards;
+      opacity: 0;
+    }
+    .help-section:hover {
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-md);
+    }
+
+    .help-content {
+      animation: fadeIn 0.4s ease;
+    }
+
+    .help-content p {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.8;
+    }
+
+    .help-content p strong {
+      color: var(--text-primary);
+    }
+
+    .help-content h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 28px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border-color);
+      transition: border-color var(--transition);
+    }
+
+    .help-content h4 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 20px 0 10px;
+    }
+
+    .help-content ul {
+      list-style: none;
+      margin: 12px 0 20px;
+      padding: 0;
+    }
+
+    .help-content ul li {
+      position: relative;
+      padding: 6px 0 6px 28px;
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .help-content ul li::before {
+      content: '>';
+      position: absolute;
+      left: 4px;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .help-content ul li strong {
+      color: var(--text-primary);
+    }
+
+    .help-content .highlight-box {
+      background: var(--bg-input);
+      border-left: 3px solid var(--text-primary);
+      padding: 16px 20px;
+      border-radius: var(--radius-sm);
+      margin: 16px 0;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .help-content .highlight-box p {
+      margin-bottom: 0;
+      font-size: 0.95rem;
+    }
+
+    .help-content .tag {
+      display: inline-block;
+      padding: 2px 12px;
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      border-radius: var(--radius-xl);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 4px;
+    }
+    [data-theme="dark"] .help-content .tag {
+      background: #f0f0f0;
+      color: #0a0a0a;
+    }
+
+    footer {
+      background: var(--footer-bg);
+      color: var(--footer-text);
+      padding: 32px 24px 24px;
+      margin-top: 40px;
+      border-top: 1px solid var(--border-color);
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .footer-content {
+      max-width: 1060px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .footer-content .contact {
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+      opacity: 0.7;
+      letter-spacing: 0.2px;
+    }
+    .footer-content .contact strong {
+      opacity: 1;
+      color: #fff;
+      font-weight: 500;
+    }
+    .social-icons {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      margin: 16px 0 18px;
+    }
+    .social-icons a {
+      color: #888;
+      font-size: 1.3rem;
+      transition: all 0.3s ease;
+      opacity: 0.5;
+    }
+    .social-icons a:hover {
+      color: #fff;
+      transform: translateY(-2px);
+      opacity: 1;
+    }
+    .copyright {
+      font-size: 0.8rem;
+      opacity: 0.35;
+      margin-top: 10px;
+      letter-spacing: 0.3px;
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 12px 20px; }
+      .logo { height: 30px; }
+      header h1 { font-size: 1rem; }
+      #clock { display: none; }
+      .theme-toggle { padding: 4px 10px; font-size: 0.85rem; }
+      .lang-btn { padding: 4px 10px; font-size: 0.65rem; }
+      main { margin: 24px auto; padding: 0 16px; }
+      .page-header h2 { font-size: 1.6rem; }
+      .page-header p { font-size: 0.95rem; }
+      .help-section { padding: 24px 20px; }
+      .help-content h3 { font-size: 1.1rem; }
+      .help-content h4 { font-size: 0.95rem; }
+      .help-content ul li { font-size: 0.9rem; padding: 5px 0 5px 24px; }
+      footer { padding: 24px 16px; }
+      .social-icons a { font-size: 1.1rem; gap: 20px; }
+    }
+
+    @media (max-width: 480px) {
+      header h1 { font-size: 0.85rem; }
+      .lang-btn { font-size: 0.6rem; padding: 3px 8px; }
+      .page-header h2 { font-size: 1.3rem; }
+      .help-section { padding: 18px 14px; border-radius: var(--radius-md); }
+      .help-content p { font-size: 0.9rem; }
+      .help-content ul li { font-size: 0.85rem; padding: 4px 0 4px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
+      <h1 id="headerTitle">Yardım</h1>
+    </div>
+    <div class="header-right">
+      <div id="clock"></div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Tema değiştir">
+        <i class="fas fa-moon" id="themeIcon"></i>
+      </button>
+      <button class="lang-btn" id="langSwitch">TR</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-header">
+      <h2 id="pageTitle">Yardım Merkezi</h2>
+      <p id="pageDesc">Molytica Chemical Analyzer kullanım kılavuzu ve sık sorulan sorular</p>
+    </div>
+
+    <section class="help-section">
+      <div class="help-content" id="helpContentTr">
+        <p><strong>Molytica Chemical Analyzer</strong>, kimyasal veri analizi yapmanızı, tahminler oluşturmanızı ve görselleştirmelerle raporlar hazırlamanızı sağlayan güçlü bir araçtır. Bu rehber, uygulamanın tüm özelliklerini adım adım açıklamaktadır.</p>
+
+        <h3>Sistem Gereksinimleri</h3>
+        <p>Uygulamayı sorunsuz çalıştırmak için aşağıdaki gereksinimlerin karşılanması önerilir:</p>
+        <ul>
+          <li><strong>Tarayıcı:</strong> Google Chrome, Mozilla Firefox, Safari veya Microsoft Edge (en son sürümler)</li>
+          <li><strong>İşletim Sistemi:</strong> Windows 10+, macOS 10.15+ veya Linux (Ubuntu 20.04+)</li>
+          <li><strong>Ek Araçlar:</strong> Python 3.8+ (veri analizi için) ve Node.js 14+ (arka uç işlemleri için)</li>
+          <li><strong>İnternet Bağlantısı:</strong> Uygulama çevrimiçi çalıştığı için stabil internet bağlantısı gereklidir</li>
+        </ul>
+
+        <h3>Desteklenen Dosya Formatları</h3>
+        <ul>
+          <li><strong>CSV</strong> — Tabular veriler için standart format. Her kolon başlığı düzgün etiketlenmelidir.</li>
+          <li><strong>Excel (.xlsx, .xls)</strong> — Excel dosyalarını CSV'ye dönüştürerek yükleyebilirsiniz.</li>
+          <li><strong>Manuel Veri Girişi</strong> — Küçük veri setleri için doğrudan veri girişi yapabilirsiniz.</li>
+        </ul>
+
+        <h3>Nasıl Kullanılır?</h3>
+        <h4>1. Veri Yükleme</h4>
+        <ul>
+          <li><strong>Manuel Veri Girişi:</strong> "Manuel Veri Girişi" butonuna tıklayarak verilerinizi elle girin. Küçük veri setleri için idealdir.</li>
+          <li><strong>CSV Dosyası Yükle:</strong> "CSV Dosyası Yükle" butonu ile bilgisayarınızdan bir CSV dosyası seçin.</li>
+          <li><strong>Excel'den CSV'ye Dönüştür:</strong> Excel dosyasını seçin, sistem otomatik olarak CSV'ye dönüştürecektir.</li>
+        </ul>
+
+        <h4>2. Veri Analizi</h4>
+        <ul>
+          <li><strong>Katalizör, Verim Tahmini:</strong> Kimyasal reaksiyonlar için katalizör ve verim tahmini yapar.</li>
+          <li><strong>Tahmin Yap:</strong> Yüklediğiniz veriler üzerinden makine öğrenmesi ile tahminler üretir.</li>
+          <li><strong>Görselleştirme:</strong> Verilerinizi grafikler ve diyagramlar ile görsel olarak analiz edin.</li>
+          <li><strong>Model Karşılaştırması:</strong> Farklı AI modellerini karşılaştırın ve performanslarını değerlendirin.</li>
+        </ul>
+
+        <h4>3. Raporlama</h4>
+        <ul>
+          <li>Analiz sonuçlarınızı otomatik olarak rapor haline getirin.</li>
+          <li>Raporlar, veri analizi, tahmin sonuçları ve görselleştirmeleri içerir.</li>
+          <li>Raporları CSV veya PDF formatında dışa aktarabilirsiniz.</li>
+        </ul>
+
+        <h3>Veri Seti Gereksinimleri</h3>
+        <ul>
+          <li><strong>Zaman Bilgisi:</strong> Zaman serisi tahmini yapıyorsanız, veriniz tarih/saat içermelidir.</li>
+          <li><strong>Kategorik Özellikler:</strong> Kimyasal tür, bölge gibi kategorik değişkenler bulunmalıdır.</li>
+          <li><strong>Sayısal Özellikler:</strong> Sıcaklık, yoğunluk, konsantrasyon gibi sayısal değişkenler gereklidir.</li>
+          <li><strong>Eksik Veriler:</strong> Eksik veriler temizlenmeli veya uygun şekilde doldurulmalıdır.</li>
+          <li><strong>Kolon Başlıkları:</strong> Tüm kolonlar açık ve anlaşılır şekilde etiketlenmelidir.</li>
+        </ul>
+
+        <div class="highlight-box">
+          <p><strong>İpucu:</strong> En iyi sonuçlar için verinizi yüklemeden önce temizleyin ve normalize edin. Eksik değerleri doldurun veya çıkarın.</p>
+        </div>
+
+        <h3>Sık Sorulan Sorular</h3>
+        <ul>
+          <li><strong>Hangi veri boyutlarını işleyebilir?</strong> — 10.000 satıra kadar veriyi sorunsuz işleyebilir.</li>
+          <li><strong>Sonuçları nasıl dışa aktarabilirim?</strong> — Her analiz sonucunda "İndir" butonu ile CSV veya PDF olarak kaydedebilirsiniz.</li>
+          <li><strong>Özel modeller ekleyebilir miyim?</strong> — Geliştirici modu ile kendi modellerinizi entegre edebilirsiniz.</li>
+        </ul>
+      </div>
+
+      <div class="help-content" id="helpContentEn" style="display:none;">
+        <p><strong>Molytica Chemical Analyzer</strong> is a powerful tool for chemical data analysis, generating predictions, and creating reports with visualizations. This guide explains all features step by step.</p>
+
+        <h3>System Requirements</h3>
+        <p>The following requirements are recommended for smooth operation:</p>
+        <ul>
+          <li><strong>Browser:</strong> Latest versions of Google Chrome, Mozilla Firefox, Safari, or Microsoft Edge</li>
+          <li><strong>Operating System:</strong> Windows 10+, macOS 10.15+, or Linux (Ubuntu 20.04+)</li>
+          <li><strong>Additional Tools:</strong> Python 3.8+ (for data analysis) and Node.js 14+ (for backend)</li>
+          <li><strong>Internet Connection:</strong> Stable internet connection required for online operation</li>
+        </ul>
+
+        <h3>Supported File Formats</h3>
+        <ul>
+          <li><strong>CSV</strong> — Standard format for tabular data. Each column must be properly labeled.</li>
+          <li><strong>Excel (.xlsx, .xls)</strong> — Convert Excel files to CSV format for upload.</li>
+          <li><strong>Manual Data Entry</strong> — Direct data input for small datasets.</li>
+        </ul>
+
+        <h3>How to Use?</h3>
+        <h4>1. Data Upload</h4>
+        <ul>
+          <li><strong>Manual Data Entry:</strong> Click "Manual Data Entry" button to enter data manually.</li>
+          <li><strong>Upload CSV File:</strong> Select a CSV file from your computer using the "Upload CSV" button.</li>
+          <li><strong>Convert Excel to CSV:</strong> Select an Excel file, and the system will convert it automatically.</li>
+        </ul>
+
+        <h4>2. Data Analysis</h4>
+        <ul>
+          <li><strong>Catalyst, Yield Prediction:</strong> Predicts catalysts and yields for chemical reactions.</li>
+          <li><strong>Make Prediction:</strong> Generates predictions using machine learning on uploaded data.</li>
+          <li><strong>Visualization:</strong> Analyze data visually with charts and diagrams.</li>
+          <li><strong>Model Comparison:</strong> Compare different AI models and evaluate their performance.</li>
+        </ul>
+
+        <h4>3. Reporting</h4>
+        <ul>
+          <li>Automatically generate reports from analysis results.</li>
+          <li>Reports include data analysis, prediction results, and visualizations.</li>
+          <li>Export reports in CSV or PDF format.</li>
+        </ul>
+
+        <h3>Dataset Requirements</h3>
+        <ul>
+          <li><strong>Time Information:</strong> For time series forecasting, include date/time data.</li>
+          <li><strong>Categorical Features:</strong> Include categorical variables like chemical type, region.</li>
+          <li><strong>Numeric Features:</strong> Include numeric variables like temperature, concentration.</li>
+          <li><strong>Missing Data:</strong> Clean missing data or fill appropriately.</li>
+          <li><strong>Column Headers:</strong> All columns must be clearly labeled.</li>
+        </ul>
+
+        <div class="highlight-box">
+          <p><strong>Tip:</strong> Clean and normalize your data before upload for best results. Fill or remove missing values.</p>
+        </div>
+
+        <h3>FAQ</h3>
+        <ul>
+          <li><strong>What data sizes can be processed?</strong> — Up to 10,000 rows without issues.</li>
+          <li><strong>How to export results?</strong> — Use the "Download" button to save as CSV or PDF.</li>
+          <li><strong>Can I add custom models?</strong> — Yes, with developer mode you can integrate your own models.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="contact">
+        <strong id="contactLabel">İletişim</strong>
+        <span id="contactInfo">akkochief@gmail.com · @akkochief</span>
+      </div>
+      <div class="social-icons">
+        <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+        <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
+        <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+      </div>
+      <div class="copyright" id="copyright">© 2026 Molytica</div>
+    </div>
+  </footer>
+
+  <script>
+    (function() {
+      'use strict';
+
+      var currentLang = 'tr';
+      var dark = localStorage.getItem('molytica-theme') === 'dark';
+
+      var $ = function(id) { return document.getElementById(id); };
+
+      var els = {
+        logo: $('logo'),
+        langSwitch: $('langSwitch'),
+        themeToggle: $('themeToggle'),
+        themeIcon: $('themeIcon'),
+        clock: $('clock'),
+        helpTr: $('helpContentTr'),
+        helpEn: $('helpContentEn'),
+        headerTitle: $('headerTitle'),
+        pageTitle: $('pageTitle'),
+        pageDesc: $('pageDesc'),
+        contactLabel: $('contactLabel'),
+        contactInfo: $('contactInfo'),
+        copyright: $('copyright')
+      };
+
+      var translations = {
+        tr: {
+          headerTitle: 'Yardım',
+          pageTitle: 'Yardım Merkezi',
+          pageDesc: 'Molytica Chemical Analyzer kullanım kılavuzu ve sık sorulan sorular',
+          contact: 'İletişim',
+          contactInfo: 'akkochief@gmail.com · @akkochief',
+          copyright: '© 2026 Molytica',
+        },
+        en: {
+          headerTitle: 'Help',
+          pageTitle: 'Help Center',
+          pageDesc: 'Molytica Chemical Analyzer user guide and FAQ',
+          contact: 'Contact',
+          contactInfo: 'akkochief@gmail.com · @akkochief',
+          copyright: '© 2026 Molytica',
+        }
+      };
+
+      function setTheme(d) {
+        dark = d;
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+        localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
+        if (els.themeIcon) {
+          els.themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
+        }
+      }
+
+      function setLanguage(lang) {
+        currentLang = lang;
+        var t = translations[lang];
+        if (!t) return;
+
+        var map = {
+          headerTitle: 'headerTitle',
+          pageTitle: 'pageTitle',
+          pageDesc: 'pageDesc',
+          contactLabel: 'contact',
+          contactInfo: 'contactInfo',
+          copyright: 'copyright'
+        };
+
+        Object.keys(map).forEach(function(id) {
+          var el = els[id];
+          if (el) el.textContent = t[map[id]];
+        });
+
+        if (lang === 'tr') {
+          els.helpTr.style.display = 'block';
+          els.helpEn.style.display = 'none';
+        } else {
+          els.helpTr.style.display = 'none';
+          els.helpEn.style.display = 'block';
+        }
+
+        if (els.langSwitch) {
+          els.langSwitch.textContent = lang.toUpperCase();
+        }
+      }
+
+      function updateClock() {
+        if (!els.clock) return;
+        els.clock.textContent = new Date().toLocaleTimeString(
+          currentLang === 'tr' ? 'tr-TR' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          }
+        );
+      }
+
+      if (els.logo) {
+        els.logo.addEventListener('click', function() { window.location.href = '/'; });
+      }
+
+      if (els.langSwitch) {
+        els.langSwitch.addEventListener('click', function() {
+          setLanguage(currentLang === 'tr' ? 'en' : 'tr');
+          this.classList.add('animate');
+          setTimeout(function() { this.classList.remove('animate'); }.bind(this), 200);
+        });
+      }
+
+      if (els.themeToggle) {
+        els.themeToggle.addEventListener('click', function() { setTheme(!dark); });
+      }
+
+      setTheme(dark);
+      setLanguage('tr');
+      updateClock();
+      setInterval(updateClock, 1000);
+
+    })();
+  </script>
+</body>
+</html>

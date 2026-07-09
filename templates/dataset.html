@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
+    <title>Molytica - SMILES Dönüştürücü</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #f6f7f9; --bg-secondary: #ffffff; --bg-card: #ffffff;
+            --bg-header: rgba(255,255,255,0.88); --bg-input: #f1f3f5;
+            --text-primary: #0a0a0a; --text-secondary: #4a4a4a; --text-muted: #7a7a7a;
+            --border-color: rgba(0,0,0,0.08); --border-hover: rgba(0,0,0,0.18);
+            --shadow-sm: 0 2px 12px rgba(0,0,0,0.04); --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
+            --btn-bg: #ffffff; --btn-text: #0a0a0a; --btn-hover: #0a0a0a; --btn-hover-text: #ffffff;
+            --footer-bg: #0a0a0a; --footer-text: #d0d0d0;
+            --clock-bg: #eef0f2; --clock-text: #3a3a3a;
+            --radius-sm: 8px; --radius-md: 16px; --radius-lg: 20px; --radius-xl: 100px;
+            --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            --font: 'Inter', -apple-system, system-ui, sans-serif;
+            --toast-bg: #0a0a0a; --toast-text: #ffffff;
+        }
+        [data-theme="dark"] {
+            --bg-primary: #0d0d0d; --bg-secondary: #161616; --bg-card: #1a1a1a;
+            --bg-header: rgba(20,20,20,0.92); --bg-input: #282828;
+            --text-primary: #f0f0f0; --text-secondary: #b0b0b0; --text-muted: #707070;
+            --border-color: rgba(255,255,255,0.06); --border-hover: rgba(255,255,255,0.14);
+            --shadow-sm: 0 2px 12px rgba(0,0,0,0.3); --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+            --btn-bg: #222222; --btn-text: #f0f0f0; --btn-hover: #f0f0f0; --btn-hover-text: #0a0a0a;
+            --footer-bg: #0a0a0a; --footer-text: #888888;
+            --clock-bg: #282828; --clock-text: #c0c0c0;
+            --toast-bg: #f0f0f0; --toast-text: #0a0a0a;
+        }
+        body {
+            background: var(--bg-primary); font-family: var(--font); color: var(--text-primary);
+            display: flex; flex-direction: column; min-height: 100vh; line-height: 1.6;
+            transition: background var(--transition), color var(--transition);
+            -webkit-font-smoothing: antialiased;
+        }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        header {
+            background: var(--bg-header); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 14px 48px; display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 10px 20px; position: sticky; top: 0; z-index: 100;
+            transition: background var(--transition), border-color var(--transition);
+        }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .logo { height: 38px; cursor: pointer; transition: transform 0.3s ease; filter: brightness(0); }
+        [data-theme="dark"] .logo { filter: brightness(0) invert(1); }
+        .logo:hover { transform: scale(1.05) rotate(-1deg); }
+        header h1 { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary); transition: color var(--transition); }
+        .header-right { display: flex; align-items: center; gap: 14px; }
+        #clock { font-size: 0.85rem; font-weight: 450; color: var(--clock-text); background: var(--clock-bg); padding: 4px 14px; border-radius: var(--radius-xl); letter-spacing: 0.4px; font-variant-numeric: tabular-nums; transition: all var(--transition); }
+        .theme-toggle { background: var(--clock-bg); border: none; border-radius: var(--radius-xl); padding: 6px 12px; font-size: 1rem; cursor: pointer; color: var(--text-primary); transition: all var(--transition); display: flex; align-items: center; gap: 6px; }
+        .theme-toggle:hover { transform: scale(0.95); }
+        .lang-btn { background: transparent; border: 1.5px solid var(--border-hover); border-radius: var(--radius-xl); padding: 5px 14px; font-weight: 600; font-size: 0.75rem; color: var(--text-primary); cursor: pointer; transition: all var(--transition); letter-spacing: 0.5px; text-transform: uppercase; }
+        .lang-btn:hover { background: var(--text-primary); color: var(--bg-primary); transform: scale(0.95); }
+        .lang-btn.animate { transform: scale(0.92); transition: transform 0.15s ease; }
+        
+        .container { max-width: 900px; margin: 40px auto; padding: 0 24px; flex: 1; width: 100%; }
+        .page-header { text-align: center; margin-bottom: 32px; animation: fadeUp 0.7s ease forwards; }
+        .page-header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); margin-bottom: 6px; transition: color var(--transition); }
+        .page-header p { font-size: 1.1rem; color: var(--text-secondary); font-weight: 400; transition: color var(--transition); }
+        
+        .upload-area {
+            border: 2px dashed var(--border-color); border-radius: var(--radius-lg); padding: 44px 24px;
+            text-align: center; background: var(--bg-card); transition: all var(--transition);
+            cursor: pointer; box-shadow: var(--shadow-sm); margin-bottom: 28px;
+        }
+        .upload-area:hover { border-color: var(--border-hover); background: var(--bg-secondary); box-shadow: var(--shadow-md); }
+        .upload-area.dragover { border-color: var(--text-primary); background: var(--bg-input); }
+        .upload-area.uploading { opacity: 0.6; pointer-events: none; }
+        .upload-icon { font-size: 3rem; margin-bottom: 12px; display: block; color: var(--text-primary); }
+        .upload-instructions { font-size: 1.2rem; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+        .upload-text { color: var(--text-secondary); margin-bottom: 16px; font-size: 0.95rem; }
+        .file-input { display: none; }
+        .upload-btn { display: inline-block; padding: 12px 32px; background: var(--text-primary); color: var(--bg-primary); border: none; border-radius: var(--radius-xl); font-family: var(--font); font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all var(--transition); letter-spacing: 0.3px; }
+        .upload-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); opacity: 0.9; }
+        .upload-btn:active { transform: translateY(0); }
+        .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .file-requirements { margin-top: 16px; color: var(--text-muted); font-size: 0.85rem; }
+        
+        .progress-container { display: none; margin: 24px 0; padding: 24px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: var(--shadow-sm); animation: fadeIn 0.4s ease; }
+        .progress-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 12px; color: var(--text-primary); }
+        .progress-bar { width: 100%; height: 8px; background: var(--bg-input); border-radius: var(--radius-xl); overflow: hidden; margin: 12px 0; }
+        .progress-fill { height: 100%; background: var(--text-primary); width: 0%; transition: width 0.5s ease; border-radius: var(--radius-xl); }
+        .progress-text { text-align: center; font-weight: 600; font-size: 0.95rem; margin-top: 6px; color: var(--text-primary); }
+        .progress-message { text-align: center; font-size: 0.9rem; color: var(--text-muted); margin-top: 4px; }
+        .progress-logs { margin-top: 12px; max-height: 200px; overflow-y: auto; background: var(--bg-input); border-radius: var(--radius-sm); padding: 8px 12px; font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--text-secondary); border: 1px solid var(--border-color); }
+        .progress-logs::-webkit-scrollbar { width: 4px; }
+        .progress-logs::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 10px; }
+        .log-entry { padding: 3px 0; border-bottom: 1px solid var(--border-color); opacity: 0.85; animation: fadeIn 0.2s ease; }
+        .log-entry:last-child { border-bottom: none; }
+        .log-entry .time { color: var(--text-muted); margin-right: 8px; font-weight: 500; }
+        
+        .results { display: none; margin-top: 28px; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; background: var(--bg-card); box-shadow: var(--shadow-sm); animation: fadeUp 0.5s ease; }
+        .results-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 16px; color: var(--text-primary); }
+        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 16px 0; }
+        .stat-card { padding: 16px; background: var(--bg-input); border-radius: var(--radius-md); text-align: center; border: 1px solid var(--border-color); transition: all var(--transition); }
+        .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+        .stat-card.full-width { grid-column: 1 / -1; text-align: left; padding: 12px 16px; }
+        .stat-title { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); }
+        .source-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
+        .source-row:last-child { border-bottom: none; }
+        .source-row .name { color: var(--text-secondary); }
+        .source-row .rate { font-weight: 500; }
+        .download-section { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+        .download-btn { display: inline-block; padding: 10px 24px; background: var(--text-primary); color: var(--bg-primary); border: none; border-radius: var(--radius-xl); font-family: var(--font); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all var(--transition); text-decoration: none; letter-spacing: 0.3px; }
+        .download-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); opacity: 0.9; }
+        .error-container { margin: 16px 0; }
+        .error { padding: 16px 20px; background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-md); color: #991b1b; font-size: 0.95rem; animation: fadeIn 0.3s ease; }
+        [data-theme="dark"] .error { background: #3a1a1a; border-color: #ef5350; color: #ef9a9a; }
+        
+        .toast {
+            position: fixed; bottom: 30px; right: 30px; background: var(--toast-bg); color: var(--toast-text);
+            padding: 14px 28px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+            font-family: var(--font); font-size: 0.9rem; font-weight: 500; z-index: 3000;
+            animation: slideDown 0.4s ease; max-width: 400px;
+        }
+        .toast.success { border-left: 4px solid #22c55e; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        .toast.info { border-left: 4px solid #3b82f6; }
+        
+        footer { background: var(--footer-bg); color: var(--footer-text); padding: 32px 24px 24px; margin-top: 40px; border-top: 1px solid var(--border-color); transition: background var(--transition), border-color var(--transition); }
+        .footer-content { max-width: 1060px; margin: 0 auto; text-align: center; }
+        .footer-content .contact { font-size: 0.9rem; margin-bottom: 14px; opacity: 0.7; letter-spacing: 0.2px; }
+        .footer-content .contact strong { opacity: 1; color: #fff; font-weight: 500; }
+        .social-icons { display: flex; justify-content: center; gap: 28px; margin: 16px 0 18px; }
+        .social-icons a { color: #888; font-size: 1.3rem; transition: all 0.3s ease; opacity: 0.5; }
+        .social-icons a:hover { color: #fff; transform: translateY(-2px); opacity: 1; }
+        .copyright { font-size: 0.8rem; opacity: 0.35; margin-top: 10px; letter-spacing: 0.3px; }
+        
+        @media (max-width: 768px) {
+            header { padding: 12px 20px; }
+            .logo { height: 30px; }
+            header h1 { font-size: 1rem; }
+            #clock { display: none; }
+            .theme-toggle { padding: 4px 10px; font-size: 0.85rem; }
+            .lang-btn { padding: 4px 10px; font-size: 0.65rem; }
+            .container { padding: 0 16px; margin: 24px auto; }
+            .page-header h1 { font-size: 1.6rem; }
+            .page-header p { font-size: 0.95rem; }
+            .upload-area { padding: 32px 16px; }
+            .upload-instructions { font-size: 1rem; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .download-section { flex-direction: column; align-items: center; }
+            .download-btn { width: 100%; max-width: 280px; text-align: center; }
+            footer { padding: 24px 16px; }
+            .social-icons a { font-size: 1.1rem; gap: 20px; }
+            .progress-logs { max-height: 120px; font-size: 0.7rem; }
+            .toast { bottom: 20px; right: 20px; left: 20px; max-width: none; }
+        }
+        @media (max-width: 480px) {
+            header h1 { font-size: 0.85rem; }
+            .lang-btn { font-size: 0.6rem; padding: 3px 8px; }
+            .page-header h1 { font-size: 1.3rem; }
+            .upload-btn { padding: 10px 20px; font-size: 0.85rem; }
+            .upload-icon { font-size: 2.5rem; }
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
+            <h1 id="headerTitle">MOLYTICA</h1>
+        </div>
+        <div class="header-right">
+            <div id="clock"></div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+            <button class="lang-btn" id="langSwitch">TR</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 id="appTitle">SMILES Dönüştürücü</h1>
+            <p id="appDescription">Kimyasal bileşikleri SMILES formatına dönüştürün</p>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <span class="upload-icon" id="uploadIcon">📄</span>
+            <h3 class="upload-instructions" id="uploadInstructions">CSV Dosyanızı Yükleyin</h3>
+            <p class="upload-text" id="uploadText">Dosyayı buraya sürükleyip bırakın veya seçmek için tıklayın</p>
+            <input type="file" id="fileInput" class="file-input" accept=".csv">
+            <button class="upload-btn" id="uploadBtn">Dosya Seç</button>
+            <p class="file-requirements" id="fileRequirements">CSV dosyası subs1, subs2, product sütunlarını içermelidir</p>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <h3 class="progress-title" id="progressTitle">İşlem Durumu</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">0%</div>
+            <div class="progress-message" id="progressMessage">Başlatılıyor...</div>
+            <div class="progress-logs" id="progressLogs"></div>
+        </div>
+
+        <div class="results" id="results">
+            <h3 class="results-title" id="resultsTitle">İşlem Tamamlandı</h3>
+            <div class="stats-grid" id="statsGrid"></div>
+            <div class="download-section" id="downloadSection"></div>
+        </div>
+
+        <div class="error-container" id="errorContainer"></div>
+    </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="contact">
+        <strong id="contactLabel">İletişim</strong>
+        <span id="contactInfo">akkochief@gmail.com · @akkochief</span>
+      </div>
+      <div class="social-icons">
+        <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+        <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
+        <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+      </div>
+      <div class="copyright" id="copyright">© 2026 Molytica</div>
+    </div>
+  </footer>
+
+    <script>
+        (function() {
+            'use strict';
+
+            var translations = {
+                tr: {
+                    headerTitle: 'SMILES Dönüştürücü',
+                    appTitle: 'SMILES Dönüştürücü',
+                    appDescription: 'Kimyasal bileşikleri SMILES formatına dönüştürün',
+                    uploadInstructions: 'CSV Dosyanızı Yükleyin',
+                    uploadText: 'Dosyayı buraya sürükleyip bırakın veya seçmek için tıklayın',
+                    uploadBtn: 'Dosya Seç',
+                    fileRequirements: 'CSV dosyası subs1, subs2, product sütunlarını içermelidir',
+                    progressTitle: 'İşlem Durumu',
+                    progressStarting: 'Başlatılıyor...',
+                    progressReading: 'Dosya okunuyor...',
+                    progressAnalyzing: 'Sütunlar analiz ediliyor...',
+                    progressConverting: 'SMILES formatına dönüştürülüyor...',
+                    progressFinalizing: 'Sonlandırılıyor...',
+                    resultsTitle: 'İşlem Tamamlandı',
+                    statRows: 'Toplam Satır',
+                    statColumns: 'İşlenen Sütun',
+                    statCache: 'Önbellek Boyutu',
+                    statConverted: 'Başarılı Dönüşüm',
+                    statTime: 'Geçen Süre',
+                    statSourceRates: 'Kaynak Başarı Oranları',
+                    downloadBtn: 'Sonuçları İndir',
+                    contactLabel: 'İletişim',
+                    contactInfo: 'akkochief@gmail.com · @akkochief',
+                    copyright: '© 2026 Molytica',
+                    errorNoFile: 'Lütfen bir dosya seçin.',
+                    errorInvalidFile: 'Lütfen sadece CSV dosyası yükleyin.',
+                    errorUpload: 'Dosya yükleme hatası: ',
+                    errorProcessing: 'İşlem hatası',
+                    errorUnknown: 'Bilinmeyen hata',
+                    processing: 'İşleniyor...',
+                    logUploading: 'Dosya yükleniyor:',
+                    logUploadDone: 'Dosya yüklendi, işlem başlatılıyor...',
+                    logTaskId: 'Task ID:',
+                    logCompleted: 'İşlem tamamlandı!',
+                    logError: 'Hata:',
+                    logSuccess: 'Başarılı',
+                    logFailed: 'Başarısız',
+                    logTotal: 'Toplam'
+                },
+                en: {
+                    headerTitle: 'SMILES Converter',
+                    appTitle: 'SMILES Converter',
+                    appDescription: 'Convert chemical compounds to SMILES format',
+                    uploadInstructions: 'Upload Your CSV File',
+                    uploadText: 'Drag and drop your file here or click to select',
+                    uploadBtn: 'Select File',
+                    fileRequirements: 'CSV file must contain subs1, subs2, product columns',
+                    progressTitle: 'Processing Status',
+                    progressStarting: 'Starting...',
+                    progressReading: 'Reading file...',
+                    progressAnalyzing: 'Analyzing columns...',
+                    progressConverting: 'Converting to SMILES...',
+                    progressFinalizing: 'Finalizing...',
+                    resultsTitle: 'Processing Completed',
+                    statRows: 'Total Rows',
+                    statColumns: 'Columns Processed',
+                    statCache: 'Cache Size',
+                    statConverted: 'Successfully Converted',
+                    statTime: 'Elapsed Time',
+                    statSourceRates: 'Source Success Rates',
+                    downloadBtn: 'Download Results',
+                    contactLabel: 'Contact',
+                    contactInfo: 'akkochief@gmail.com · @akkochief',
+                    copyright: '© 2026 Molytica',
+                    errorNoFile: 'Please select a file.',
+                    errorInvalidFile: 'Please upload only CSV files.',
+                    errorUpload: 'Upload error: ',
+                    errorProcessing: 'Processing error',
+                    errorUnknown: 'Unknown error',
+                    processing: 'Processing...',
+                    logUploading: 'Uploading file:',
+                    logUploadDone: 'File uploaded, processing started...',
+                    logTaskId: 'Task ID:',
+                    logCompleted: 'Processing completed!',
+                    logError: 'Error:',
+                    logSuccess: 'Success',
+                    logFailed: 'Failed',
+                    logTotal: 'Total'
+                }
+            };
+
+            var state = {
+                currentTaskId: null,
+                progressInterval: null,
+                currentLang: 'tr',
+                dark: localStorage.getItem('molytica-theme') === 'dark',
+                isUploading: false,
+                lastResults: null
+            };
+
+            var $ = function(id) { return document.getElementById(id); };
+
+            var els = {
+                headerTitle: $('headerTitle'),
+                appTitle: $('appTitle'),
+                appDescription: $('appDescription'),
+                uploadInstructions: $('uploadInstructions'),
+                uploadText: $('uploadText'),
+                uploadBtn: $('uploadBtn'),
+                fileRequirements: $('fileRequirements'),
+                progressTitle: $('progressTitle'),
+                progressMessage: $('progressMessage'),
+                resultsTitle: $('resultsTitle'),
+                contactLabel: $('contactLabel'),
+                contactInfo: $('contactInfo'),
+                copyright: $('copyright'),
+                fileInput: $('fileInput'),
+                uploadArea: $('uploadArea'),
+                uploadIcon: $('uploadIcon'),
+                progressContainer: $('progressContainer'),
+                progressFill: $('progressFill'),
+                progressText: $('progressText'),
+                progressLogs: $('progressLogs'),
+                results: $('results'),
+                statsGrid: $('statsGrid'),
+                downloadSection: $('downloadSection'),
+                errorContainer: $('errorContainer'),
+                langSwitch: $('langSwitch'),
+                themeToggle: $('themeToggle'),
+                themeIcon: $('themeIcon'),
+                logo: $('logo'),
+                clock: $('clock')
+            };
+
+            function t(key) {
+                return translations[state.currentLang]?.[key] || key;
+            }
+
+            function setTheme(d) {
+                state.dark = d;
+                document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+                localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
+                if (els.themeIcon) {
+                    els.themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
+                }
+            }
+
+            function setLanguage(lang) {
+                state.currentLang = lang;
+                var t = translations[lang];
+                if (!t) return;
+
+                var map = {
+                    headerTitle: 'headerTitle',
+                    appTitle: 'appTitle',
+                    appDescription: 'appDescription',
+                    uploadInstructions: 'uploadInstructions',
+                    uploadText: 'uploadText',
+                    uploadBtn: 'uploadBtn',
+                    fileRequirements: 'fileRequirements',
+                    progressTitle: 'progressTitle',
+                    resultsTitle: 'resultsTitle',
+                    contactLabel: 'contactLabel',
+                    contactInfo: 'contactInfo',
+                    copyright: 'copyright'
+                };
+
+                Object.keys(map).forEach(function(id) {
+                    var el = els[id];
+                    if (el) el.textContent = t[map[id]];
+                });
+
+                if (els.langSwitch) {
+                    els.langSwitch.textContent = lang.toUpperCase();
+                }
+
+                var currentMsg = els.progressMessage?.textContent || '';
+                var msgMap = {
+                    'Başlatılıyor...': t.progressStarting,
+                    'Starting...': t.progressStarting,
+                    'Dosya okunuyor...': t.progressReading,
+                    'Reading file...': t.progressReading,
+                    'Sütunlar analiz ediliyor...': t.progressAnalyzing,
+                    'Analyzing columns...': t.progressAnalyzing,
+                    'SMILES formatına dönüştürülüyor...': t.progressConverting,
+                    'Converting to SMILES...': t.progressConverting,
+                    'Sonlandırılıyor...': t.progressFinalizing,
+                    'Finalizing...': t.progressFinalizing
+                };
+                var newMsg = msgMap[currentMsg] || currentMsg;
+                if (els.progressMessage) {
+                    els.progressMessage.textContent = newMsg;
+                }
+
+                var downloadBtn = els.downloadSection?.querySelector('.download-btn');
+                if (downloadBtn) {
+                    downloadBtn.textContent = t.downloadBtn;
+                }
+
+                if (els.results && els.results.style.display !== 'none' && state.lastResults) {
+                    displayResults(state.lastResults);
+                }
+
+                console.log('Language changed to: ' + lang.toUpperCase());
+            }
+
+            function updateClock() {
+                if (!els.clock) return;
+                els.clock.textContent = new Date().toLocaleTimeString(
+                    state.currentLang === 'tr' ? 'tr-TR' : 'en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }
+                );
+            }
+
+            function showToast(message, type) {
+                type = type || 'info';
+                var existing = document.querySelector('.toast');
+                if (existing) existing.remove();
+
+                var toast = document.createElement('div');
+                toast.className = 'toast ' + type;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+
+                setTimeout(function() {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s ease';
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 3000);
+            }
+
+            function showError(msg) {
+                if (els.errorContainer) {
+                    els.errorContainer.innerHTML = '<div class="error">' + msg + '</div>';
+                }
+            }
+
+            function hideError() {
+                if (els.errorContainer) {
+                    els.errorContainer.innerHTML = '';
+                }
+            }
+
+            function showProgress() {
+                if (els.progressContainer) {
+                    els.progressContainer.style.display = 'block';
+                }
+                if (els.progressLogs) {
+                    els.progressLogs.innerHTML = '';
+                }
+            }
+
+            function hideProgress() {
+                if (els.progressContainer) {
+                    els.progressContainer.style.display = 'none';
+                }
+            }
+
+            function showResults() {
+                if (els.results) {
+                    els.results.style.display = 'block';
+                }
+            }
+
+            function hideResults() {
+                if (els.results) {
+                    els.results.style.display = 'none';
+                }
+            }
+
+            function setUploading(stateVal) {
+                state.isUploading = stateVal;
+                if (stateVal) {
+                    if (els.uploadArea) els.uploadArea.classList.add('uploading');
+                    if (els.uploadBtn) {
+                        els.uploadBtn.disabled = true;
+                        els.uploadBtn.textContent = t('processing');
+                    }
+                    if (els.uploadIcon) els.uploadIcon.textContent = '⏳';
+                } else {
+                    if (els.uploadArea) els.uploadArea.classList.remove('uploading');
+                    if (els.uploadBtn) {
+                        els.uploadBtn.disabled = false;
+                        els.uploadBtn.textContent = t('uploadBtn');
+                    }
+                    if (els.uploadIcon) els.uploadIcon.textContent = '📄';
+                }
+            }
+
+            function addLog(message) {
+                if (!els.progressLogs) return;
+                var entry = document.createElement('div');
+                entry.className = 'log-entry';
+                var timeMatch = message.match(/^\[([\d:]+)\]\s*/);
+                if (timeMatch) {
+                    var time = timeMatch[1];
+                    var text = message.replace(/^\[[\d:]+\]\s*/, '');
+                    entry.innerHTML = '<span class="time">' + time + '</span>' + text;
+                } else {
+                    entry.textContent = message;
+                }
+                els.progressLogs.appendChild(entry);
+                els.progressLogs.scrollTop = els.progressLogs.scrollHeight;
+            }
+
+            function updateProgress(data) {
+                if (els.progressFill) {
+                    els.progressFill.style.width = data.percentage + '%';
+                }
+                if (els.progressText) {
+                    els.progressText.textContent = data.percentage + '%';
+                }
+
+                var msgMap = {
+                    'starting': t('progressStarting'),
+                    'reading': t('progressReading'),
+                    'analyzing': t('progressAnalyzing'),
+                    'converting': t('progressConverting'),
+                    'finalizing': t('progressFinalizing')
+                };
+                var msg = t('progressStarting');
+                if (data.message_key && msgMap[data.message_key]) {
+                    msg = msgMap[data.message_key];
+                } else if (data.message) {
+                    msg = data.message;
+                }
+                if (els.progressMessage) {
+                    els.progressMessage.textContent = msg;
+                }
+
+                if (data.logs && data.logs.length > 0 && els.progressLogs) {
+                    var currentLogs = els.progressLogs.children.length;
+                    var newLogs = data.logs.slice(currentLogs);
+                    newLogs.forEach(function(log) { addLog(log); });
+                }
+            }
+
+            function handleFileUpload() {
+                if (state.isUploading) return;
+
+                var file = els.fileInput?.files[0];
+                if (!file) {
+                    showError(t('errorNoFile'));
+                    return;
+                }
+
+                if (!file.name.toLowerCase().endsWith('.csv')) {
+                    showError(t('errorInvalidFile'));
+                    return;
+                }
+
+                var fd = new FormData();
+                fd.append('file', file);
+
+                hideError();
+                showProgress();
+                hideResults();
+                if (els.progressLogs) els.progressLogs.innerHTML = '';
+                setUploading(true);
+
+                var timestamp = new Date().toLocaleTimeString();
+                addLog('[' + timestamp + '] ' + t('logUploading') + ' ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
+
+                fetch('/dataset/upload', {
+                        method: 'POST',
+                        body: fd
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.error) throw new Error(data.error);
+                        state.currentTaskId = data.task_id;
+                        var ts = new Date().toLocaleTimeString();
+                        addLog('[' + ts + '] ' + t('logUploadDone'));
+                        addLog('[' + ts + '] ' + t('logTaskId') + ' ' + state.currentTaskId);
+                        startProgress();
+                    })
+                    .catch(function(err) {
+                        setUploading(false);
+                        showError(t('errorUpload') + err.message);
+                        hideProgress();
+                        var ts = new Date().toLocaleTimeString();
+                        addLog('[' + ts + '] ' + t('logError') + ' ' + err.message);
+                    });
+            }
+
+            function startProgress() {
+                if (state.progressInterval) clearInterval(state.progressInterval);
+
+                state.progressInterval = setInterval(function() {
+                    if (!state.currentTaskId) {
+                        clearInterval(state.progressInterval);
+                        return;
+                    }
+
+                    fetch('/dataset/progress/' + state.currentTaskId)
+                        .then(function(r) {
+                            if (!r.ok) throw new Error('HTTP ' + r.status);
+                            return r.json();
+                        })
+                        .then(function(data) {
+                            if (data.error) throw new Error(data.error);
+                            updateProgress(data);
+
+                            if (data.status === 'completed') {
+                                clearInterval(state.progressInterval);
+                                setUploading(false);
+                                var ts = new Date().toLocaleTimeString();
+                                addLog('[' + ts + '] ' + t('logCompleted'));
+                                displayResults(data);
+                            } else if (data.status === 'error') {
+                                clearInterval(state.progressInterval);
+                                setUploading(false);
+                                showError(data.error || t('errorProcessing'));
+                                var ts = new Date().toLocaleTimeString();
+                                addLog('[' + ts + '] ' + t('logError') + ' ' + (data.error || t('errorUnknown')));
+                                hideProgress();
+                            }
+                        })
+                        .catch(function(err) {
+                            console.warn('Progress fetch error:', err);
+                        });
+                }, 1000);
+            }
+
+            function displayResults(data) {
+                hideProgress();
+                state.lastResults = data;
+
+                var result = data.result || {};
+                var rows = result.rows_processed || 0;
+                var colsConverted = (result.columns_converted || []).length;
+                var elapsed = result.elapsed_seconds || 0;
+                var stats = result.stats || {};
+                var convertedCount = stats.total_success || 0;
+
+                var html = '';
+
+                var statItems = [
+                    { key: 'statRows', value: rows },
+                    { key: 'statColumns', value: colsConverted },
+                    { key: 'statCache', value: stats.cache_size || 0 },
+                    { key: 'statConverted', value: convertedCount },
+                    { key: 'statTime', value: elapsed > 0 ? elapsed.toFixed(1) + ' sn' : '-' }
+                ];
+
+                statItems.forEach(function(item) {
+                    var label = t(item.key);
+                    html += '<div class="stat-card"><div class="stat-title">' + label + '</div><div class="stat-value">' + item.value + '</div></div>';
+                });
+
+                var sourceSuccess = stats.source_success || {};
+                var sourceAttempts = stats.source_attempts || {};
+                var sourceKeys = Object.keys(sourceSuccess);
+
+                if (sourceKeys.length > 0) {
+                    html += '<div class="stat-card full-width">';
+                    html += '<div class="stat-title" style="margin-bottom: 8px;">' + t('statSourceRates') + '</div>';
+                    sourceKeys.forEach(function(key) {
+                        var success = sourceSuccess[key] || 0;
+                        var attempts = sourceAttempts[key] || 0;
+                        var rate = attempts > 0 ? (success / attempts * 100).toFixed(1) : 0;
+                        html += '<div class="source-row"><span class="name">' + key + '</span><span class="rate">' + rate + '% (' + success + '/' + attempts + ')</span></div>';
+                    });
+                    html += '</div>';
+                }
+
+                if (els.statsGrid) {
+                    els.statsGrid.innerHTML = html || '<p style="color:var(--text-muted);">' + t('statRows') + ': 0</p>';
+                }
+
+                var dlHtml = '';
+                if (result.output_file) {
+                    dlHtml += '<button class="download-btn" onclick="location.href=\'/dataset/download/' + result.output_file + '\'">' + t('downloadBtn') + '</button>';
+                }
+                if (els.downloadSection) {
+                    els.downloadSection.innerHTML = dlHtml;
+                }
+                showResults();
+
+                if (result.output_file) {
+                    showToast('' + t('logCompleted'), 'success');
+                }
+            }
+
+            // ----- EVENTS -----
+            if (els.logo) {
+                els.logo.addEventListener('click', function() { window.location.href = '/'; });
+            }
+
+            if (els.uploadBtn) {
+                els.uploadBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (!state.isUploading && els.fileInput) els.fileInput.click();
+                });
+            }
+
+            if (els.fileInput) {
+                els.fileInput.addEventListener('change', handleFileUpload);
+            }
+
+            if (els.uploadArea) {
+                els.uploadArea.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    if (!state.isUploading) els.uploadArea.classList.add('dragover');
+                });
+
+                els.uploadArea.addEventListener('dragleave', function() {
+                    if (els.uploadArea) els.uploadArea.classList.remove('dragover');
+                });
+
+                els.uploadArea.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    if (els.uploadArea) els.uploadArea.classList.remove('dragover');
+                    if (state.isUploading) return;
+                    if (e.dataTransfer.files.length && els.fileInput) {
+                        els.fileInput.files = e.dataTransfer.files;
+                        handleFileUpload();
+                    }
+                });
+
+                els.uploadArea.addEventListener('click', function(e) {
+                    if (!e.target.closest('.upload-btn') && !state.isUploading && els.fileInput) {
+                        els.fileInput.click();
+                    }
+                });
+            }
+
+            if (els.langSwitch) {
+                els.langSwitch.addEventListener('click', function() {
+                    setLanguage(state.currentLang === 'tr' ? 'en' : 'tr');
+                    this.classList.add('animate');
+                    setTimeout(function() { this.classList.remove('animate'); }.bind(this), 200);
+                });
+            }
+
+            if (els.themeToggle) {
+                els.themeToggle.addEventListener('click', function() { setTheme(!state.dark); });
+            }
+
+            // ----- KEYBOARD SHORTCUTS -----
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+                    e.preventDefault();
+                    if (!state.isUploading && els.fileInput) els.fileInput.click();
+                }
+                if (e.key === 'Escape') {
+                    hideError();
+                }
+            });
+
+            // ----- INIT -----
+            function init() {
+                setTheme(state.dark);
+                setLanguage('tr');
+                updateClock();
+                setInterval(updateClock, 1000);
+
+                console.log('Molytica SMILES Converter loaded successfully!');
+                console.log('Language support: Türkçe / English');
+                console.log('Shortcut: Ctrl+O to upload file');
+            }
+
+            document.addEventListener('DOMContentLoaded', init);
+
+        })();
+    </script>
+</body>
+</html>

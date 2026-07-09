@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Molytica - ML Prediction Platform</title>
+    <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f6f7f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-header: rgba(255, 255, 255, 0.88);
+            --bg-input: #f1f3f5;
+            --bg-hover: rgba(0, 0, 0, 0.04);
+            --bg-active: rgba(0, 0, 0, 0.08);
+            --text-primary: #0a0a0a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #7a7a7a;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.18);
+            --border-focus: rgba(0, 0, 0, 0.25);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.06);
+            --btn-bg: #ffffff;
+            --btn-text: #0a0a0a;
+            --btn-hover: #0a0a0a;
+            --btn-hover-text: #ffffff;
+            --accent-primary: #0a0a0a;
+            --accent-secondary: #3a3a3a;
+            --accent-success: #2d7d46;
+            --accent-warning: #b8860b;
+            --accent-error: #b91c1c;
+            --footer-bg: #0a0a0a;
+            --footer-text: #d0d0d0;
+            --clock-bg: #eef0f2;
+            --clock-text: #3a3a3a;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 100px;
+            --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            --font: 'Inter', -apple-system, system-ui, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #161616;
+            --bg-card: #1a1a1a;
+            --bg-header: rgba(20, 20, 20, 0.92);
+            --bg-input: #282828;
+            --bg-hover: rgba(255, 255, 255, 0.05);
+            --bg-active: rgba(255, 255, 255, 0.1);
+            --text-primary: #f0f0f0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #707070;
+            --border-color: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.14);
+            --border-focus: rgba(255, 255, 255, 0.2);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+            --btn-bg: #222222;
+            --btn-text: #f0f0f0;
+            --btn-hover: #f0f0f0;
+            --btn-hover-text: #0a0a0a;
+            --accent-primary: #f0f0f0;
+            --accent-secondary: #888888;
+            --accent-success: #4caf50;
+            --accent-warning: #fdd835;
+            --accent-error: #ef5350;
+            --footer-bg: #0a0a0a;
+            --footer-text: #888888;
+            --clock-bg: #282828;
+            --clock-text: #c0c0c0;
+        }
+
+        body {
+            background: var(--bg-primary);
+            font-family: var(--font);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            line-height: 1.6;
+            transition: background var(--transition), color var(--transition);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        header {
+            background: var(--bg-header);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: background var(--transition), border-color var(--transition);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            height: 34px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            filter: brightness(0);
+        }
+        [data-theme="dark"] .logo {
+            filter: brightness(0) invert(1);
+        }
+        .logo:hover {
+            transform: scale(1.05) rotate(-1deg);
+        }
+
+        header h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            transition: color var(--transition);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #clock {
+            font-size: 0.8rem;
+            font-weight: 450;
+            color: var(--clock-text);
+            background: var(--clock-bg);
+            padding: 4px 12px;
+            border-radius: var(--radius-xl);
+            letter-spacing: 0.3px;
+            font-variant-numeric: tabular-nums;
+            transition: all var(--transition);
+        }
+
+        .theme-toggle {
+            background: var(--clock-bg);
+            border: none;
+            border-radius: var(--radius-xl);
+            padding: 5px 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+        }
+        .theme-toggle:hover {
+            transform: scale(0.95);
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: 1.5px solid var(--border-hover);
+            border-radius: var(--radius-xl);
+            padding: 4px 12px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+        .lang-btn:hover {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            transform: scale(0.95);
+        }
+        .lang-btn.animate {
+            transform: scale(0.92);
+            transition: transform 0.15s ease;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            flex: 1;
+            height: calc(100vh - 62px);
+            overflow: hidden;
+        }
+
+        .sidebar {
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all var(--transition);
+        }
+
+        .sidebar-section {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-control {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition);
+            font-weight: 500;
+        }
+        .sidebar-control:hover {
+            background: var(--bg-hover);
+        }
+
+        .dataset-list {
+            list-style: none;
+            max-height: 180px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+        }
+
+        .dataset-item {
+            padding: 6px 10px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            transition: all var(--transition);
+        }
+        .dataset-item:last-child {
+            border-bottom: none;
+        }
+        .dataset-item:hover {
+            background: var(--bg-hover);
+        }
+        .dataset-item.selected {
+            background: var(--bg-active);
+            border-left: 3px solid var(--text-primary);
+        }
+
+        .dataset-icon {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            width: 16px;
+            text-align: center;
+        }
+
+        .dataset-preview {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .dataset-preview small {
+            color: var(--text-muted);
+        }
+
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        .model-controls {
+            padding: 10px 16px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .model-select {
+            flex: 1;
+            min-width: 150px;
+            padding: 7px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            transition: all var(--transition);
+            outline: none;
+        }
+        .model-select:focus {
+            border-color: var(--border-focus);
+        }
+
+        .btn {
+            padding: 7px 16px;
+            border: none;
+            border-radius: var(--radius-xl);
+            font-family: var(--font);
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.2px;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+        .btn:active {
+            transform: translateY(0) scale(0.97);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+        }
+
+        .btn-success {
+            background: var(--accent-success);
+            color: #fff;
+        }
+
+        .btn-warning {
+            background: var(--accent-warning);
+            color: #fff;
+        }
+
+        .console-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-card);
+            margin: 8px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .console-header {
+            padding: 0 14px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            height: 36px;
+        }
+
+        .console-tabs {
+            display: flex;
+            gap: 16px;
+            height: 100%;
+        }
+
+        .console-tab {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding: 0 2px;
+            transition: color var(--transition);
+        }
+        .console-tab:hover {
+            color: var(--text-secondary);
+        }
+        .console-tab.active {
+            color: var(--text-primary);
+        }
+        .console-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--text-primary);
+        }
+        .console-tab.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .console-content {
+            flex: 1;
+            padding: 14px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Roboto Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: var(--text-primary);
+            background: var(--bg-card);
+        }
+        .console-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .console-content::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: var(--radius-xl);
+        }
+
+        .process-bar-container {
+            padding: 6px 14px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: none;
+        }
+        .process-bar-container.active {
+            display: block;
+        }
+
+        .process-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--bg-input);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+        }
+        .process-progress {
+            height: 100%;
+            background: var(--text-primary);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: var(--radius-xl);
+        }
+        .process-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        .dataset-info {
+            padding: 10px 16px;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 16px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .info-card {
+            background: var(--bg-input);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            min-width: 80px;
+        }
+        .info-card-title {
+            font-size: 0.65rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-muted);
+        }
+        .info-card-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .columns-section {
+            overflow: hidden;
+        }
+        .columns-title {
+            font-size: 0.7rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .columns-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            max-height: 60px;
+            overflow-y: auto;
+        }
+        .column-card {
+            background: var(--bg-input);
+            padding: 2px 10px;
+            border-radius: var(--radius-xl);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .column-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .export-section {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: none;
+            place-items: center;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+        .modal.active {
+            display: grid;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            width: 100%;
+            max-width: 600px;
+            max-height: 80vh;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            animation: fadeUp 0.3s ease;
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition);
+            display: grid;
+            place-items: center;
+        }
+        .modal-close:hover {
+            background: var(--bg-hover);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .modal-body h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+        .modal-body .selected-list {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            margin-bottom: 16px;
+            min-height: 36px;
+        }
+        .modal-body .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .modal-body .btn-grid .btn {
+            justify-content: center;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            z-index: 2000;
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.3s ease;
+            font-size: 0.85rem;
+            max-width: 400px;
+        }
+
+        .mobile-sidebar-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1.1rem;
+        }
+
+        .mobile-sidebar {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 260px;
+            height: calc(100vh - 60px);
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            z-index: 99;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .mobile-sidebar.active {
+            transform: translateX(0);
+        }
+
+        .mobile-sidebar-overlay {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            height: calc(100vh - 60px);
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 98;
+            display: none;
+        }
+
+        footer {
+            background: var(--footer-bg);
+            color: var(--footer-text);
+            padding: 24px 24px 18px;
+            border-top: 1px solid var(--border-color);
+            transition: background var(--transition), border-color var(--transition);
+        }
+        .footer-content {
+            max-width: 1060px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .footer-content .contact {
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            opacity: 0.7;
+        }
+        .footer-content .contact strong {
+            opacity: 1;
+            color: #fff;
+            font-weight: 500;
+        }
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin: 14px 0 16px;
+        }
+        .social-icons a {
+            color: #888;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+        }
+        .social-icons a:hover {
+            color: #fff;
+            transform: translateY(-2px);
+            opacity: 1;
+        }
+        .copyright {
+            font-size: 0.75rem;
+            opacity: 0.35;
+            margin-top: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        @media (max-width: 992px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                display: none;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+            }
+            .dataset-info {
+                grid-template-columns: 1fr;
+                max-height: 160px;
+            }
+            .columns-grid {
+                max-height: 50px;
+            }
+            header {
+                padding: 8px 16px;
+            }
+            .logo {
+                height: 28px;
+            }
+            header h1 {
+                font-size: 0.95rem;
+            }
+            #clock {
+                display: none;
+            }
+            .console-container {
+                margin: 4px 8px;
+            }
+            .model-controls {
+                padding: 8px 12px;
+                gap: 6px;
+            }
+            .model-select {
+                min-width: 100px;
+                font-size: 0.8rem;
+                padding: 5px 10px;
+            }
+            .btn {
+                padding: 5px 12px;
+                font-size: 0.75rem;
+            }
+            .dataset-info {
+                padding: 8px 12px;
+                gap: 10px;
+            }
+            .info-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .export-section {
+                padding: 6px 12px;
+            }
+            .modal-body .btn-grid {
+                grid-template-columns: 1fr;
+            }
+            .modal-content {
+                max-width: 95%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header h1 {
+                font-size: 0.8rem;
+            }
+            .lang-btn {
+                font-size: 0.6rem;
+                padding: 3px 8px;
+            }
+            .theme-toggle {
+                padding: 3px 8px;
+                font-size: 0.8rem;
+            }
+            .model-controls {
+                flex-wrap: wrap;
+            }
+            .model-select {
+                min-width: 100%;
+                flex: none;
+            }
+            .btn {
+                flex: 1;
+                min-width: 60px;
+                justify-content: center;
+                font-size: 0.7rem;
+                padding: 5px 8px;
+            }
+            .info-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .columns-grid {
+                max-height: 40px;
+            }
+            .column-card {
+                font-size: 0.6rem;
+                padding: 1px 8px;
+            }
+            .console-content {
+                font-size: 0.7rem;
+                padding: 10px;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-input);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: var(--radius-xl);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-hover);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
+            <h1>ML Prediction</h1>
+        </div>
+        <div class="header-right">
+            <div id="clock"></div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+            <button class="lang-btn" id="langSwitch">TR</button>
+        </div>
+    </header>
+
+    <div class="mobile-sidebar-overlay" id="mobileOverlay"></div>
+    <div class="mobile-sidebar" id="mobileSidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-title">
+                <span id="datasetsTitleMobile">Veri Kümeleri</span>
+                <button class="sidebar-control" id="newDatasetMobile">
+                    <i class="fas fa-plus"></i> Yeni
+                </button>
+            </div>
+            <ul class="dataset-list" id="datasetListMobile">
+                {% if datasets %}
+                    {% for dataset in datasets %}
+                    <li class="dataset-item" data-name="{{ dataset }}">
+                        <i class="fas fa-database dataset-icon"></i>
+                        <span>{{ dataset }}</span>
+                    </li>
+                    {% endfor %}
+                {% else %}
+                    <li class="dataset-item" style="color:var(--text-muted);font-size:0.8rem;justify-content:center;">
+                        Veri kümesi yok
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-title">Kontrol</div>
+            <div class="dataset-preview">
+                <button class="btn btn-primary" id="editSelectedMobile" style="width:100%;justify-content:center;margin-bottom:6px;">
+                    <i class="fas fa-edit"></i> Düzenle
+                </button>
+                <small>Ctrl+Click: Çoklu seçim</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">
+                    <span id="datasetsTitleDesktop">Veri Kümeleri</span>
+                    <button class="sidebar-control" id="newDatasetDesktop">
+                        <i class="fas fa-plus"></i> Yeni
+                    </button>
+                </div>
+                <ul class="dataset-list" id="datasetListDesktop">
+                    {% if datasets %}
+                        {% for dataset in datasets %}
+                        <li class="dataset-item" data-name="{{ dataset }}">
+                            <i class="fas fa-database dataset-icon"></i>
+                            <span>{{ dataset }}</span>
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <li class="dataset-item" style="color:var(--text-muted);font-size:0.8rem;justify-content:center;">
+                            Veri kümesi yok
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Kontrol</div>
+                <div class="dataset-preview">
+                    <button class="btn btn-primary" id="editSelectedDesktop" style="width:100%;justify-content:center;margin-bottom:6px;">
+                        <i class="fas fa-edit"></i> Düzenle
+                    </button>
+                    <small>Ctrl+Click: Çoklu seçim</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="model-controls">
+                <select class="model-select" id="modelSelect">
+                    <option value="">Model seçin...</option>
+                    {% if codess %}
+                        {% for code in codess %}
+                        <option value="{{ code }}">{{ code }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="" disabled>Model bulunamadı</option>
+                    {% endif %}
+                </select>
+                <button class="btn btn-primary" id="runModelBtn">
+                    <i class="fas fa-play"></i> Eğit
+                </button>
+                <button class="btn btn-secondary" id="compareBtn" onclick="location.href='/compare-models'">
+                    <i class="fas fa-chart-bar"></i> Karşılaştır
+                </button>
+            </div>
+
+            <div class="console-container">
+                <div class="console-header">
+                    <div class="console-tabs">
+                        <div class="console-tab active" data-tab="console">Konsol</div>
+                        <div class="console-tab disabled" data-tab="results">Sonuçlar</div>
+                    </div>
+                </div>
+                <div class="console-content" id="consoleOutput"></div>
+                <div class="process-bar-container" id="processContainer">
+                    <div class="process-bar">
+                        <div class="process-progress" id="processProgress"></div>
+                    </div>
+                    <div class="process-info">
+                        <span id="processLabel">İşleniyor...</span>
+                        <span id="processPercent">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dataset-info">
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-title">Satır</div>
+                        <div class="info-card-value" id="rowCount">{{ rowcount if rowcount is defined else '0' }}</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-title">Sütun</div>
+                        <div class="info-card-value">12</div>
+                    </div>
+                </div>
+                <div class="columns-section">
+                    <div class="columns-title">Sütunlar</div>
+                    <div class="columns-grid">
+                        <span class="column-card"><span class="column-name">Ar-B(OH)2</span> smiles</span>
+                        <span class="column-card"><span class="column-name">Ar-X</span> smiles</span>
+                        <span class="column-card"><span class="column-name">product</span> smiles</span>
+                        <span class="column-card"><span class="column-name">catalizor</span> smiles</span>
+                        <span class="column-card"><span class="column-name">base</span> smiles</span>
+                        <span class="column-card"><span class="column-name">solv1</span> smiles</span>
+                        <span class="column-card"><span class="column-name">solv2</span> smiles</span>
+                        <span class="column-card"><span class="column-name">amount</span> float</span>
+                        <span class="column-card"><span class="column-name">centigrades</span> float</span>
+                        <span class="column-card"><span class="column-name">minute</span> int</span>
+                        <span class="column-card"><span class="column-name">cycle</span> float</span>
+                        <span class="column-card"><span class="column-name">yield</span> float</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="export-section">
+                <button class="btn btn-secondary" id="exportDbBtn" onclick="location.href='/static/model/miaw.csv'">
+                    <i class="fas fa-download"></i> Verisetini Dışa Aktar
+                </button>
+                <button class="btn btn-success" id="visualizeBtn" onclick="location.href='/visual'">
+                    <i class="fas fa-chart-line"></i> Görselleştir
+                </button>
+            </div>
+        </div>
+    </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="contact">
+        <strong id="contactLabel">İletişim</strong>
+        <span id="contactInfo">akkochief@gmail.com · @akkochief</span>
+      </div>
+      <div class="social-icons">
+        <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+        <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
+        <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+      </div>
+      <div class="copyright" id="copyright">© 2026 Molytica</div>
+    </div>
+  </footer>
+
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Veri Kümesini Düzenle</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>Seçilen Veri Kümeleri</h3>
+                <div class="selected-list" id="selectedList">Hiç veri kümesi seçilmedi</div>
+                <div class="btn-grid">
+                    <button class="btn btn-primary" id="editBtn"><i class="fas fa-edit"></i> Düzenle</button>
+                    <button class="btn btn-secondary" id="previewBtn"><i class="fas fa-eye"></i> Önizle</button>
+                    <button class="btn btn-secondary" id="excelBtn" onclick="location.href='/excel_to_csv'"><i class="fas fa-file-excel"></i> Excel'den CSV</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            var selectedDatasets = new Set();
+            var selectedCode = null;
+            var isProcessing = false;
+            var currentLang = 'tr';
+            var dark = localStorage.getItem('molytica-theme') === 'dark';
+            var currentTab = 'console';
+            var consoleContent = '';
+            var resultsContent = '';
+            var resultsAvailable = false;
+
+            var $ = function(id) { return document.getElementById(id); };
+
+            var els = {
+                langSwitch: $('langSwitch'),
+                themeToggle: $('themeToggle'),
+                themeIcon: $('themeIcon'),
+                logo: $('logo'),
+                modelSelect: $('modelSelect'),
+                runBtn: $('runModelBtn'),
+                consoleOutput: $('consoleOutput'),
+                processContainer: $('processContainer'),
+                processProgress: $('processProgress'),
+                processLabel: $('processLabel'),
+                processPercent: $('processPercent'),
+                rowCount: $('rowCount'),
+                editModal: $('editModal'),
+                closeModal: $('closeModal'),
+                selectedList: $('selectedList'),
+                editBtn: $('editBtn'),
+                previewBtn: $('previewBtn'),
+                compareBtn: $('compareBtn'),
+                exportDbBtn: $('exportDbBtn'),
+                visualizeBtn: $('visualizeBtn'),
+                contactLabel: $('contactLabel'),
+                contactInfo: $('contactInfo'),
+                copyright: $('copyright'),
+                modalTitle: $('modalTitle'),
+                excelBtn: $('excelBtn'),
+                clock: $('clock')
+            };
+
+            var translations = {
+                tr: {
+                    datasets: 'Veri Kümeleri',
+                    new: 'Yeni',
+                    control: 'Kontrol',
+                    edit: 'Düzenle',
+                    selectModel: 'Model seçin...',
+                    train: 'Eğit',
+                    compare: 'Karşılaştır',
+                    console: 'Konsol',
+                    results: 'Sonuçlar',
+                    processing: 'İşleniyor...',
+                    row: 'Satır',
+                    column: 'Sütun',
+                    columns: 'Sütunlar',
+                    exportDb: 'Verisetini Dışa Aktar',
+                    visualize: 'Görselleştir',
+                    contact: 'İletişim',
+                    contactInfo: 'akkochief@gmail.com · @akkochief',
+                    copyright: '© 2026 Molytica',
+                    modalTitle: 'Veri Kümesini Düzenle',
+                    selected: 'Seçilen Veri Kümeleri',
+                    noSelected: 'Hiç veri kümesi seçilmedi',
+                    preview: 'Önizle',
+                    excelToCsv: 'Excel\'den CSV',
+                    modelStarted: 'Model eğitimi başladı',
+                    modelCompleted: 'Model eğitimi tamamlandı!',
+                    modelError: 'Model hatası',
+                    selectModelFirst: 'Lütfen önce bir model seçin',
+                    selectDataset: 'Lütfen en az bir veri kümesi seçin',
+                    selectOne: 'Lütfen yalnızca BİR veri kümesi seçin'
+                },
+                en: {
+                    datasets: 'Datasets',
+                    new: 'New',
+                    control: 'Control',
+                    edit: 'Edit',
+                    selectModel: 'Select a model...',
+                    train: 'Train',
+                    compare: 'Compare',
+                    console: 'Console',
+                    results: 'Results',
+                    processing: 'Processing...',
+                    row: 'Row',
+                    column: 'Column',
+                    columns: 'Columns',
+                    exportDb: 'Export Database',
+                    visualize: 'Visualize',
+                    contact: 'Contact',
+                    contactInfo: 'akkochief@gmail.com · @akkochief',
+                    copyright: '© 2026 Molytica',
+                    modalTitle: 'Edit Dataset',
+                    selected: 'Selected Datasets',
+                    noSelected: 'No datasets selected',
+                    preview: 'Preview',
+                    excelToCsv: 'Excel To CSV',
+                    modelStarted: 'Model training started',
+                    modelCompleted: 'Model training completed!',
+                    modelError: 'Model error',
+                    selectModelFirst: 'Please select a model first',
+                    selectDataset: 'Please select at least one dataset',
+                    selectOne: 'Please select only ONE dataset'
+                }
+            };
+
+            function getText(key) {
+                return translations[currentLang] ? translations[currentLang][key] || key : key;
+            }
+
+            function setTheme(d) {
+                dark = d;
+                document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+                localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
+                if (els.themeIcon) {
+                    els.themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
+                }
+            }
+
+            function setLanguage(lang) {
+                currentLang = lang;
+                if (els.langSwitch) {
+                    els.langSwitch.textContent = lang.toUpperCase();
+                }
+
+                document.querySelectorAll('[data-i18n]').forEach(function(el) {
+                    var key = el.getAttribute('data-i18n');
+                    el.textContent = getText(key);
+                });
+
+                document.querySelectorAll('.sidebar-title span:first-child').forEach(function(el) {
+                    if (el.id !== 'datasetsTitle' && el.id !== 'datasetsTitleDesktop' && el.id !== 'datasetsTitleMobile') return;
+                    el.textContent = getText('datasets');
+                });
+
+                document.querySelectorAll('.sidebar-control').forEach(function(el) {
+                    var span = el.querySelector('span');
+                    if (span) span.textContent = getText('new');
+                });
+
+                document.querySelectorAll('.sidebar-section .sidebar-title:last-child').forEach(function(el) {
+                    el.textContent = getText('control');
+                });
+
+                document.querySelectorAll('#editSelectedMobile, #editSelectedDesktop').forEach(function(el) {
+                    el.innerHTML = '<i class="fas fa-edit"></i> ' + getText('edit');
+                });
+
+                if (els.modelSelect) {
+                    var firstOpt = els.modelSelect.querySelector('option[value=""]');
+                    if (firstOpt) firstOpt.textContent = getText('selectModel');
+                }
+
+                if (els.runBtn) {
+                    els.runBtn.innerHTML = '<i class="fas fa-play"></i> ' + getText('train');
+                }
+
+                if (els.compareBtn) {
+                    els.compareBtn.innerHTML = '<i class="fas fa-chart-bar"></i> ' + getText('compare');
+                }
+
+                document.querySelectorAll('.console-tab').forEach(function(el) {
+                    var key = el.getAttribute('data-tab');
+                    el.textContent = getText(key === 'console' ? 'console' : 'results');
+                });
+
+                if (els.exportDbBtn) {
+                    els.exportDbBtn.innerHTML = '<i class="fas fa-download"></i> ' + getText('exportDb');
+                }
+
+                if (els.visualizeBtn) {
+                    els.visualizeBtn.innerHTML = '<i class="fas fa-chart-line"></i> ' + getText('visualize');
+                }
+
+                if (els.contactLabel) els.contactLabel.textContent = getText('contact');
+                if (els.contactInfo) els.contactInfo.textContent = getText('contactInfo');
+                if (els.copyright) els.copyright.textContent = getText('copyright');
+                if (els.modalTitle) els.modalTitle.textContent = getText('modalTitle');
+
+                var modalH3 = document.querySelector('#editModal .modal-body h3:first-child');
+                if (modalH3) modalH3.textContent = getText('selected');
+
+                if (els.editBtn) {
+                    els.editBtn.innerHTML = '<i class="fas fa-edit"></i> ' + getText('edit');
+                }
+
+                if (els.previewBtn) {
+                    els.previewBtn.innerHTML = '<i class="fas fa-eye"></i> ' + getText('preview');
+                }
+
+                if (els.excelBtn) {
+                    els.excelBtn.innerHTML = '<i class="fas fa-file-excel"></i> ' + getText('excelToCsv');
+                }
+
+                updateSelectedDisplay();
+            }
+
+            function updateClock() {
+                if (!els.clock) return;
+                els.clock.textContent = new Date().toLocaleTimeString(
+                    currentLang === 'tr' ? 'tr-TR' : 'en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }
+                );
+            }
+
+            function updateSelectedDisplay() {
+                var count = selectedDatasets.size;
+                if (els.selectedList) {
+                    els.selectedList.textContent = count > 0 ?
+                        Array.from(selectedDatasets).join(', ') :
+                        getText('noSelected');
+                }
+            }
+
+            function updateRowCount() {
+                if (selectedDatasets.size === 0) {
+                    if (els.rowCount) els.rowCount.textContent = '0';
+                    return;
+                }
+
+                fetch('/predict/api/get_rowcount', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ selectedDatasets: Array.from(selectedDatasets) })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success && els.rowCount) {
+                        els.rowCount.textContent = data.rowcount || '0';
+                    } else if (els.rowCount) {
+                        els.rowCount.textContent = '?';
+                    }
+                })
+                .catch(function() {
+                    if (els.rowCount) els.rowCount.textContent = '?';
+                });
+            }
+
+            function notify(msg) {
+                var el = document.createElement('div');
+                el.className = 'notification';
+                el.textContent = msg;
+                document.body.appendChild(el);
+                setTimeout(function() {
+                    el.style.opacity = '0';
+                    el.style.transition = 'opacity 0.3s';
+                    setTimeout(function() { el.remove(); }, 300);
+                }, 3000);
+            }
+
+            function setupDatasetSelection(items) {
+                items.forEach(function(item) {
+                    item.addEventListener('click', function(e) {
+                        var name = this.getAttribute('data-name');
+                        if (!name || name === 'Veri kümesi yok' || name === 'No datasets') return;
+
+                        if (e.ctrlKey || e.metaKey) {
+                            if (selectedDatasets.has(name)) {
+                                selectedDatasets.delete(name);
+                                this.classList.remove('selected');
+                            } else {
+                                selectedDatasets.add(name);
+                                this.classList.add('selected');
+                            }
+                        } else {
+                            document.querySelectorAll('.dataset-item').forEach(function(i) {
+                                i.classList.remove('selected');
+                            });
+                            selectedDatasets.clear();
+                            selectedDatasets.add(name);
+                            this.classList.add('selected');
+                        }
+
+                        updateSelectedDisplay();
+                        updateRowCount();
+                        updateUI();
+
+                        if (window.innerWidth <= 992) {
+                            closeMobileSidebar();
+                        }
+                    });
+                });
+            }
+
+            function toggleMobileSidebar() {
+                var sidebar = $('mobileSidebar');
+                var overlay = $('mobileOverlay');
+                sidebar.classList.toggle('active');
+                overlay.style.display = sidebar.classList.contains('active') ? 'block' : 'none';
+            }
+
+            function closeMobileSidebar() {
+                var sidebar = $('mobileSidebar');
+                var overlay = $('mobileOverlay');
+                sidebar.classList.remove('active');
+                overlay.style.display = 'none';
+            }
+
+            function updateUI() {
+                var hasDataset = selectedDatasets.size > 0;
+                var hasModel = els.modelSelect ? els.modelSelect.value !== '' : false;
+
+                if (els.runBtn) {
+                    els.runBtn.disabled = isProcessing || !hasModel || !hasDataset;
+                    if (isProcessing) {
+                        els.runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + getText('processing');
+                    } else {
+                        els.runBtn.innerHTML = '<i class="fas fa-play"></i> ' + getText('train');
+                    }
+                }
+
+                var resultsTab = document.querySelector('.console-tab[data-tab="results"]');
+                if (resultsTab) {
+                    if (resultsAvailable) {
+                        resultsTab.classList.remove('disabled');
+                    } else {
+                        resultsTab.classList.add('disabled');
+                    }
+                }
+            }
+
+            function runModel() {
+                if (isProcessing) return;
+                if (!els.modelSelect || !els.modelSelect.value) {
+                    notify(getText('selectModelFirst'));
+                    return;
+                }
+                if (selectedDatasets.size === 0) {
+                    notify(getText('selectDataset'));
+                    return;
+                }
+
+                isProcessing = true;
+                resultsAvailable = false;
+                currentTab = 'console';
+
+                document.querySelectorAll('.console-tab').forEach(function(t) { t.classList.remove('active'); });
+                var consoleTab = document.querySelector('.console-tab[data-tab="console"]');
+                if (consoleTab) consoleTab.classList.add('active');
+
+                updateUI();
+
+                if (els.processContainer) els.processContainer.classList.add('active');
+                if (els.processProgress) els.processProgress.style.width = '0%';
+                if (els.processLabel) els.processLabel.textContent = getText('processing');
+                if (els.processPercent) els.processPercent.textContent = '0%';
+
+                if (els.consoleOutput) {
+                    els.consoleOutput.textContent = '';
+                    els.consoleOutput.textContent += getText('modelStarted') + ': ' + els.modelSelect.value + '\n';
+                    els.consoleOutput.textContent += '='.repeat(50) + '\n';
+                }
+
+                fetch('/predict/api/run_model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selectedDatasets: Array.from(selectedDatasets),
+                        selectedCode: els.modelSelect.value
+                    })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.success) throw new Error(data.message || 'Veri birleştirme hatası');
+
+                    var es = new EventSource('/predict/api/stream_output?code=' + encodeURIComponent(els.modelSelect.value));
+
+                    es.onmessage = function(event) {
+                        var msg = event.data;
+
+                        if (msg.startsWith('COMPLETE:')) {
+                            isProcessing = false;
+                            resultsAvailable = true;
+                            updateUI();
+                            es.close();
+
+                            if (els.consoleOutput) {
+                                els.consoleOutput.textContent += '\n' + '='.repeat(50) + '\n';
+                                els.consoleOutput.textContent += '+ ' + getText('modelCompleted') + '\n';
+                            }
+
+                            if (els.processProgress) els.processProgress.style.width = '100%';
+                            if (els.processPercent) els.processPercent.textContent = '100%';
+                            setTimeout(function() {
+                                if (els.processContainer) els.processContainer.classList.remove('active');
+                            }, 1500);
+
+                            setTimeout(function() {
+                                if (els.consoleOutput) {
+                                    consoleContent = els.consoleOutput.innerHTML;
+                                }
+                                currentTab = 'results';
+                                document.querySelectorAll('.console-tab').forEach(function(t) {
+                                    t.classList.remove('active');
+                                });
+                                var resultsTab = document.querySelector('.console-tab[data-tab="results"]');
+                                if (resultsTab) resultsTab.classList.add('active');
+                                loadResults();
+                            }, 1500);
+
+                        } else if (msg.startsWith('ERROR:')) {
+                            isProcessing = false;
+                            updateUI();
+                            es.close();
+                            if (els.consoleOutput) {
+                                els.consoleOutput.textContent += '\n- ' + getText('modelError') + ': ' + msg + '\n';
+                            }
+                            if (els.processContainer) els.processContainer.classList.remove('active');
+                        } else {
+                            if (els.consoleOutput) {
+                                els.consoleOutput.textContent += msg + '\n';
+                                els.consoleOutput.scrollTop = els.consoleOutput.scrollHeight;
+                            }
+
+                            var pct = msg.match(/(\d+)%/);
+                            if (pct && els.processProgress) {
+                                els.processProgress.style.width = pct[1] + '%';
+                                if (els.processPercent) els.processPercent.textContent = pct[1] + '%';
+                            }
+                        }
+                    };
+
+                    es.onerror = function() {
+                        isProcessing = false;
+                        updateUI();
+                        es.close();
+                        if (els.consoleOutput) {
+                            els.consoleOutput.textContent += '\n- ' + getText('modelError') + '\n';
+                        }
+                        if (els.processContainer) els.processContainer.classList.remove('active');
+                    };
+                })
+                .catch(function(err) {
+                    isProcessing = false;
+                    updateUI();
+                    if (els.consoleOutput) {
+                        els.consoleOutput.textContent += '\n- ' + err.message + '\n';
+                    }
+                    if (els.processContainer) els.processContainer.classList.remove('active');
+                });
+            }
+
+            function loadResults() {
+                fetch('/predict/api/get_latest_result')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success && els.consoleOutput) {
+                        els.consoleOutput.innerHTML = '<pre style="white-space:pre-wrap;font-family:monospace;font-size:0.8rem;padding:4px;">' + data.content + '</pre>';
+                        resultsContent = els.consoleOutput.innerHTML;
+                        resultsAvailable = true;
+                        updateUI();
+                    } else if (els.consoleOutput) {
+                        els.consoleOutput.innerHTML = '<pre style="color:var(--text-muted);">' + (data.message || 'Sonuç yok') + '</pre>';
+                    }
+                })
+                .catch(function() {
+                    if (els.consoleOutput) {
+                        els.consoleOutput.innerHTML = '<pre style="color:var(--text-muted);">Sonuçlar yüklenemedi</pre>';
+                    }
+                });
+            }
+
+            document.querySelectorAll('.console-tab').forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    var tabName = this.getAttribute('data-tab');
+
+                    if (els.consoleOutput) {
+                        if (currentTab === 'console') {
+                            consoleContent = els.consoleOutput.innerHTML;
+                        } else if (currentTab === 'results') {
+                            resultsContent = els.consoleOutput.innerHTML;
+                        }
+                    }
+
+                    document.querySelectorAll('.console-tab').forEach(function(t) { t.classList.remove('active'); });
+                    this.classList.add('active');
+                    currentTab = tabName;
+
+                    if (tabName === 'results' && els.consoleOutput) {
+                        if (resultsContent) {
+                            els.consoleOutput.innerHTML = resultsContent;
+                        } else {
+                            loadResults();
+                        }
+                    } else if (els.consoleOutput) {
+                        els.consoleOutput.innerHTML = consoleContent || 'Konsol başlatılıyor...';
+                    }
+                });
+            });
+
+            function openModal() {
+                if (selectedDatasets.size === 0) {
+                    notify(getText('selectDataset'));
+                    return;
+                }
+                if (selectedDatasets.size > 1) {
+                    notify(getText('selectOne'));
+                    return;
+                }
+                updateSelectedDisplay();
+                if (els.editModal) els.editModal.classList.add('active');
+            }
+
+            function closeModalFn() {
+                if (els.editModal) els.editModal.classList.remove('active');
+            }
+
+            if (els.themeToggle) {
+                els.themeToggle.addEventListener('click', function() { setTheme(!dark); });
+            }
+
+            if (els.langSwitch) {
+                els.langSwitch.addEventListener('click', function() {
+                    setLanguage(currentLang === 'tr' ? 'en' : 'tr');
+                    this.classList.add('animate');
+                    setTimeout(function() { this.classList.remove('animate'); }.bind(this), 200);
+                });
+            }
+
+            if (els.logo) {
+                els.logo.addEventListener('click', function() { window.location.href = '/'; });
+            }
+
+            var mobileToggle = document.querySelector('.mobile-sidebar-toggle');
+            if (mobileToggle) mobileToggle.addEventListener('click', toggleMobileSidebar);
+            var mobileOverlay = $('mobileOverlay');
+            if (mobileOverlay) mobileOverlay.addEventListener('click', closeMobileSidebar);
+
+            var desktopItems = document.querySelectorAll('#datasetListDesktop .dataset-item');
+            var mobileItems = document.querySelectorAll('#datasetListMobile .dataset-item');
+            setupDatasetSelection(desktopItems);
+            setupDatasetSelection(mobileItems);
+
+            if (els.modelSelect) {
+                els.modelSelect.addEventListener('change', function() {
+                    selectedCode = this.value;
+                    updateUI();
+                });
+            }
+
+            if (els.runBtn) {
+                els.runBtn.addEventListener('click', runModel);
+            }
+
+            document.querySelectorAll('#editSelectedDesktop, #editSelectedMobile').forEach(function(el) {
+                el.addEventListener('click', openModal);
+            });
+
+            if (els.closeModal) {
+                els.closeModal.addEventListener('click', closeModalFn);
+            }
+
+            if (els.editModal) {
+                els.editModal.addEventListener('click', function(e) {
+                    if (e.target === this) closeModalFn();
+                });
+            }
+
+            if (els.editBtn) {
+                els.editBtn.addEventListener('click', function() {
+                    if (selectedDatasets.size === 1) {
+                        window.location.href = '/edit_dataset?models=' + encodeURIComponent(Array.from(selectedDatasets)[0]);
+                    }
+                });
+            }
+
+            if (els.previewBtn) {
+                els.previewBtn.addEventListener('click', function() {
+                    if (selectedDatasets.size === 1) {
+                        window.location.href = '/preview_dataset?models=' + encodeURIComponent(Array.from(selectedDatasets)[0]);
+                    }
+                });
+            }
+
+            document.querySelectorAll('#newDatasetDesktop, #newDatasetMobile').forEach(function(el) {
+                el.addEventListener('click', function() { window.location.href = '/manual'; });
+            });
+
+            setTheme(dark);
+            setLanguage('tr');
+            updateClock();
+            setInterval(updateClock, 1000);
+            updateUI();
+            updateRowCount();
+
+        })();
+    </script>
+</body>
+</html>

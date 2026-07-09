@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Molytica - Görselleştirme</title>
+    <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f6f7f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-header: rgba(255, 255, 255, 0.88);
+            --bg-input: #f1f3f5;
+            --text-primary: #0a0a0a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #7a7a7a;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.18);
+            --border-focus: rgba(0, 0, 0, 0.3);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.06);
+            --btn-bg: #ffffff;
+            --btn-text: #0a0a0a;
+            --btn-hover: #0a0a0a;
+            --btn-hover-text: #ffffff;
+            --footer-bg: #0a0a0a;
+            --footer-text: #d0d0d0;
+            --clock-bg: #eef0f2;
+            --clock-text: #3a3a3a;
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 20px;
+            --radius-xl: 100px;
+            --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            --font: 'Inter', -apple-system, system-ui, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #161616;
+            --bg-card: #1a1a1a;
+            --bg-header: rgba(20, 20, 20, 0.92);
+            --bg-input: #282828;
+            --text-primary: #f0f0f0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #707070;
+            --border-color: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.14);
+            --border-focus: rgba(255, 255, 255, 0.25);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+            --btn-bg: #222222;
+            --btn-text: #f0f0f0;
+            --btn-hover: #f0f0f0;
+            --btn-hover-text: #0a0a0a;
+            --footer-bg: #0a0a0a;
+            --footer-text: #888888;
+            --clock-bg: #282828;
+            --clock-text: #c0c0c0;
+        }
+
+        body {
+            background: var(--bg-primary);
+            font-family: var(--font);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            line-height: 1.6;
+            transition: background var(--transition), color var(--transition);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        header {
+            background: var(--bg-header);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 14px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: background var(--transition), border-color var(--transition);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo {
+            height: 38px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            filter: brightness(0);
+        }
+        [data-theme="dark"] .logo {
+            filter: brightness(0) invert(1);
+        }
+        .logo:hover {
+            transform: scale(1.05) rotate(-1deg);
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            transition: color var(--transition);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        #clock {
+            font-size: 0.85rem;
+            font-weight: 450;
+            color: var(--clock-text);
+            background: var(--clock-bg);
+            padding: 4px 14px;
+            border-radius: var(--radius-xl);
+            letter-spacing: 0.4px;
+            font-variant-numeric: tabular-nums;
+            transition: all var(--transition);
+        }
+
+        .theme-toggle {
+            background: var(--clock-bg);
+            border: none;
+            border-radius: var(--radius-xl);
+            padding: 6px 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .theme-toggle:hover {
+            transform: scale(0.95);
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: 1.5px solid var(--border-hover);
+            border-radius: var(--radius-xl);
+            padding: 5px 14px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .lang-btn:hover {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            transform: scale(0.95);
+        }
+        .lang-btn.animate {
+            transform: scale(0.92);
+            transition: transform 0.15s ease;
+        }
+
+        main {
+            max-width: 1400px;
+            margin: 32px auto;
+            padding: 0 24px;
+            flex: 1;
+            width: 100%;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 28px;
+            animation: fadeUp 0.7s ease forwards;
+        }
+        .page-header h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            transition: color var(--transition);
+        }
+        .page-header p {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            transition: color var(--transition);
+        }
+
+        .controls {
+            background: var(--bg-card);
+            padding: 20px 24px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            transition: all var(--transition);
+            animation: fadeUp 0.7s ease 0.15s forwards;
+            opacity: 0;
+        }
+        .controls:hover {
+            border-color: var(--border-hover);
+        }
+
+        .controls select {
+            padding: 10px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-family: var(--font);
+            font-size: 0.9rem;
+            transition: all var(--transition);
+            outline: none;
+            flex: 1;
+            min-width: 200px;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        .controls select:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+        }
+        [data-theme="dark"] .controls select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        }
+
+        .controls select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: var(--radius-xl);
+            font-family: var(--font);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn .fa-spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 20px;
+            min-height: 600px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: all var(--transition);
+            box-shadow: var(--shadow-sm);
+        }
+        .card:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-md);
+        }
+
+        .card-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-card);
+        }
+        .card-title {
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .card-time {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            margin-left: 10px;
+        }
+
+        .card-body {
+            flex: 1;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            cursor: pointer;
+            overflow: hidden;
+            min-height: 200px;
+        }
+        .card-body img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: transform 0.4s ease;
+        }
+        .card-body:hover img {
+            transform: scale(1.03);
+        }
+
+        .card-footer {
+            padding: 10px 12px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            background: var(--bg-card);
+        }
+        .card-footer .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        .placeholder {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            padding: 40px;
+            text-align: center;
+        }
+        .placeholder-icon {
+            font-size: 3rem;
+            color: var(--border-color);
+            margin-bottom: 16px;
+        }
+        .placeholder p {
+            margin: 4px 0;
+            font-size: 0.95rem;
+        }
+        .placeholder .sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            animation: fadeIn 0.3s ease;
+        }
+        .overlay img {
+            max-width: 90%;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+        .overlay-close {
+            position: absolute;
+            top: 24px;
+            right: 32px;
+            color: #fff;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            background: none;
+            border: none;
+        }
+        .overlay-close:hover {
+            transform: scale(1.1);
+        }
+        .overlay-controls {
+            position: absolute;
+            bottom: 40px;
+            display: flex;
+            gap: 16px;
+        }
+        .overlay-controls .btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 24px;
+        }
+        .overlay-controls .btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            padding: 12px 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            z-index: 2000;
+            animation: fadeUp 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .notification.hide {
+            animation: fadeUp 0.3s ease reverse;
+        }
+
+        footer {
+            background: var(--footer-bg);
+            color: var(--footer-text);
+            padding: 32px 24px 24px;
+            margin-top: 40px;
+            border-top: 1px solid var(--border-color);
+            transition: background var(--transition), border-color var(--transition);
+        }
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .footer-content .contact {
+            font-size: 0.9rem;
+            margin-bottom: 14px;
+            opacity: 0.7;
+            letter-spacing: 0.2px;
+        }
+        .footer-content .contact strong {
+            opacity: 1;
+            color: #fff;
+            font-weight: 500;
+        }
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            margin: 16px 0 18px;
+        }
+        .social-icons a {
+            color: #888;
+            font-size: 1.3rem;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+        }
+        .social-icons a:hover {
+            color: #fff;
+            transform: translateY(-2px);
+            opacity: 1;
+        }
+        .copyright {
+            font-size: 0.8rem;
+            opacity: 0.35;
+            margin-top: 10px;
+            letter-spacing: 0.3px;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(2, 1fr);
+                min-height: 500px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header { padding: 12px 20px; }
+            .logo { height: 30px; }
+            header h1 { font-size: 1rem; }
+            #clock { display: none; }
+            .theme-toggle { padding: 4px 10px; font-size: 0.85rem; }
+            .lang-btn { padding: 4px 10px; font-size: 0.65rem; }
+            main { padding: 0 16px; margin: 20px auto; }
+            .page-header h2 { font-size: 1.5rem; }
+            .page-header p { font-size: 0.9rem; }
+            .controls { padding: 16px; flex-direction: column; }
+            .controls select { width: 100%; min-width: unset; }
+            .controls .btn { width: 100%; justify-content: center; }
+            .grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(4, minmax(280px, 1fr));
+                gap: 14px;
+                min-height: auto;
+            }
+            .card-body { min-height: 180px; }
+            .overlay { padding: 20px; }
+            .overlay img { max-width: 95%; max-height: 70vh; }
+            .overlay-controls { bottom: 24px; flex-wrap: wrap; justify-content: center; }
+            footer { padding: 24px 16px; }
+            .social-icons a { font-size: 1.1rem; gap: 20px; }
+        }
+
+        @media (max-width: 480px) {
+            header h1 { font-size: 0.85rem; }
+            .lang-btn { font-size: 0.6rem; padding: 3px 8px; }
+            .page-header h2 { font-size: 1.2rem; }
+            .grid { grid-template-rows: repeat(4, minmax(220px, 1fr)); }
+            .card-body { min-height: 140px; }
+            .card-footer .btn { font-size: 0.7rem; padding: 4px 8px; }
+            .placeholder-icon { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-left">
+        <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
+        <h1 id="headerTitle">Visual</h1>
+    </div>
+    <div class="header-right">
+        <div id="clock"></div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+            <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+        <button class="lang-btn" id="langSwitch">TR</button>
+    </div>
+</header>
+
+<main>
+    <div class="page-header">
+        <h2 id="pageTitle">Görselleştirme Dashboard</h2>
+        <p id="pageDesc">Süreç görselleştirmelerini inceleyin ve analiz edin</p>
+    </div>
+
+    <div class="controls" id="controls">
+        <select id="processSelect">
+            <option value="">Süreç tipi seçin...</option>
+            {% for image in images %}
+                <option value="{{ image }}">{{ image|replace('_', ' ')|title }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-primary" id="visualizeBtn" disabled>
+            <i class="fas fa-chart-line"></i> <span>Görselleştir</span>
+        </button>
+        <button class="btn btn-secondary" id="refreshBtn">
+            <i class="fas fa-sync-alt"></i> <span>Yenile</span>
+        </button>
+    </div>
+
+    <div class="grid" id="grid">
+        <div class="placeholder">
+            <div class="placeholder-icon">
+                <i class="fas fa-chart-area"></i>
+            </div>
+            <p>Henüz görselleştirme oluşturulmadı</p>
+            <p class="sub">Lütfen bir süreç tipi seçin ve "Görselleştir" butonuna tıklayın</p>
+        </div>
+    </div>
+</main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="contact">
+        <strong id="contactLabel">İletişim</strong>
+        <span id="contactInfo">akkochief@gmail.com · @akkochief</span>
+      </div>
+      <div class="social-icons">
+        <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+        <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
+        <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+      </div>
+      <div class="copyright" id="copyright">© 2026 Molytica</div>
+    </div>
+  </footer>
+
+<script>
+    (function() {
+        'use strict';
+
+        var currentLang = 'tr';
+        var dark = localStorage.getItem('molytica-theme') === 'dark';
+        var visualizations = [];
+        var isLoading = false;
+
+        var $ = function(id) { return document.getElementById(id); };
+
+        var els = {
+            logo: $('logo'),
+            langSwitch: $('langSwitch'),
+            themeToggle: $('themeToggle'),
+            themeIcon: $('themeIcon'),
+            clock: $('clock'),
+            processSelect: $('processSelect'),
+            visualizeBtn: $('visualizeBtn'),
+            refreshBtn: $('refreshBtn'),
+            grid: $('grid'),
+            headerTitle: $('headerTitle'),
+            pageTitle: $('pageTitle'),
+            pageDesc: $('pageDesc'),
+            contactLabel: $('contactLabel'),
+            contactInfo: $('contactInfo'),
+            copyright: $('copyright')
+        };
+
+        var translations = {
+            tr: {
+                headerTitle: 'Görselleştirme',
+                pageTitle: 'Görselleştirme Dashboard',
+                pageDesc: 'Süreç görselleştirmelerini inceleyin ve analiz edin',
+                selectPlaceholder: 'Süreç tipi seçin...',
+                visualize: 'Görselleştir',
+                refresh: 'Yenile',
+                noViz: 'Henüz görselleştirme oluşturulmadı',
+                noVizSub: 'Lütfen bir süreç tipi seçin ve "Görselleştir" butonuna tıklayın',
+                view: 'Görüntüle',
+                download: 'İndir',
+                close: 'Kapat',
+                contact: 'İletişim',
+                contactInfo: 'akkochief@gmail.com · @akkochief',
+                copyright: '© 2026 Molytica',
+                refreshed: 'Görselleştirmeler yenilendi',
+                updated: 'Görselleştirmeler güncellendi',
+                downloading: 'İndiriliyor...',
+                loading: 'Yükleniyor...'
+            },
+            en: {
+                headerTitle: 'Visualization',
+                pageTitle: 'Visualization Dashboard',
+                pageDesc: 'Explore and analyze process visualizations',
+                selectPlaceholder: 'Select process type...',
+                visualize: 'Visualize',
+                refresh: 'Refresh',
+                noViz: 'No visualizations created yet',
+                noVizSub: 'Please select a process type and click "Visualize"',
+                view: 'View',
+                download: 'Download',
+                close: 'Close',
+                contact: 'Contact',
+                contactInfo: 'akkochief@gmail.com · @akkochief',
+                copyright: '© 2026 Molytica',
+                refreshed: 'Visualizations refreshed',
+                updated: 'Visualizations updated',
+                downloading: 'Downloading...',
+                loading: 'Loading...'
+            }
+        };
+
+        function setTheme(d) {
+            dark = d;
+            document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+            localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
+            if (els.themeIcon) {
+                els.themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            var t = translations[lang];
+            if (!t) return;
+
+            var map = {
+                headerTitle: 'headerTitle',
+                pageTitle: 'pageTitle',
+                pageDesc: 'pageDesc',
+                contactLabel: 'contact',
+                contactInfo: 'contactInfo',
+                copyright: 'copyright'
+            };
+
+            Object.keys(map).forEach(function(id) {
+                var el = els[id];
+                if (el) el.textContent = t[map[id]];
+            });
+
+            if (els.processSelect && els.processSelect.options[0]) {
+                els.processSelect.options[0].textContent = t.selectPlaceholder;
+            }
+
+            var vizSpan = els.visualizeBtn ? els.visualizeBtn.querySelector('span') : null;
+            if (vizSpan) vizSpan.textContent = t.visualize;
+
+            var refreshSpan = els.refreshBtn ? els.refreshBtn.querySelector('span') : null;
+            if (refreshSpan) refreshSpan.textContent = t.refresh;
+
+            if (els.langSwitch) {
+                els.langSwitch.textContent = lang.toUpperCase();
+            }
+        }
+
+        function updateClock() {
+            if (!els.clock) return;
+            els.clock.textContent = new Date().toLocaleTimeString(
+                currentLang === 'tr' ? 'tr-TR' : 'en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                }
+            );
+        }
+
+        function showNotification(message) {
+            var existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+
+            var el = document.createElement('div');
+            el.className = 'notification';
+            el.textContent = message;
+            document.body.appendChild(el);
+
+            setTimeout(function() {
+                el.classList.add('hide');
+                setTimeout(function() { el.remove(); }, 300);
+            }, 3000);
+        }
+
+        function showFullscreen(imageUrl, title) {
+            var t = translations[currentLang];
+            var overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            overlay.innerHTML = `
+                <button class="overlay-close" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+                <img src="${imageUrl}" alt="${title}" />
+                <div class="overlay-controls">
+                    <button class="btn" id="overlayDownload">
+                        <i class="fas fa-download"></i> ${t.download}
+                    </button>
+                    <button class="btn" id="overlayClose">
+                        <i class="fas fa-times"></i> ${t.close}
+                    </button>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+
+            var close = function() { overlay.remove(); };
+            overlay.querySelector('.overlay-close').addEventListener('click', close);
+            overlay.querySelector('#overlayClose').addEventListener('click', close);
+
+            overlay.querySelector('#overlayDownload').addEventListener('click', function() {
+                downloadImage(imageUrl, title);
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) close();
+            });
+        }
+
+        function downloadImage(imageUrl, fileName) {
+            var link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = fileName || 'visualization.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification(translations[currentLang].downloading);
+        }
+
+        function fetchFolders() {
+            return fetch('/visual/api/list_folders')
+                .then(function(resp) { return resp.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        return data.folders;
+                    } else {
+                        console.error('Failed to fetch folders:', data.message);
+                        return [];
+                    }
+                })
+                .catch(function(e) {
+                    console.error('Error fetching folders:', e);
+                    return [];
+                });
+        }
+
+        function fetchImages(folder) {
+            return fetch('/visual/api/list_images', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folder: folder })
+            })
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    return data.images;
+                } else {
+                    console.error('Failed to fetch images:', data.message);
+                    return [];
+                }
+            })
+            .catch(function(e) {
+                console.error('Error fetching images:', e);
+                return [];
+            });
+        }
+
+        function updateVisualizations(type) {
+            if (!type) return;
+
+            var t = translations[currentLang];
+            isLoading = true;
+            els.visualizeBtn.disabled = true;
+            els.visualizeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t.loading;
+
+            fetchImages(type)
+                .then(function(images) {
+                    if (!images || images.length === 0) {
+                        visualizations = [];
+                        renderVisualizations();
+                        showNotification('"' + type + '" klasöründe görsel bulunamadı.');
+                    } else {
+                        var topImages = images.slice(0, 4);
+                        var typeName = type.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+
+                        visualizations = topImages.map(function(img, i) {
+                            return {
+                                id: Date.now() + i,
+                                title: img.name || 'Görsel ' + (i + 1),
+                                imageUrl: '/static/images/' + type + '/' + img.name,
+                                time: img.modified_str || new Date().toLocaleTimeString(currentLang === 'tr' ? 'tr-TR' : 'en-US')
+                            };
+                        });
+
+                        renderVisualizations();
+                        showNotification(t.updated + ': ' + typeName + ' (' + visualizations.length + ' görsel)');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error updating visualizations:', error);
+                    showNotification('Görsel yüklenirken hata oluştu.');
+                })
+                .finally(function() {
+                    isLoading = false;
+                    els.visualizeBtn.disabled = false;
+                    els.visualizeBtn.innerHTML = '<i class="fas fa-chart-line"></i> <span>' + t.visualize + '</span>';
+                });
+        }
+
+        function renderVisualizations() {
+            var t = translations[currentLang];
+            els.grid.innerHTML = '';
+
+            if (!visualizations || visualizations.length === 0) {
+                els.grid.innerHTML = `
+                    <div class="placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-chart-area"></i></div>
+                        <p>${t.noViz}</p>
+                        <p class="sub">${t.noVizSub}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            var items = visualizations.slice();
+            while (items.length < 4) {
+                items.push({
+                    id: 'placeholder-' + items.length,
+                    title: 'Boş',
+                    imageUrl: '',
+                    time: '',
+                    placeholder: true
+                });
+            }
+
+            var displayItems = items.slice(0, 4);
+
+            displayItems.forEach(function(viz, index) {
+                var card = document.createElement('div');
+                card.className = 'card';
+
+                if (viz.placeholder) {
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <span class="card-title">Boş alan</span>
+                            <span class="card-time"></span>
+                        </div>
+                        <div class="card-body" style="background: var(--bg-input); min-height: 200px; display:flex; align-items:center; justify-content:center; color: var(--text-muted);">
+                            <i class="fas fa-image" style="font-size:2rem; opacity:0.3;"></i>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-secondary" style="opacity:0.3; cursor:default;" disabled>
+                                <i class="fas fa-expand"></i> ${t.view}
+                            </button>
+                            <button class="btn btn-secondary" style="opacity:0.3; cursor:default;" disabled>
+                                <i class="fas fa-download"></i> ${t.download}
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <span class="card-title">${viz.title}</span>
+                            <span class="card-time">${viz.time}</span>
+                        </div>
+                        <div class="card-body" data-url="${viz.imageUrl}" data-title="${viz.title}">
+                            <img src="${viz.imageUrl}" alt="${viz.title}" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\\'fas fa-image\\' style=\\'font-size:2rem; opacity:0.3;\\'></i>'"/>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-secondary view-btn" data-url="${viz.imageUrl}" data-title="${viz.title}">
+                                <i class="fas fa-expand"></i> ${t.view}
+                            </button>
+                            <button class="btn btn-secondary download-btn" data-url="${viz.imageUrl}" data-title="${viz.title}">
+                                <i class="fas fa-download"></i> ${t.download}
+                            </button>
+                        </div>
+                    `;
+
+                    var body = card.querySelector('.card-body');
+                    if (body) {
+                        body.addEventListener('click', function() {
+                            if (this.dataset.url) {
+                                showFullscreen(this.dataset.url, this.dataset.title);
+                            }
+                        });
+                    }
+
+                    var viewBtn = card.querySelector('.view-btn');
+                    if (viewBtn) {
+                        viewBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            showFullscreen(this.dataset.url, this.dataset.title);
+                        });
+                    }
+
+                    var downloadBtn = card.querySelector('.download-btn');
+                    if (downloadBtn) {
+                        downloadBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            downloadImage(this.dataset.url, this.dataset.title);
+                        });
+                    }
+                }
+
+                els.grid.appendChild(card);
+            });
+        }
+
+        if (els.logo) {
+            els.logo.addEventListener('click', function() { window.location.href = '/'; });
+        }
+
+        if (els.langSwitch) {
+            els.langSwitch.addEventListener('click', function() {
+                setLanguage(currentLang === 'tr' ? 'en' : 'tr');
+                this.classList.add('animate');
+                setTimeout(function() { this.classList.remove('animate'); }.bind(this), 200);
+                renderVisualizations();
+            });
+        }
+
+        if (els.themeToggle) {
+            els.themeToggle.addEventListener('click', function() { setTheme(!dark); });
+        }
+
+        if (els.processSelect) {
+            els.processSelect.addEventListener('change', function() {
+                els.visualizeBtn.disabled = !this.value;
+            });
+        }
+
+        if (els.visualizeBtn) {
+            els.visualizeBtn.addEventListener('click', function() {
+                var type = els.processSelect.value;
+                if (type) updateVisualizations(type);
+            });
+        }
+
+        if (els.refreshBtn) {
+            els.refreshBtn.addEventListener('click', function() {
+                var t = translations[currentLang];
+                if (els.processSelect.value) {
+                    updateVisualizations(els.processSelect.value);
+                } else {
+                    fetchFolders().then(function(folders) {
+                        var currentVal = els.processSelect.value;
+                        els.processSelect.innerHTML = '<option value="">Süreç tipi seçin...</option>';
+                        folders.forEach(function(f) {
+                            var opt = document.createElement('option');
+                            opt.value = f;
+                            opt.textContent = f.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                            els.processSelect.appendChild(opt);
+                        });
+                        if (currentVal && folders.indexOf(currentVal) !== -1) {
+                            els.processSelect.value = currentVal;
+                            els.visualizeBtn.disabled = false;
+                        } else {
+                            els.visualizeBtn.disabled = true;
+                        }
+                        showNotification(t.refreshed);
+                    }).catch(function() {
+                        showNotification('Klasörler yenilenirken hata oluştu.');
+                    });
+                }
+            });
+        }
+
+        if (els.processSelect) {
+            els.processSelect.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && this.value) {
+                    els.visualizeBtn.click();
+                }
+            });
+        }
+
+        function init() {
+            setTheme(dark);
+            setLanguage('tr');
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            fetchFolders().then(function(folders) {
+                els.processSelect.innerHTML = '<option value="">Süreç tipi seçin...</option>';
+                folders.forEach(function(f) {
+                    var opt = document.createElement('option');
+                    opt.value = f;
+                    opt.textContent = f.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                    els.processSelect.appendChild(opt);
+                });
+
+                var urlParams = new URLSearchParams(window.location.search);
+                var initialFolder = urlParams.get('folder');
+                if (initialFolder && folders.indexOf(initialFolder) !== -1) {
+                    els.processSelect.value = initialFolder;
+                    els.visualizeBtn.disabled = false;
+                    updateVisualizations(initialFolder);
+                } else {
+                    els.visualizeBtn.disabled = true;
+                }
+            }).catch(function(e) {
+                console.error('Init error:', e);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+
+    })();
+</script>
+</body>
+</html>

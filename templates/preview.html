@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Molytica Chemical Analyzer</title>
+  <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      background-color: #fff;
+      color: #000;
+      height: 100%;
+    }
+
+    .app-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
+      background-color: #fff;
+      border-bottom: 2px solid #000;
+      display: flex;
+      align-items: center;
+      padding: 0 40px;
+      z-index: 1000;
+      user-select: none;
+      justify-content: space-between;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .logo {
+      height: 60px;
+      cursor: pointer;
+    }
+
+    .app-header h1 {
+      font-weight: 700;
+      font-size: 26px;
+      color: #000;
+      margin: 0;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 30px;
+      align-items: center;
+    }
+
+    #clock {
+      font-size: 22px;
+      color: #000;
+    }
+
+    .language-switcher {
+      background: transparent;
+      border: 2px solid #000;
+      padding: 10px 20px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #000;
+    }
+
+    .language-switcher:hover {
+      background-color: #000;
+      color: #fff;
+    }
+
+    .app-main {
+      padding: 120px 8% 60px 8%;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    button {
+      background-color: #000;
+      color: #fff;
+      border: none;
+      padding: 14px 36px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      min-width: 120px;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #555;
+    }
+
+    button:disabled {
+      background-color: #BEC8D2;
+      color: #7a7d81;
+      cursor: not-allowed;
+    }
+
+    .table-section {
+      background-color: #fff;
+      border: 2px solid #000;
+      padding: 24px;
+      overflow-x: auto;
+    }
+
+    .table-section h2 {
+      font-weight: 700;
+      font-size: 24px;
+      color: #000;
+      margin-bottom: 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 16px;
+      background-color: #fff;
+      color: #000;
+    }
+
+    thead th {
+      padding: 14px 24px;
+      font-weight: 700;
+      color: #000;
+      border-bottom: 2px solid #000;
+      text-align: center;
+    }
+
+    tbody tr {
+      background-color: #fff;
+      transition: background-color 0.15s ease;
+    }
+
+    tbody tr:hover {
+      background-color: #f5f5f5;
+    }
+
+    tbody td {
+      padding: 16px 24px;
+      text-align: center;
+      border-bottom: 2px solid #000;
+    }
+
+    tbody td[contenteditable="true"] {
+      background-color: #fff;
+      border: 1px solid #000;
+      cursor: text;
+    }
+
+    tbody td[contenteditable="true"]:focus {
+      outline: none;
+      border-color: #000;
+      background-color: #fff;
+    }
+
+    .action-btn {
+      background: none;
+      border: none;
+      color: #000;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0 8px;
+    }
+
+    .action-btn:hover {
+      color: #555;
+    }
+
+    .error-message {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 15px;
+      border: 1px solid #c62828;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+
+    .success-message {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      padding: 15px;
+      border: 1px solid #2e7d32;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+
+    .table-section::-webkit-scrollbar {
+      height: 12px;
+      width: 12px;
+    }
+
+    .table-section::-webkit-scrollbar-thumb {
+      background-color: #000;
+    }
+
+    .table-section::-webkit-scrollbar-thumb:hover {
+      background-color: #555;
+    }
+
+    td[contenteditable="true"] {
+      min-width: 100px;
+    }
+
+    .editing {
+      background-color: #fffde7 !important;
+      outline: 2px solid #2196F3 !important;
+    }
+
+    .action-btn.delete-btn {
+      color: #000;
+      font-size: 14px;
+      padding: 2px 6px;
+    }
+
+    .action-btn.delete-btn:hover {
+      color: #555;
+    }
+
+    @media (max-width: 768px) {
+      .app-main {
+        padding: 80px 16px 60px 16px;
+      }
+      button {
+        width: 100%;
+        min-width: unset;
+      }
+      .toolbar {
+        flex-direction: column;
+        gap: 16px;
+      }
+      table {
+        min-width: 600px;
+      }
+      thead th, tbody td {
+        padding: 14px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-content">
+    <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Logo" class="logo" />
+    <h1>CSV Veri Görüntüleyici</h1>
+  </div>
+  <div class="header-right">
+    <div id="clock"></div>
+  </div>
+</header>
+
+<main class="app-main">
+  <section class="table-section">
+    <h2>Veri Önizleme: <span id="filenameDisplay"></span></h2>
+    <div class="table-wrapper">
+      <table id="savedDataTable">
+        <thead><tr></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function() {
+    'use strict';
+
+    var data = [];
+    var headers = [];
+    var filename = "{{ url_for('static', filename='datasets') }}/" + getFilenameFromUrl();
+    var filename2 = getFilenameFromUrl();
+
+    function getFilenameFromUrl() {
+      var urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('models') || 'veriler.csv';
+    }
+
+    var table = document.getElementById('savedDataTable');
+    var tbody = table.querySelector('tbody');
+    var thead = table.querySelector('thead tr');
+    var filenameDisplay = document.getElementById('filenameDisplay');
+
+    function loadFile() {
+      if (!filename) {
+        showError('URL parametresinde dosya belirtilmedi. Örnek: ?models=dataset.csv');
+        return;
+      }
+
+      if (!filename.toLowerCase().endsWith('.csv')) {
+        showError('Sadece CSV dosyaları görüntülenebilir');
+        return;
+      }
+
+      filenameDisplay.textContent = filename2;
+
+      fetch(filename)
+        .then(function(response) {
+          if (!response.ok) throw new Error('CSV dosyası yüklenemedi');
+          return response.text();
+        })
+        .then(function(csvContent) {
+          parseCSV(csvContent);
+          renderTable();
+        })
+        .catch(function(error) {
+          showError('Hata: ' + error.message);
+        });
+    }
+
+    function parseCSV(content) {
+      var lines = content.split('\n').filter(function(line) { return line.trim() !== ''; });
+      if (lines.length === 0) return;
+
+      headers = parseCSVLine(lines[0]);
+      data = lines.slice(1).map(function(line) {
+        var values = parseCSVLine(line);
+        var row = {};
+        headers.forEach(function(header, i) {
+          row[header] = values[i] || '';
+        });
+        return row;
+      });
+    }
+
+    function parseCSVLine(line) {
+      var result = [];
+      var current = '';
+      var inQuotes = false;
+
+      for (var i = 0; i < line.length; i++) {
+        var char = line[i];
+
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+
+      result.push(current.trim());
+      return result.map(function(item) { return item.replace(/^"|"$/g, ''); });
+    }
+
+    function renderTable() {
+      renderHeaders();
+      renderBody();
+    }
+
+    function renderHeaders() {
+      var html = '';
+      headers.forEach(function(header) {
+        html += '<th>' + header + '</th>';
+      });
+      thead.innerHTML = html;
+    }
+
+    function renderBody() {
+      var fragment = document.createDocumentFragment();
+
+      data.forEach(function(row) {
+        var tr = document.createElement('tr');
+
+        headers.forEach(function(header) {
+          var td = document.createElement('td');
+          td.textContent = row[header] || '';
+          tr.appendChild(td);
+        });
+
+        fragment.appendChild(tr);
+      });
+
+      tbody.innerHTML = '';
+      tbody.appendChild(fragment);
+    }
+
+    function showError(message) {
+      var errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.textContent = message;
+
+      var main = document.querySelector('.app-main') || document.body;
+      main.insertBefore(errorDiv, main.firstChild);
+      setTimeout(function() { errorDiv.remove(); }, 5000);
+    }
+
+    function setupClock() {
+      var clock = document.getElementById('clock');
+
+      function updateClock() {
+        var now = new Date();
+        if (clock) {
+          clock.textContent = now.toLocaleTimeString();
+        }
+      }
+
+      updateClock();
+      setInterval(updateClock, 1000);
+    }
+
+    var logo = document.querySelector('.logo');
+    if (logo) {
+      logo.addEventListener('click', function() {
+        window.location.href = '/';
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadFile();
+      setupClock();
+    });
+
+  })();
+</script>
+</body>
+</html>
