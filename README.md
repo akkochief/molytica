@@ -1,4 +1,4 @@
-![Model](https://github.com/sefaakkoc/molytica/blob/main/img/Molytica4.png)
+![Model](https://github.com/akkochief/molytica/blob/main/img/Molytica4.png)
 # Molytica (Suzuki-Miyaura Reaction Analyzer)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
@@ -10,10 +10,10 @@
 [![Matplotlib](https://img.shields.io/badge/Matplotlib-3.7+-darkgreen.svg)](https://matplotlib.org)
 [![RDKit](https://img.shields.io/badge/RDKit-2023+-yellow.svg)](https://www.rdkit.org)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
-[![Build](https://img.shields.io/badge/Build-Passing-success.svg)](https://github.com/sefaakkoc/molytica)
-[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/sefaakkoc/molytica/releases)
-[![Platform](https://img.shields.io/badge/Platform-Web-lightgrey.svg)](https://github.com/sefaakkoc/molytica)
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)](https://github.com/sefaakkoc/molytica)
+[![Build](https://img.shields.io/badge/Build-Passing-success.svg)](https://github.com/akkochiefc/molytica)
+[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/akkochief/molytica/releases)
+[![Platform](https://img.shields.io/badge/Platform-Web-lightgrey.svg)](https://github.com/akkochief/molytica)
+[![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)](https://github.com/akkochief/molytica)
 
 A comprehensive web-based analysis platform for analyzing, optimizing, and simulating Suzuki-Miyaura cross-coupling reactions with additional catalyst analysis and yield prediction pages.
 
@@ -73,7 +73,7 @@ tqdm
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/sefaakkoc/molytica.git
+git clone https://github.com/akkochief/molytica.git
 cd molytica
 ```
 
@@ -87,7 +87,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-The application will be available at `http://0.0.0.0:5000`.
+The application will be available at `http://127.0.0.1:5000`.
 
 ## Project Structure
 
@@ -206,7 +206,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Authors
 
-- **Lead Developer** - [Sefa Akkoc](https://github.com/sefaakkoc)
+- **Lead Developer** - [Sefa Akkoc](https://github.com/akkochief)
 - **Chemistry Advisor** - Assoc. Prof. Dr. Mitat Akkoc
 
 ## References
@@ -220,8 +220,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 For issues and questions:
-- Open an [Issue](https://github.com/sefaakkoc/molytica/issues)
-- Check the [Wiki](https://github.com/sefaakkoc/molytica/wiki)
+- Open an [Issue](https://github.com/akkochief/molytica/issues)
+- Check the [Wiki](https://github.com/akkochief/molytica/wiki)
 
 **Note**: This software is intended for academic and research purposes. Please contact the developers before commercial use.
 
