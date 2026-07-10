@@ -1,5 +1,7 @@
 # Molytica — Suzuki-Miyaura Reaction Analyzer
 
+<img width="1280" height="640" alt="image" src="https://github.com/user-attachments/assets/158b1b61-ba79-43e2-ad3c-068b9cbbb88b" />
+
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)](https://flask.palletsprojects.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-orange.svg)](https://scikit-learn.org)
