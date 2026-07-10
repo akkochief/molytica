@@ -111,6 +111,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 predict_ml_bp = Blueprint('predict_ml', __name__, url_prefix='/predict_ml')
 
+# =============================================================================
+# HAMMETT SIGMA CONSTANTS (XML'den okunacak, yedek olarak burada)
+# =============================================================================
 HAMMETT_SIGMA = {
     'H': {'sigma_m': 0.00, 'sigma_p': 0.00, 'taft_es': 0.00, 'sigma_plus': 0.00, 'sigma_minus': 0.00},
     'CH3': {'sigma_m': -0.07, 'sigma_p': -0.17, 'taft_es': 0.00, 'sigma_plus': -0.31, 'sigma_minus': -0.17},
@@ -135,6 +138,9 @@ HAMMETT_SIGMA = {
     'C6H5': {'sigma_m': 0.06, 'sigma_p': -0.01, 'taft_es': -1.20, 'sigma_plus': -0.18, 'sigma_minus': -0.01},
 }
 
+# =============================================================================
+# LIGAND PROPERTIES (XML'den okunacak, yedek olarak burada)
+# =============================================================================
 LIGAND_PROPERTIES_EXTENDED = {
     'triphenylphosphine': {
         'cone_angle': 145.0, 'tep': 2068.9, 'denticity': 1, 
@@ -193,6 +199,9 @@ LIGAND_PROPERTIES_EXTENDED = {
     },
 }
 
+# =============================================================================
+# BASE PROPERTIES (XML'den okunacak, yedek olarak burada)
+# =============================================================================
 BASE_PROPERTIES = {
     'k2co3': {'pka': 10.3, 'solubility': 0.1, 'cation_radius': 1.38, 'hygroscopic': False, 'class': 'carbonate', 'pkb': 3.7},
     'cs2co3': {'pka': 10.3, 'solubility': 2.6, 'cation_radius': 1.67, 'hygroscopic': True, 'class': 'carbonate', 'pkb': 3.7},
@@ -212,6 +221,9 @@ BASE_PROPERTIES = {
     'pyridine': {'pka': 5.2, 'solubility': 0.3, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 8.8},
 }
 
+# =============================================================================
+# SOLVENT PHYSICS (XML'den okunacak, yedek olarak burada)
+# =============================================================================
 SOLVENT_PHYSICS_ADVANCED = {
     'water': {
         'dielectric': 80.1, 'bp_c': 100.0, 'polarity_index': 10.2, 
@@ -362,18 +374,15 @@ SOLVENT_PHYSICS_ADVANCED = {
     },
 }
 
+# =============================================================================
+# ACADEMIC DFT CALCULATOR
+# =============================================================================
 class AcademicDFTCalculator:
     def __init__(self):
         self._fukui_cache = {}
         self._dft_cache = {}
     
     def calculate_fukui_indices(self, smiles: str) -> Dict[str, float]:
-        """
-        Calculates Fukui indices.
-        f+ = nucleophilic attack (electron acceptance)
-        f- = electrophilic attack (electron donation)
-        f0 = radical attack
-        """
         if smiles in self._fukui_cache:
             return self._fukui_cache[smiles]
         
@@ -431,10 +440,6 @@ class AcademicDFTCalculator:
         return result
     
     def calculate_homo_lumo(self, smiles: str) -> Dict[str, float]:
-        """
-        Estimates HOMO-LUMO energies.
-        Not a real DFT calculation, but literature-based estimation.
-        """
         if smiles in self._dft_cache:
             return self._dft_cache[smiles]
         
@@ -517,14 +522,6 @@ class AcademicDFTCalculator:
         return result
     
     def calculate_global_reactivity_descriptors(self, smiles: str) -> Dict[str, float]:
-        """
-        Calculates global reactivity descriptors:
-        - Chemical potential (μ)
-        - Absolute hardness (η)
-        - Electronegativity (χ)
-        - Electrophilicity index (ω)
-        - Nucleophilicity index (N)
-        """
         dft = self.calculate_homo_lumo(smiles)
         
         result = {
@@ -542,25 +539,16 @@ class AcademicDFTCalculator:
         return result
     
     def calculate_condensed_fukui_for_molecule(self, smiles: str) -> Dict:
-        """
-        Calculates condensed Fukui indices for a molecule.
-        Used to identify reactive regions.
-        """
         return self.calculate_fukui_indices(smiles)
 
+# =============================================================================
+# QSAR CALCULATOR
+# =============================================================================
 class QSARCalculator:
-    """
-    QSAR/QSPR calculations:
-    - 2D QSAR (topological, electronic, hydrophobic)
-    - 3D QSAR (geometric, steric)
-    - CoMFA-like field analyses
-    """
-    
     def __init__(self):
         self._qsar_cache = {}
     
     def calculate_2d_qsar_descriptors(self, smiles: str) -> Dict[str, float]:
-        """Calculates 2D QSAR descriptors"""
         if smiles in self._qsar_cache:
             return self._qsar_cache[smiles]
         
@@ -605,13 +593,6 @@ class QSARCalculator:
         return descriptors
     
     def calculate_drug_likeness(self, smiles: str) -> Dict[str, Any]:
-        """
-        Drug-likeness calculations:
-        - Lipinski Rules
-        - Ghose Rules
-        - Veber Rules
-        - QED (Quantitative Estimate of Drug-likeness)
-        """
         result = {
             'lipinski_rules': {'passed': False, 'details': {}},
             'ghose_rules': {'passed': False, 'details': {}},
@@ -679,22 +660,14 @@ class QSARCalculator:
         
         return result
 
+# =============================================================================
+# MOLECULAR DOCKING CALCULATOR
+# =============================================================================
 class MolecularDockingCalculator:
-    """
-    Molecular docking-like calculations:
-    - Protein-ligand interactions (estimated)
-    - Binding affinity (estimated)
-    - Molecular recognition
-    """
-    
     def __init__(self):
         self._docking_cache = {}
     
     def calculate_binding_affinity(self, smiles: str, target_protein: str = 'pd') -> Dict[str, float]:
-        """
-        Binding affinity estimation.
-        Not real docking, but literature-based estimation.
-        """
         if smiles in self._docking_cache:
             return self._docking_cache[smiles]
         
@@ -746,6 +719,9 @@ class MolecularDockingCalculator:
         
         return result
 
+# =============================================================================
+# GLOBAL VARIABLES
+# =============================================================================
 PREDICTOR = None
 CONFIG = None
 DATA_INFO = None
@@ -776,6 +752,9 @@ ACADEMIC_FEATURE_COLUMNS = [
     'mechanistic_predictor_electronic_softness', 'reaction_rate_indicator'
 ]
 
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
 def convert_to_serializable(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
@@ -866,6 +845,9 @@ def is_enriched_dataset(df: pd.DataFrame) -> bool:
         return True
     return False
 
+# =============================================================================
+# LOGGER CLASS
+# =============================================================================
 class Logger:
     def __init__(self):
         self.logs = []
@@ -933,6 +915,9 @@ class Logger:
 
 logger = Logger()
 
+# =============================================================================
+# DECORATORS
+# =============================================================================
 def error_handler(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -997,8 +982,11 @@ def cache_result(ttl: int = 300, max_size: int = 100):
         return wrapper
     return decorator
 
+# =============================================================================
+# CONFIG MANAGER - XML TABANLI
+# =============================================================================
 class ConfigManager:
-    def __init__(self, config_path: str = 'config/info.xml'):
+    def __init__(self, config_path: str = 'static/xml_data/info.xml'):
         self.config_path = config_path
         self.tree = None
         self.root = None
@@ -1276,7 +1264,7 @@ class ConfigManager:
         <Neural_Network><hidden_layer_sizes>128,64,32</hidden_layer_sizes><activation>relu</activation><solver>adam</solver><alpha>0.001</alpha><learning_rate_init>0.001</learning_rate_init><max_iter>1000</max_iter><tol>0.0001</tol><momentum>0.9</momentum><nesterovs_momentum>true</nesterovs_momentum><early_stopping>true</early_stopping><validation_fraction>0.15</validation_fraction><beta_1>0.9</beta_1><beta_2>0.999</beta_2><epsilon>1e-08</epsilon><n_iter_no_change>10</n_iter_no_change><random_state>42</random_state><warm_start>false</warm_start></Neural_Network>
         <Gaussian_Process><kernel>1.0 * RBF(1.0)</kernel><alpha>1e-10</alpha><optimizer>fmin_l_bfgs_b</optimizer><n_restarts_optimizer>5</n_restarts_optimizer><normalize_y>true</normalize_y><random_state>42</random_state></Gaussian_Process>
         <Ensemble>
-            <weights><Random_Forest>0.16</Random_Forest><Gradient_Boosting>0.12</Gradient_Boosting><Hist_Gradient_Boosting>0.16</Hist_Gradient_Boosting><XGBoost>0.12</XGBoost><LightGBM>0.08</LightGBM><CatBoost>0.08</CatBoost><Extra_Trees>0.04</Extra_Trees><SVR>0.02</SVR><Neural_Network>0.03</Neural_Network><Gaussian_Process>0.05</Gaussian_Process><Bayesian_Ridge>0.02</Bayesian_Ridge><PLS>0.01</PLS></weights>
+            <weights><Random_Forest>0.16</Random_Forest><Gradient_Boosting>0.12</Gradient_Boosting><Hist_Gradient_Boosting>0.16</Hist_Gradient_Boosting><XGBoost>0.12</XGBoost><LightGBM>0.08</LightGBM><CatBoost>0.08</CatBoost><Extra_Trees>0.04</Extra_Trees><SVR>0.02</SVR><Neural_Network>0.03</Neural_Network><Gaussian_Process>0.05</Gaussian_Process></weights>
             <stacking>true</stacking>
             <stacking_meta_model>Random_Forest</stacking_meta_model>
             <voting>soft</voting>
@@ -1489,6 +1477,9 @@ class ConfigManager:
             'last_modified': os.path.getmtime(self.config_path) if os.path.exists(self.config_path) else None
         }
 
+# =============================================================================
+# CHEMICAL CALCULATOR - XML TABANLI
+# =============================================================================
 class ChemicalCalculator:
     def __init__(self, config: ConfigManager):
         self.config = config
@@ -1510,6 +1501,7 @@ class ChemicalCalculator:
         chem = self.config.get_chemical_params()
         logger.debug("Loading all chemical parameters from XML...")
         
+        # Temperature
         temp = chem.get('temperature', {})
         self.optimal_temp = temp.get('optimal_temp', 85)
         self.temp_range = temp.get('temp_range', 35)
@@ -1531,8 +1523,8 @@ class ChemicalCalculator:
         self.eyring_prefactor = temp.get('eyring_prefactor', 1.0e13)
         self.entropy_activation = temp.get('entropy_activation', -20.5)
         self.enthalpy_activation = temp.get('enthalpy_activation', 42.8)
-        logger.debug(f"   Temperature params loaded: optimal={self.optimal_temp}, range={self.temp_range}")
         
+        # Time
         time_p = chem.get('time', {})
         self.optimal_time = time_p.get('optimal_time', 18)
         self.time_range = time_p.get('time_range', 12)
@@ -1550,8 +1542,8 @@ class ChemicalCalculator:
         self.optimal_time_bonus = time_p.get('optimal_time_bonus', 1.10)
         self.reaction_order = time_p.get('reaction_order', 1.5)
         self.half_life_temperature_dependence = time_p.get('half_life_temperature_dependence', -0.12)
-        logger.debug(f"   Time params loaded: optimal={self.optimal_time}, range={self.time_range}")
         
+        # Catalyst
         cat = chem.get('catalyst', {})
         self.k_m = cat.get('k_m', 0.003)
         self.v_max = cat.get('v_max', 18)
@@ -1576,8 +1568,8 @@ class ChemicalCalculator:
         self.pd_sources = cat.get('pd_sources', {})
         self.pd_oxidation_state = cat.get('pd_oxidation_state', 2)
         self.ligand_coordination_number = cat.get('ligand_coordination_number', 4)
-        logger.debug(f"   Catalyst params loaded: Km={self.k_m}, Vmax={self.v_max}")
         
+        # Steric
         ster = chem.get('steric', {})
         self.steric_threshold = ster.get('threshold', 0.35)
         self.steric_penalty = ster.get('penalty_coefficient', 7.5)
@@ -1599,8 +1591,8 @@ class ChemicalCalculator:
         self.a_value_ethyl = ster.get('a_value_ethyl', 1.75)
         self.a_value_isopropyl = ster.get('a_value_isopropyl', 2.21)
         self.a_value_tertbutyl = ster.get('a_value_tertbutyl', 4.9)
-        logger.debug(f"   Steric params loaded: threshold={self.steric_threshold}, penalty={self.steric_penalty}")
         
+        # Electronic
         elec = chem.get('electronic', {})
         self.logp_coefficient = elec.get('logp_coefficient', 0.25)
         self.hbd_penalty = elec.get('hbd_penalty', 2.0)
@@ -1623,8 +1615,8 @@ class ChemicalCalculator:
         self.sigma_minus_coeff = elec.get('sigma_minus_coefficient', 2.5)
         self.brown_sigma_plus_factor = elec.get('brown_sigma_plus_factor', 1.2)
         self.hammett_reaction_constant = elec.get('hammett_reaction_constant', 1.0)
-        logger.debug(f"   Electronic params loaded: Hammett={self.hammett_coeff}, Taft={self.taft_coeff}")
         
+        # HSAB
         hsab = chem.get('hsab', {})
         self.pd_softness = hsab.get('pd_softness', 2.8)
         self.halide_softness = hsab.get('halide_softness', 3.2)
@@ -1644,8 +1636,8 @@ class ChemicalCalculator:
         self.pearson_softness_threshold = hsab.get('pearson_softness_threshold', 6.0)
         self.chemical_potential_pd = hsab.get('chemical_potential_pd', -5.2)
         self.electronegativity_pd = hsab.get('electronegativity_pd', 5.2)
-        logger.debug(f"   HSAB params loaded: Pd={self.pd_softness}, halide={self.halide_softness}")
         
+        # Solvent
         solv = chem.get('solvent', {})
         self.dielectric_optimal = solv.get('dielectric_optimal', 25.0)
         self.dielectric_range = solv.get('dielectric_range', 15.0)
@@ -1671,8 +1663,8 @@ class ChemicalCalculator:
         self.dioxane_water = mixtures.get('dioxane_water', 1.10)
         self.thf_water = mixtures.get('thf_water', 1.05)
         self.dme_water = mixtures.get('dme_water', 1.08)
-        logger.debug(f"   Solvent params loaded: dielectric={self.dielectric_optimal}, donor={self.donor_optimal}")
         
+        # Base
         base_p = chem.get('base', {})
         self.pka_threshold = base_p.get('pka_threshold', 18.0)
         self.strong_base_bonus = base_p.get('strong_base_bonus', 1.15)
@@ -1686,8 +1678,8 @@ class ChemicalCalculator:
         self.hygroscopic_base_penalty = base_p.get('hygroscopic_base_penalty', 0.90)
         self.cation_radius_effect = base_p.get('cation_radius_effect', 1.02)
         self.pka_effect = base_p.get('pka_effect', 0.03)
-        logger.debug(f"   Base params loaded: pKa threshold={self.pka_threshold}")
         
+        # Yield
         yield_p = chem.get('yield_parameters', {})
         self.max_yield = yield_p.get('max_yield', 98)
         self.min_yield = yield_p.get('min_yield', 5)
@@ -1704,8 +1696,8 @@ class ChemicalCalculator:
         self.poor_threshold = yield_p.get('poor_threshold', 30)
         self.confidence_interval_alpha = yield_p.get('confidence_interval_alpha', 0.05)
         self.prediction_interval_alpha = yield_p.get('prediction_interval_alpha', 0.10)
-        logger.debug(f"   Yield params loaded: max={self.max_yield}, min={self.min_yield}")
         
+        # Mechanistic
         mech = chem.get('mechanistic', {})
         self.oa_barrier = mech.get('oxidative_addition_barrier', 28.5)
         self.oa_rate = mech.get('oxidative_addition_rate', 0.045)
@@ -1725,7 +1717,6 @@ class ChemicalCalculator:
         self.transition_state_asymmetry = mech.get('transition_state_asymmetry', 1.2)
         self.reaction_coordinate_step = mech.get('reaction_coordinate_step', 0.1)
         self.intermediate_stability_factor = mech.get('intermediate_stability_factor', 0.8)
-        logger.debug(f"   Mechanistic params loaded: OA={self.oa_barrier}, TM={self.tm_barrier}, RE={self.re_barrier}")
         
         logger.info("All 200+ academic parameters loaded from XML")
     
@@ -1758,44 +1749,35 @@ class ChemicalCalculator:
         if abs(total_weight - 1.0) > 0.05:
             logger.warning(f"Feature importance weights sum to {total_weight:.2f}, not 1.0")
     
+    # Academic Methods
     def calculate_dft_descriptors(self, smiles: str) -> Dict[str, float]:
-        """Calculate DFT-like global reactivity descriptors"""
         return self.dft_calc.calculate_global_reactivity_descriptors(smiles)
     
     def calculate_fukui_indices(self, smiles: str) -> Dict[str, float]:
-        """Calculate Fukui indices"""
         return self.dft_calc.calculate_fukui_indices(smiles)
     
     def calculate_qsar_descriptors(self, smiles: str) -> Dict[str, float]:
-        """Calculate 2D QSAR descriptors"""
         return self.qsar_calc.calculate_2d_qsar_descriptors(smiles)
     
     def calculate_drug_likeness(self, smiles: str) -> Dict[str, Any]:
-        """Calculate drug-likeness"""
         return self.qsar_calc.calculate_drug_likeness(smiles)
     
     def calculate_docking_score(self, smiles: str, target: str = 'pd') -> Dict[str, float]:
-        """Calculate molecular docking-like binding affinity"""
         return self.docking_calc.calculate_binding_affinity(smiles, target)
     
     def calculate_hsab_absolute_hardness(self, ip: float, ea: float) -> float:
-        """Pearson absolute hardness (η = IP - EA)"""
         return ip - ea
     
     def calculate_hsab_chemical_potential(self, ip: float, ea: float) -> float:
-        """Chemical potential (μ = -(IP + EA)/2)"""
         return -(ip + ea) / 2
     
     def calculate_hsab_electronegativity(self, ip: float, ea: float) -> float:
-        """Electronegativity (χ = (IP + EA)/2)"""
         return (ip + ea) / 2
     
     def calculate_solvent_kamlet_taft(self, alpha: float, beta: float, pi_star: float) -> float:
-        """Kamlet-Taft solvent parameter"""
         return alpha * 0.3 + beta * 0.3 + pi_star * 0.4
     
     def calculate_steric_a_value(self, substituent: str) -> float:
-        """Calculate A-value (steric effect)"""
         a_values = {
             'methyl': self.a_value_methyl,
             'ethyl': self.a_value_ethyl,
@@ -1805,38 +1787,32 @@ class ChemicalCalculator:
         return a_values.get(substituent.lower(), 1.74)
     
     def calculate_hammett_sigma_plus(self, substituent: str) -> float:
-        """Hammett σ⁺ value (Brown σ⁺)"""
         sigma_plus = HAMMETT_SIGMA.get(substituent, {}).get('sigma_plus', 0)
         return sigma_plus * self.sigma_plus_coeff
     
     def calculate_hammett_sigma_minus(self, substituent: str) -> float:
-        """Hammett σ⁻ value"""
         sigma_minus = HAMMETT_SIGMA.get(substituent, {}).get('sigma_minus', 0)
         return sigma_minus * self.sigma_minus_coeff
     
     def calculate_taft_steric_parameter(self, substituent: str) -> float:
-        """Taft steric parameter (Eₛ)"""
         return HAMMETT_SIGMA.get(substituent, {}).get('taft_es', 0)
     
     def calculate_eyring_rate(self, temp: float, delta_h: float, delta_s: float) -> float:
-        """Calculate reaction rate using Eyring equation"""
         T = temp + 273.15
         return (boltzmann_k / h) * T * np.exp(-(delta_h * 1000) / (R * T)) * np.exp(delta_s / R)
     
     def calculate_gibbs_energy(self, temp: float, delta_h: float, delta_s: float) -> float:
-        """Calculate Gibbs free energy"""
         T = temp + 273.15
         return delta_h - T * delta_s / 1000
     
     def calculate_equilibrium_constant(self, temp: float, delta_g: float) -> float:
-        """Calculate equilibrium constant"""
         T = temp + 273.15
         return np.exp(-delta_g * 1000 / (R * T))
     
     def calculate_lfer(self, sigma: float, rho: float) -> float:
-        """Linear Free Energy Relationship (LFER)"""
         return np.exp(rho * sigma)
     
+    # Core Methods
     def temperature_factor(self, temp: float) -> float:
         if temp < self.min_temp:
             return self.low_temp_penalty
@@ -2309,6 +2285,9 @@ class ChemicalCalculator:
             'prediction_interval_alpha': self.prediction_interval_alpha
         }
 
+# =============================================================================
+# FEATURE ENGINEER - XML TABANLI
+# =============================================================================
 class FeatureEngineer:
     def __init__(self, config: ConfigManager):
         self.config = config
@@ -2609,6 +2588,9 @@ class FeatureEngineer:
             logger.error(f"Feature selection error: {e}")
             return df.select_dtypes(include=[np.number])
 
+# =============================================================================
+# SUZUKI PREDICTOR - XML TABANLI
+# =============================================================================
 class SuzukiPredictor:
     def __init__(self, config: ConfigManager):
         self.config = config
@@ -3602,21 +3584,16 @@ class SuzukiPredictor:
             logger.error(f"Load model error: {e}")
             return False
 
+# =============================================================================
+# CREATE RESULT IMAGES - XML TABANLI
+# =============================================================================
 def create_result_images():
-    """
-    Creates 4 academic-level visualizations:
-    1. DFT HOMO-LUMO Energy Diagram
-    2. HSAB Hardness-Softness Compatibility Heatmap
-    3. Mechanistic Barrier Analysis (OA, TM, RE)
-    4. QSAR Drug-Likeness Radar Plot
-    """
     try:
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         import numpy as np
         import seaborn as sns
-        from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
         
         if PREDICTOR is None or not PREDICTOR.is_trained or PREDICTOR.X is None:
             logger.warning("No trained model available for visualization")
@@ -3636,7 +3613,6 @@ def create_result_images():
             return []
         
         fig1, ax1 = plt.subplots(figsize=(10, 7))
-        
         try:
             subs1_smiles = PREDICTOR.df['subs1'].iloc[0] if 'subs1' in PREDICTOR.df.columns else ''
             subs2_smiles = PREDICTOR.df['subs2'].iloc[0] if 'subs2' in PREDICTOR.df.columns else ''
@@ -3687,7 +3663,6 @@ def create_result_images():
         logger.info(f"Saved DFT diagram: {filepath1}")
         
         fig2, ax2 = plt.subplots(figsize=(10, 8))
-        
         try:
             hsab_labels = ['Pd', 'Halide', 'Ligand', 'Base']
             softness_values = [
@@ -3742,7 +3717,6 @@ def create_result_images():
         logger.info(f"Saved HSAB heatmap: {filepath2}")
         
         fig3, ax3 = plt.subplots(figsize=(10, 7))
-        
         try:
             barriers = [
                 PREDICTOR.chemical.oa_barrier,
@@ -3799,7 +3773,6 @@ def create_result_images():
         logger.info(f"Saved mechanistic analysis: {filepath3}")
         
         fig4, ax4 = plt.subplots(figsize=(10, 10), subplot_kw={'projection': 'polar'})
-        
         try:
             subs1_smiles = PREDICTOR.df['subs1'].iloc[0] if 'subs1' in PREDICTOR.df.columns else ''
             subs2_smiles = PREDICTOR.df['subs2'].iloc[0] if 'subs2' in PREDICTOR.df.columns else ''
@@ -3915,6 +3888,9 @@ def create_result_images():
         logger.error(traceback.format_exc())
         return []
 
+# =============================================================================
+# FLASK ROUTES
+# =============================================================================
 @predict_ml_bp.route('/')
 @error_handler
 def index():
@@ -4021,7 +3997,7 @@ def load_data():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error reading file: {str(e)}'}), 400
     
-    CONFIG = ConfigManager('config/info.xml')
+    CONFIG = ConfigManager('static/xml_data/info.xml')
     PREDICTOR = SuzukiPredictor(CONFIG)
     
     try:
@@ -4229,7 +4205,7 @@ def load_model():
     if not os.path.exists(filepath):
         return jsonify({'success': False, 'message': f'Model not found: {filename}'})
     
-    CONFIG = ConfigManager('config/info.xml')
+    CONFIG = ConfigManager('static/xml_data/info.xml')
     PREDICTOR = SuzukiPredictor(CONFIG)
     
     success = PREDICTOR.load_model(filepath)
@@ -4474,7 +4450,7 @@ def prediction_history():
 @predict_ml_bp.route('/api/get_xml_config', methods=['GET'])
 @error_handler
 def get_xml_config():
-    path = 'config/info.xml'
+    path = 'static/xml_data/info.xml'
     if not os.path.exists(path):
         return jsonify({'success': False, 'message': 'Config not found'})
     with open(path, 'r', encoding='utf-8') as f:
@@ -4495,7 +4471,7 @@ def update_xml_config():
     content = data.get('content')
     if not content:
         return jsonify({'success': False, 'message': 'Content required'})
-    path = 'config/info.xml'
+    path = 'static/xml_data/info.xml'
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         ET.fromstring(content)
@@ -4519,7 +4495,7 @@ def update_xml_config():
 @error_handler
 def reset_xml_config():
     global CONFIG
-    path = 'config/info.xml'
+    path = 'static/xml_data/info.xml'
     if os.path.exists(path):
         backup_path = f"{path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         os.rename(path, backup_path)
@@ -4714,15 +4690,16 @@ def health_check():
 
 def init_app():
     os.makedirs('static/datasets', exist_ok=True)
-    os.makedirs('config', exist_ok=True)
+    os.makedirs('static/xml_data', exist_ok=True)
     os.makedirs('static/models', exist_ok=True)
     os.makedirs('logs', exist_ok=True)
     os.makedirs('static/images', exist_ok=True)
     
-    if not os.path.exists('config/info.xml'):
-        ConfigManager('config/info.xml')
-        logger.info("Default config created")
+    if not os.path.exists('static/xml_data/info.xml'):
+        ConfigManager('static/xml_data/info.xml')
+        logger.info("Default config created at static/xml_data/info.xml")
     
     logger.success("Application initialized successfully")
 
 init_app()
+
