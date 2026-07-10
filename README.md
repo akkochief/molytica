@@ -1,4 +1,3 @@
-![Model](https://github.com/akkochief/molytica/blob/main/img/Molytica4.png)
 # Molytica — Suzuki-Miyaura Reaction Analyzer
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
@@ -10,92 +9,167 @@
 [![RDKit](https://img.shields.io/badge/RDKit-2023+-brightgreen.svg)](https://www.rdkit.org)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
-A Flask-based analysis platform for Suzuki-Miyaura cross-coupling reactions. It takes reaction data (substrates, catalyst, base, solvent, temperature/time) and produces yield predictions using both a **physicochemical model** (an Eyring/Hammett/Taft/HSAB-based rule engine) and a **13-model ML ensemble**.
+A Flask-based analysis platform for Suzuki-Miyaura cross-coupling reactions. It takes reaction data (substrates, catalyst, base, solvent, temperature/time) and produces yield predictions using both a **physicochemical model** (Eyring/Hammett/Taft/HSAB-based rule engine) and a **13-model ML ensemble** with academic DFT/QSAR/QSPR descriptors.
 
-This README was rewritten after actually reading `routes/predict_ml_routes.py` — everything below reflects what the code actually does, not aspirational feature-list marketing copy.
+## Core Capabilities
 
-## What it actually does
+### 1. Physicochemical Engine — `ChemicalCalculator`
 
-### 1. Chemistry engine — `ChemicalCalculator`
-The code has embedded reference tables (Hammett sigma constants, Taft steric parameters, ligand properties like cone angle/TEP/Tolman angle, base pKa/solubility values, Kamlet-Taft solvent parameters). From these it computes:
-- Eyring-equation reaction rate, Gibbs free energy, and equilibrium constant
-- LFER (Linear Free Energy Relationships) from Hammett σ (σm, σp, σ+, σ−) and Taft Es steric parameters
-- HSAB (hard-soft acid-base) compatibility: absolute hardness, chemical potential, electronegativity
-- A rule-based `calculate_yield()` function that combines temperature, time, catalyst loading, steric, electronic, HSAB, and mechanistic factors into an "expected" yield — independent of the ML models
+The system includes embedded reference tables for:
+- **Hammett sigma constants** (σₘ, σₚ, σ⁺, σ⁻) for substituent effects
+- **Taft steric parameters** (Eₛ) for steric effects
+- **Ligand properties** (cone angle, TEP, Tolman angle, denticity, pKₐ)
+- **Base properties** (pKₐ, solubility, cation radius, hygroscopicity)
+- **Kamlet-Taft solvent parameters** (α, β, π*)
 
-### 2. Feature engineering — `FeatureEngineer`
-`engineer_features()` derives 80+ features from the raw CSV:
-- Temperature×time interactions (product, ratio, log, difference, etc.)
-- Log/sqrt/square/cube/exponential transforms of catalyst quantity
-- SMILES-derived features (length and molecular descriptors) for substrates, product, catalyst, base, and both solvents
-- Steric, LogP, molecular weight, ring count, and halogen count differences/ratios/sums between substrates
-- Composite signals like `hammett_effect`, `taft_effect`, and `mechanistic_predictor` derived from Hammett σp and Taft Es
+Computes:
+- **Eyring equation** reaction rate, Gibbs free energy (ΔG), and equilibrium constant
+- **LFER** (Linear Free Energy Relationships) from Hammett σ and Taft Eₛ
+- **HSAB** (hard-soft acid-base) compatibility: absolute hardness, chemical potential, electronegativity
+- **Michaelis-Menten kinetics** for catalyst efficiency
+- **A-values** for steric analysis (methyl, ethyl, isopropyl, tert-butyl)
 
-Note: this pipeline only runs on **enriched** datasets — `is_enriched_dataset()` checks for columns like `subs1_SMILES_*` and `hsab_*`; if they're missing, training is refused and the user is pointed to `dataset_routes.py` to enrich the data first.
+The rule-based `calculate_yield()` combines temperature, time, catalyst loading, steric, electronic, HSAB, solvent, base, and mechanistic factors into an independent yield estimate.
 
-### 3. ML prediction engine — `SuzukiPredictor`
-Calling `train()` fits 13 models at once and compares them on a held-out test set using R², MAE, and RMSE:
+### 2. DFT & QSAR Academic Features
 
-`Random Forest, Gradient Boosting, Hist Gradient Boosting, XGBoost, LightGBM, CatBoost, Extra Trees, KNN, Ridge, Lasso, ElasticNet, SVR, Neural Network (MLP)`
+| Class | Features |
+|-------|----------|
+| **AcademicDFTCalculator** | Fukui indices (f⁺, f⁻, f⁰), HOMO-LUMO energies, chemical potential (μ), absolute hardness (η), electronegativity (χ), electrophilicity index (ω), nucleophilicity index |
+| **QSARCalculator** | 2D QSAR descriptors (MW, LogP, TPSA, MR, HBA, HBD, RotBonds), Lipinski/Ghose/Veber rule compliance, QED drug-likeness score |
+| **MolecularDockingCalculator** | Predicted binding affinity, hydrophobic/electrostatic/H-bond contributions, entropic penalty |
 
-Features are scaled with `StandardScaler`, missing values filled with `SimpleImputer`. Categorical columns (`catalizor`, `base`, `solv1`, `solv2`) are one-hot encoded. The best model is auto-selected by R²; there's also a weighted **ensemble average** (e.g. Random Forest 18%, Hist Gradient Boosting 18%, XGBoost 14%, etc.). The final prediction blends the ML output with `ChemicalCalculator`'s rule-based yield and returns a confidence score (`_calculate_confidence`).
+### 3. Feature Engineering — `FeatureEngineer`
 
-### 4. Configuration — `ConfigManager` (XML)
-Model hyperparameters, ensemble weights, and chemistry constants are read from `config/info.xml`, not hardcoded. The file is auto-created with defaults if missing, and can be read, updated, and reset via the API.
+`engineer_features()` derives **500+ features** from enriched CSV data:
+- Temperature × time interactions (product, ratio, log transforms, difference)
+- Catalyst quantity transforms (log, sqrt, square, cube, exponential, inverse)
+- SMILES-derived molecular descriptors for substrates, product, catalyst, base, solvents
+- Steric, LogP, MW, ring count, halogen count differences/ratios/sums
+- DFT-based composite features (`dft_homo_sum`, `dft_gap_sum`, `dft_chemical_potential_avg`)
+- QSAR-derived features (`qsar_mr`, `qsar_drug_likeness`)
+- Mechanistic predictors (`hammett_effect`, `taft_effect`, `electronic_softness`)
 
-### 5. Other infrastructure
-- A simple in-memory `Logger` (INFO/SUCCESS/DEBUG/WARNING/ERROR levels), queryable via `/api/get_logs`
-- A TTL + max-size `cache_result` decorator with hit/miss counters
-- Saving/loading trained models to disk with `joblib`
-- Exporting results as CSV, JSON, or Excel
-- A SMILES validation endpoint
+**Note:** Training requires **enriched datasets** with columns like `subs1_SMILES_*`, `subs2_SMILES_*`, `hsab_*`, `dft_*`, `qsar_*`. Basic datasets trigger an error and redirect to `dataset_routes.py`.
 
-## Real API endpoints (`/predict_ml/...`)
+### 4. ML Prediction Engine — `SuzukiPredictor`
 
-| Endpoint | Method | What it does |
-|---|---|---|
-| `/api/get_csv_files` | GET | Lists CSVs under `static/datasets/` |
-| `/api/upload_csv` | POST | Uploads a CSV |
-| `/api/load_data` | POST | Reads the CSV, checks if it's enriched, runs feature engineering |
-| `/api/change_model` / `/api/save_model` / `/api/load_model` / `/api/list_models` | — | Model training/saving/loading |
-| `/api/make_prediction` | POST | Yield prediction for a single reaction |
-| `/api/optimize_catalyst` | POST | Suggests the best catalyst for given conditions |
-| `/api/model_performance` / `/api/model_comparison` | — | R²/MAE/RMSE comparison |
-| `/api/feature_importance` | GET | Feature importance ranking |
-| `/api/get_xml_config` / `/api/update_xml_config` / `/api/reset_xml_config` | — | XML config management |
-| `/api/validate_smiles` | POST | SMILES validation |
-| `/api/export_results` | POST | CSV/JSON/Excel export |
-| `/api/get_logs` / `/api/clear_logs` | — | View/clear application logs |
-| `/api/health` | GET | Predictor/config/data status, cache and log counters |
+`train()` fits **13 models** simultaneously and compares them on a held-out test set using R², MAE, and RMSE:
 
-## Project structure (actual directory tree)
+| Model Family | Specific Models |
+|--------------|-----------------|
+| Tree-based | Random Forest, Gradient Boosting, Hist Gradient Boosting, Extra Trees |
+| Gradient Boosted | XGBoost, LightGBM, CatBoost |
+| Linear | Ridge, Lasso, ElasticNet |
+| Other | KNN, SVR, Neural Network (MLP), Gaussian Process |
+
+**Ensemble Strategy:**
+- Weighted average ensemble (e.g., Random Forest 16%, Hist-GB 16%, XGBoost 12%, LightGBM 8%, CatBoost 8%)
+- Stacking with Random Forest as meta-model (optional)
+- Soft voting for final predictions
+
+**Academic Analytics:**
+- **Cross-validation** (5-fold KFold) with R² scores
+- **SHAP** model interpretability (TreeExplainer)
+- **ANOVA** statistical analysis (top 5 features)
+- **Confidence intervals** (95%, t-distribution)
+- **Prediction intervals** (90%, normal distribution)
+- **Residual analysis** with Shapiro-Wilk normality test
+
+### 5. Configuration — `ConfigManager` (XML)
+
+All model hyperparameters, ensemble weights, and chemistry constants are read from `config/info.xml`. The file is auto-created with defaults if missing and supports:
+- Full XML parsing with caching
+- Type-aware value parsing (int, float, bool, string)
+- Get/set/update via REST API
+- Config backup/restore on update
+
+### 6. Visualization Engine
+
+Automatically generates **4 academic-level plots** after training:
+1. **DFT HOMO-LUMO Energy Diagram** — Energy levels for substrates and product with gap values
+2. **HSAB Pearson Compatibility Matrix** — Soft-soft/hard-hard matching heatmap
+3. **Mechanistic Barrier Analysis** — OA/TM/RE activation barriers, rate constants, sensitivities
+4. **QSAR Drug-Likeness Radar Plot** — Lipinski rule compliance with QED scores
+
+## API Endpoints (`/predict_ml/...`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/get_csv_files` | GET | List CSVs in `static/datasets/` |
+| `/api/upload_csv` | POST | Upload a CSV file |
+| `/api/load_data` | POST | Load and validate enriched CSV, run feature engineering, train ensemble |
+| `/api/change_model` | POST | Switch to a specific model (Random Forest, XGBoost, etc.) |
+| `/api/save_model` | POST | Save trained model with joblib |
+| `/api/load_model` | POST | Load a saved model |
+| `/api/list_models` | GET | List saved models |
+| `/api/make_prediction` | POST | Predict yield for a single reaction with DFT/QSAR/docking details |
+| `/api/optimize_catalyst` | POST | Suggest optimal catalyst for given conditions |
+| `/api/model_performance` | GET | Get R²/MAE/RMSE and academic analyses (CV, ANOVA, CIs) |
+| `/api/model_comparison` | POST | Compare all 13 model performances |
+| `/api/feature_importance` | GET | Feature importance ranking (permutation importance) |
+| `/api/get_xml_config` | GET | Get current XML configuration |
+| `/api/update_xml_config` | POST | Update XML configuration with validation |
+| `/api/reset_xml_config` | POST | Reset XML to defaults |
+| `/api/get_config_summary` | GET | Config summary and model list |
+| `/api/validate_smiles` | POST | Validate a SMILES string |
+| `/api/get_data_info` | POST | Get loaded dataset information |
+| `/api/export_results` | POST | Export results as CSV/JSON/Excel |
+| `/api/clear_cache` | POST | Clear in-memory cache |
+| `/api/get_logs` | GET | Get application logs (filter by level) |
+| `/api/clear_logs` | POST | Clear logs |
+| `/api/get_yield_stats` | GET | Yield statistics from config |
+| `/api/get_model_list` | GET | List available model names |
+| `/api/update_visualizations` | POST | Regenerate academic visualizations |
+| `/api/health` | GET | Health check with cache/status/academic features |
+
+## Project Structure
 
 ```
 molytica/
 ├── main.py
 ├── requirements.txt
 ├── config/
-│   └── info.xml                # model parameters, ensemble weights, chemistry constants
+│   └── info.xml                     # Full XML config (200+ parameters)
 ├── routes/
-│   ├── predict_ml_routes.py    # the ML/chemistry engine this README is based on
+│   ├── predict_ml_routes.py         # ML + Chemistry + Academic features
 │   ├── predict_routes.py
-│   ├── dataset_routes.py       # data enrichment (produces the enriched dataset)
+│   ├── dataset_routes.py            # Data enrichment (generates academic columns)
 │   ├── compare_routes.py
 │   ├── csv_routes.py
 │   ├── xlsx_routes.py
 │   ├── manual_routes.py
 │   └── help_routes.py
 ├── static/
-│   ├── datasets/                # raw and enriched CSVs
-│   ├── models/                  # trained models saved via joblib
-│   └── images/YYYYMMDD_HHMMSS/  # parity/residual/importance plots per run
+│   ├── datasets/                    # Raw and enriched CSVs
+│   ├── models/                      # Trained models (joblib .pkl)
+│   └── images/YYYYMMDD_HHMMSS/      # Academic visualizations per run
+│       ├── resim1_dft_diagram.png
+│       ├── resim2_hsab_heatmap.png
+│       ├── resim3_mechanistic_analysis.png
+│       └── resim4_qsar_radar.png
 └── templates/
     ├── index.html
     ├── predict.html
     └── predict_ml.html
 ```
 
-> `predict_routes.py`, `dataset_routes.py`, `compare_routes.py`, `csv_routes.py`, `xlsx_routes.py`, `manual_routes.py`, and `help_routes.py` were not read in this review; the descriptions above come from filenames and from what `predict_ml_routes.py` references (e.g. the "dataset not enriched" error points users to `dataset_routes.py`).
+## Expected CSV Format (Before Enrichment)
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| `Ar-B(OH)2` / `subs1` | Boronic acid SMILES | `OB(O)c1ccccc1` |
+| `Ar-X` / `subs2` | Aryl halide SMILES | `Brc1ccccc1` |
+| `product` | Product SMILES | `c1ccccc1-c2ccccc2` |
+| `catalizor` | Catalyst SMILES | `[Pd]` or `OAc-[Pd]-OAc` |
+| `base` | Base name/SMILES | `k2co3` |
+| `solv1`, `solv2` | Solvent names | `water`, `propan-2-ol` |
+| `quantity` / `amount` | Catalyst amount (mol) | `0.0025` |
+| `temp` / `centigrades` | Temperature (°C) | `40` |
+| `time` / `minute` | Time (min) | `120` |
+| `yield` | Experimental yield (%) | `81` |
+
+**Important:** Training requires **enriched data** with academic columns (`subs1_SMILES_*`, `hsab_*`, `dft_*`, etc.) — use `dataset_routes.py` to generate these from a basic CSV.
 
 ## Installation
 
@@ -108,32 +182,28 @@ python main.py
 
 The app runs at `http://127.0.0.1:5000`.
 
-## Expected CSV format (raw data, before enrichment)
+## Scientific Foundation
 
-| Column | Description | Example |
-|---|---|---|
-| `Ar-B(OH)2` | Boronic acid | `phenylboronic acid` |
-| `Ar-X` | Aryl halide | `bromobenzene` |
-| `product` | Expected product | `1,1'-biphenyl` |
-| `catalizor` | Catalyst SMILES | `I[Pd](I)([N]1=CC=CC=C1)...` |
-| `base` | Base SMILES/name | `k2co3` |
-| `solv1`, `solv2` | Solvents | `water`, `propan-2-ol` |
-| `amount` | Catalyst amount (mol) | `0.0025` |
-| `centigrades` | Temperature (°C) | `40` |
-| `minute` | Time (min) | `120` |
-| `cycle` | Reaction cycle number | `88` |
-| `yield` | Experimental yield (%) | `81` |
+- **Suzuki-Miyaura mechanism**: Pd(0)/Pd(II) catalytic cycle (OA, TM, RE)
+- **Hammett/Taft LFER**: Substituent effects (σₘ, σₚ, σ⁺, σ⁻, Eₛ)
+- **HSAB theory**: Hardness, chemical potential, electrophilicity
+- **Eyring transition-state kinetics**: ΔH‡, ΔS‡, reaction rates
+- **Kamlet-Taft solvent parameters**: α, β, π*
+- **DFT-based descriptors**: HOMO-LUMO, Fukui indices
+- **QSAR/QSPR**: 2D descriptors, drug-likeness rules
+- **ML Ensemble**: Random Forest, XGBoost, LightGBM, CatBoost, Hist-GB, SVR, KNN, Ridge, Lasso, ElasticNet, MLP, Gaussian Process
 
-`predict_ml` doesn't accept a raw CSV for training directly — it first needs the enriched columns (`subs1_SMILES_*`, `hsab_*`, etc.) added by `dataset_routes.py`; otherwise `load_data()` raises an error.
+## Key Academic Features Summary
 
-## Scientific foundation
-
-- Suzuki-Miyaura mechanism: Pd(0)/Pd(II) catalytic cycle
-- Hammett/Taft LFER parameters
-- HSAB theory (hardness, chemical potential)
-- Eyring transition-state kinetics, Gibbs free energy
-- Kamlet-Taft solvent parameters (α, β, π*)
-- Random Forest / gradient boosting family (XGBoost, LightGBM, CatBoost, Hist-GB) and classical regression models (Ridge, Lasso, ElasticNet, SVR, KNN, MLP)
+| Category | Features |
+|----------|----------|
+| **Electronic** | Hammett σ (m, p, plus, minus), Taft Eₛ, LFER, conjugation/inductive/resonance effects |
+| **Steric** | A-values, ring penalties, ortho/meta/para penalties, rotatable bonds, molecular volume |
+| **DFT** | HOMO/LUMO energies, gap, chemical potential, hardness, electrophilicity, Fukui indices |
+| **QSAR** | MW, LogP, TPSA, MR, HBA, HBD, RotBonds, QED, drug-likeness score |
+| **HSAB** | Softness, hardness, chemical potential, compatibility scores |
+| **Kinetics** | Eyring rates, Gibbs energy, equilibrium constants, Michaelis-Menten |
+| **Solvent** | Dielectric, donor number, polarity, Kamlet-Taft α/β/π*, Reichardt Eₜ(30) |
 
 ## References
 
