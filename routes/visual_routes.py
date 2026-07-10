@@ -92,7 +92,7 @@ def list_images():
         if not folder:
             return jsonify({
                 'success': False,
-                'message': 'Klasor adi gerekli'
+                'message': 'Klasör adı gerekli'
             })
         
         images_dir = current_app.config.get('IMAGES_LOG_DIR', 'static/images')
@@ -101,7 +101,7 @@ def list_images():
         if not os.path.exists(folder_path):
             return jsonify({
                 'success': False,
-                'message': f'Klasor bulunamadi: {folder}'
+                'message': f'Klasör bulunamadı: {folder}'
             })
         
         images = get_images_in_folder(folder_path)
@@ -129,7 +129,7 @@ def get_image():
         if not folder or not filename:
             return jsonify({
                 'success': False,
-                'message': 'Klasor ve dosya adi gerekli'
+                'message': 'Klasör ve dosya adı gerekli'
             })
         
         filename = secure_filename(filename)
@@ -141,7 +141,7 @@ def get_image():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         image_url = f"/static/images/{folder}/{filename}"
@@ -165,14 +165,14 @@ def upload_image():
         if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         folder = request.form.get('folder', 'uploads')
@@ -183,7 +183,7 @@ def upload_image():
         if ext not in allowed_extensions:
             return jsonify({
                 'success': False,
-                'message': f'Desteklenmeyen dosya formati: {ext}'
+                'message': f'Desteklenmeyen dosya formatı: {ext}'
             })
         
         images_dir = current_app.config.get('IMAGES_LOG_DIR', 'static/images')
@@ -204,7 +204,7 @@ def upload_image():
         
         return jsonify({
             'success': True,
-            'message': 'Dosya basariyla yuklendi',
+            'message': 'Dosya başarıyla yüklendi',
             'filename': os.path.basename(filepath),
             'folder': folder,
             'url': f"/static/images/{folder}/{os.path.basename(filepath)}"
@@ -226,7 +226,7 @@ def delete_image():
         if not folder or not filename:
             return jsonify({
                 'success': False,
-                'message': 'Klasor ve dosya adi gerekli'
+                'message': 'Klasör ve dosya adı gerekli'
             })
         
         folder = secure_filename(folder)
@@ -238,7 +238,7 @@ def delete_image():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         os.remove(filepath)
@@ -263,7 +263,7 @@ def delete_folder():
         if not folder:
             return jsonify({
                 'success': False,
-                'message': 'Klasor adi gerekli'
+                'message': 'Klasör adı gerekli'
             })
         
         folder = secure_filename(folder)
@@ -274,7 +274,7 @@ def delete_folder():
         if not os.path.exists(folder_path):
             return jsonify({
                 'success': False,
-                'message': f'Klasor bulunamadi: {folder}'
+                'message': f'Klasör bulunamadı: {folder}'
             })
         
         import shutil
@@ -282,7 +282,7 @@ def delete_folder():
         
         return jsonify({
             'success': True,
-            'message': f'{folder} klasoru silindi'
+            'message': f'{folder} klasörü silindi'
         })
     except Exception as e:
         logger.error(f"Error deleting folder: {str(e)}")
@@ -300,7 +300,7 @@ def create_folder():
         if not folder:
             return jsonify({
                 'success': False,
-                'message': 'Klasor adi gerekli'
+                'message': 'Klasör adı gerekli'
             })
         
         folder = secure_filename(folder)
@@ -311,14 +311,14 @@ def create_folder():
         if os.path.exists(folder_path):
             return jsonify({
                 'success': False,
-                'message': f'Klasor zaten var: {folder}'
+                'message': f'Klasör zaten var: {folder}'
             })
         
         ensure_directory(folder_path)
         
         return jsonify({
             'success': True,
-            'message': f'{folder} klasoru olusturuldu',
+            'message': f'{folder} klasörü oluşturuldu',
             'folder': folder
         })
     except Exception as e:
@@ -338,7 +338,7 @@ def get_image_info():
         if not folder or not filename:
             return jsonify({
                 'success': False,
-                'message': 'Klasor ve dosya adi gerekli'
+                'message': 'Klasör ve dosya adı gerekli'
             })
         
         folder = secure_filename(folder)
@@ -350,7 +350,7 @@ def get_image_info():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         stat = os.stat(filepath)
@@ -397,7 +397,7 @@ def download_image():
         if not folder or not filename:
             return jsonify({
                 'success': False,
-                'message': 'Klasor ve dosya adi gerekli'
+                'message': 'Klasör ve dosya adı gerekli'
             })
         
         folder = secure_filename(folder)
@@ -409,7 +409,7 @@ def download_image():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         return send_file(
@@ -433,7 +433,7 @@ def batch_delete():
         if not images:
             return jsonify({
                 'success': False,
-                'message': 'Silinecek gorsel secilmedi'
+                'message': 'Silinecek görsel seçilmedi'
             })
         
         images_dir = current_app.config.get('IMAGES_LOG_DIR', 'static/images')
@@ -445,7 +445,7 @@ def batch_delete():
             filename = secure_filename(img.get('filename', ''))
             
             if not folder or not filename:
-                failed.append({'filename': filename, 'error': 'Gecersiz isim'})
+                failed.append({'filename': filename, 'error': 'Geçersiz isim'})
                 continue
             
             filepath = os.path.join(images_dir, folder, filename)
@@ -457,7 +457,7 @@ def batch_delete():
                 except Exception as e:
                     failed.append({'filename': filename, 'error': str(e)})
             else:
-                failed.append({'filename': filename, 'error': 'Dosya bulunamadi'})
+                failed.append({'filename': filename, 'error': 'Dosya bulunamadı'})
         
         return jsonify({
             'success': True,
@@ -484,7 +484,7 @@ def rename_image():
         if not folder or not old_name or not new_name:
             return jsonify({
                 'success': False,
-                'message': 'Klasor, eski ve yeni dosya adi gerekli'
+                'message': 'Klasör, eski ve yeni dosya adı gerekli'
             })
         
         folder = secure_filename(folder)
@@ -498,7 +498,7 @@ def rename_image():
         if not os.path.exists(old_path):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {old_name}'
+                'message': f'Dosya bulunamadı: {old_name}'
             })
         
         if os.path.exists(new_path):
@@ -530,7 +530,7 @@ def folder_stats():
         if not folder:
             return jsonify({
                 'success': False,
-                'message': 'Klasor adi gerekli'
+                'message': 'Klasör adı gerekli'
             })
         
         folder = secure_filename(folder)
@@ -541,7 +541,7 @@ def folder_stats():
         if not os.path.exists(folder_path):
             return jsonify({
                 'success': False,
-                'message': f'Klasor bulunamadi: {folder}'
+                'message': f'Klasör bulunamadı: {folder}'
             })
         
         images = get_images_in_folder(folder_path)
@@ -586,7 +586,7 @@ def search_images():
             if not os.path.exists(folder_path):
                 return jsonify({
                     'success': False,
-                    'message': f'Klasor bulunamadi: {folder}'
+                    'message': f'Klasör bulunamadı: {folder}'
                 })
             folders_to_search = [folder_path]
         else:

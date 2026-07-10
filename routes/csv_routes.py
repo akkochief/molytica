@@ -33,13 +33,13 @@ def index():
 def save_csv():
     try:
         data = request.get_json()
-        filename = data.get('filename', 'duzenlenmis_veri')
+        filename = data.get('filename', 'edited_data')
         content = data.get('data', '')
         
         if not content:
             return jsonify({
                 'success': False,
-                'message': 'Kaydedilecek veri yok'
+                'message': 'No data to save'
             })
         
         filename = sanitize_csv_filename(filename)
@@ -52,7 +52,7 @@ def save_csv():
         
         return jsonify({
             'success': True,
-            'message': f'Dosya basariyla kaydedildi: {filename}',
+            'message': f'File saved successfully: {filename}',
             'filename': filename,
             'path': filepath
         })
@@ -61,7 +61,7 @@ def save_csv():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Kaydetme hatasi: {str(e)}'
+            'message': f'Save error: {str(e)}'
         })
 
 @csv_bp.route('/upload', methods=['POST'])
@@ -70,20 +70,20 @@ def upload_csv():
         if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'No file selected'
             })
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'No file selected'
             })
         
         if not file.filename.lower().endswith('.csv'):
             return jsonify({
                 'success': False,
-                'message': 'Sadece CSV dosyalari yuklenebilir'
+                'message': 'Only CSV files can be uploaded'
             })
         
         content = file.read().decode('utf-8')
@@ -92,7 +92,7 @@ def upload_csv():
         if not lines:
             return jsonify({
                 'success': False,
-                'message': 'Dosya bos'
+                'message': 'File is empty'
             })
         
         headers = [h.strip() for h in lines[0].split(',')]
@@ -116,7 +116,7 @@ def upload_csv():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Yukleme hatasi: {str(e)}'
+            'message': f'Upload error: {str(e)}'
         })
 
 @csv_bp.route('/load/<filename>', methods=['GET'])
@@ -128,7 +128,7 @@ def load_csv(filename):
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'File not found: {filename}'
             })
         
         df = pd.read_csv(filepath)
@@ -145,7 +145,7 @@ def load_csv(filename):
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Yukleme hatasi: {str(e)}'
+            'message': f'Load error: {str(e)}'
         })
 
 @csv_bp.route('/list', methods=['GET'])
@@ -187,7 +187,7 @@ def delete_csv():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Filename is required'
             })
         
         filename = sanitize_csv_filename(filename)
@@ -196,13 +196,13 @@ def delete_csv():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'File not found: {filename}'
             })
         
         os.remove(filepath)
         return jsonify({
             'success': True,
-            'message': f'{filename} silindi'
+            'message': f'{filename} deleted'
         })
         
     except Exception as e:
@@ -221,7 +221,7 @@ def preview_csv():
         if not headers or not rows:
             return jsonify({
                 'success': False,
-                'message': 'Onizlenecek veri yok'
+                'message': 'No data to preview'
             })
         
         preview_rows = rows[:10]
@@ -250,7 +250,7 @@ def validate_csv():
         if not headers:
             return jsonify({
                 'success': False,
-                'message': 'Dogrulanacak veri yok'
+                'message': 'No data to validate'
             })
         
         errors = []
@@ -258,14 +258,14 @@ def validate_csv():
         
         for i, header in enumerate(headers):
             if not header or header.strip() == '':
-                errors.append(f"Sutun {i+1}: Sutun adi bos")
+                errors.append(f"Column {i+1}: Column name is empty")
         
         numeric_indicators = ['amount', 'yield', 'temp', 'time', 'minute', 'cycle', 'centigrades', 'quantity']
         
         for i, row in enumerate(rows):
             for header in headers:
                 if header not in row:
-                    errors.append(f"Satir {i+1}: '{header}' sutunu eksik")
+                    errors.append(f"Row {i+1}: '{header}' column is missing")
             
             for header in headers:
                 header_lower = header.lower()
@@ -274,7 +274,7 @@ def validate_csv():
                         try:
                             float(row[header])
                         except (ValueError, TypeError):
-                            warnings.append(f"Satir {i+1}: '{header}' degeri sayisal olmali (deger: {row[header]})")
+                            warnings.append(f"Row {i+1}: '{header}' value should be numeric (value: {row[header]})")
         
         return jsonify({
             'success': True,
@@ -300,7 +300,7 @@ def download_csv(filename):
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'File not found: {filename}'
             }), 404
         
         return send_file(filepath, as_attachment=True, download_name=filename)
@@ -317,12 +317,12 @@ def export_csv():
         data = request.get_json()
         headers = data.get('headers', [])
         rows = data.get('rows', [])
-        filename = data.get('filename', 'veri')
+        filename = data.get('filename', 'data')
         
         if not headers or not rows:
             return jsonify({
                 'success': False,
-                'message': 'Dis aktarilacak veri yok'
+                'message': 'No data to export'
             })
         
         csv_lines = [','.join(headers)]
@@ -351,7 +351,7 @@ def export_csv():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Dis aktarma hatasi: {str(e)}'
+            'message': f'Export error: {str(e)}'
         }), 500
 
 @csv_bp.route('/rename', methods=['POST'])
@@ -364,7 +364,7 @@ def rename_csv():
         if not old_name or not new_name:
             return jsonify({
                 'success': False,
-                'message': 'Eski ve yeni dosya adi gerekli'
+                'message': 'Old and new filenames are required'
             })
         
         old_name = sanitize_csv_filename(old_name)
@@ -376,20 +376,20 @@ def rename_csv():
         if not os.path.exists(old_path):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {old_name}'
+                'message': f'File not found: {old_name}'
             })
         
         if os.path.exists(new_path):
             return jsonify({
                 'success': False,
-                'message': f'{new_name} zaten mevcut'
+                'message': f'{new_name} already exists'
             })
         
         os.rename(old_path, new_path)
         
         return jsonify({
             'success': True,
-            'message': f'{old_name} -> {new_name} olarak yenilendi',
+            'message': f'{old_name} renamed to {new_name}',
             'new_name': new_name
         })
         
@@ -408,7 +408,7 @@ def csv_info(filename):
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'File not found: {filename}'
             })
         
         df = pd.read_csv(filepath)

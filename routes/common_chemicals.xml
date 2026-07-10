@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <chemicals>
-    <!-- ============================================================ -->
-    <!-- SOLVENTS                                                     -->
-    <!-- ============================================================ -->
+
     <chemical category="solvent">
         <name>water</name>
         <smiles>O</smiles>

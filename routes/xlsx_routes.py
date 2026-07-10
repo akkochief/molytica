@@ -47,20 +47,20 @@ def convert_excel():
         if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         if not file.filename.lower().endswith(('.xlsx', '.xls')):
             return jsonify({
                 'success': False,
-                'message': 'Sadece Excel dosyalari (.xlsx, .xls) yuklenebilir'
+                'message': 'Sadece Excel dosyaları (.xlsx, .xls) yüklenebilir'
             })
         
         options = request.form.get('options', '{}')
@@ -115,7 +115,7 @@ def convert_excel():
         
         return jsonify({
             'success': True,
-            'message': 'Dosya basariyla donusturuldu',
+            'message': 'Dosya başarıyla dönüştürüldü',
             'csv_content': csv_content,
             'csv_filename': csv_filename,
             'filepath': filepath,
@@ -129,7 +129,7 @@ def convert_excel():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Donusturme hatasi: {str(e)}'
+            'message': f'Dönüştürme hatası: {str(e)}'
         })
 
 @xlsx_bp.route('/save', methods=['POST'])
@@ -158,7 +158,7 @@ def save_csv():
         
         return jsonify({
             'success': True,
-            'message': f'Dosya basariyla kaydedildi: {filename}',
+            'message': f'Dosya başarıyla kaydedildi: {filename}',
             'filename': filename,
             'path': filepath
         })
@@ -167,7 +167,7 @@ def save_csv():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Kaydetme hatasi: {str(e)}'
+            'message': f'Kaydetme hatası: {str(e)}'
         })
 
 @xlsx_bp.route('/list', methods=['GET'])
@@ -209,7 +209,7 @@ def delete_csv():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join('static/datasets', filename)
@@ -217,7 +217,7 @@ def delete_csv():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         os.remove(filepath)
@@ -241,7 +241,7 @@ def download_csv(filename):
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             }), 404
         
         return send_file(
@@ -267,7 +267,7 @@ def preview_csv():
         if not content:
             return jsonify({
                 'success': False,
-                'message': 'Onizlenecek veri yok'
+                'message': 'Önizlenecek veri yok'
             })
         
         from io import StringIO
@@ -297,7 +297,7 @@ def validate_csv():
         if not content:
             return jsonify({
                 'success': False,
-                'message': 'Dogrulanacak veri yok'
+                'message': 'Doğrulanacak veri yok'
             })
         
         from io import StringIO
@@ -308,7 +308,7 @@ def validate_csv():
         
         for col in df.columns:
             if df[col].isnull().all():
-                warnings.append(f"'{col}' sutunu tamamen bos")
+                warnings.append(f"'{col}' sütunu tamamen boş")
         
         numeric_indicators = ['amount', 'yield', 'temp', 'time', 'minute', 'cycle', 'centigrades', 'quantity']
         for col in df.columns:
@@ -317,7 +317,7 @@ def validate_csv():
                 try:
                     pd.to_numeric(df[col], errors='raise')
                 except:
-                    warnings.append(f"'{col}' sutunu sayisal degerler icermiyor")
+                    warnings.append(f"'{col}' sütunu sayısal değerler içermiyor")
         
         for col in df.columns:
             if 'yield' in col.lower():
@@ -325,7 +325,7 @@ def validate_csv():
                     numeric = pd.to_numeric(df[col], errors='coerce')
                     out_of_range = numeric[(numeric < 0) | (numeric > 100)]
                     if not out_of_range.empty:
-                        warnings.append(f"'{col}' sutununda {len(out_of_range)} satir 0-100 araligi disinda")
+                        warnings.append(f"'{col}' sütununda {len(out_of_range)} satır 0-100 aralığı dışında")
                 except:
                     pass
         
@@ -354,7 +354,7 @@ def export_csv():
         if not content:
             return jsonify({
                 'success': False,
-                'message': 'Dis aktarilacak veri yok'
+                'message': 'Dışa aktarılacak veri yok'
             })
         
         if not filename.lower().endswith('.csv'):
@@ -380,7 +380,7 @@ def export_csv():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Dis aktarma hatasi: {str(e)}'
+            'message': f'Dışa aktarma hatası: {str(e)}'
         }), 500
 
 @xlsx_bp.route('/sheets', methods=['POST'])
@@ -389,14 +389,14 @@ def get_sheets():
         if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         excel_file = pd.ExcelFile(file)
@@ -419,14 +419,14 @@ def get_excel_info():
         if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         file.seek(0, os.SEEK_END)
@@ -468,7 +468,7 @@ def rename_csv():
         if not old_name or not new_name:
             return jsonify({
                 'success': False,
-                'message': 'Eski ve yeni dosya adi gerekli'
+                'message': 'Eski ve yeni dosya adı gerekli'
             })
         
         old_name = sanitize_filename(old_name)
@@ -480,7 +480,7 @@ def rename_csv():
         if not os.path.exists(old_path):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {old_name}'
+                'message': f'Dosya bulunamadı: {old_name}'
             })
         
         if os.path.exists(new_path):
@@ -518,7 +518,7 @@ def get_stats():
                 'total_files': len(files),
                 'total_size': total_size,
                 'total_size_str': format_size(total_size),
-                'last_modified': datetime.fromtimestamp(max(os.path.getmtime(os.path.join(output_dir, f)) for f in files)).strftime('%Y-%m-%d %H:%M') if files else 'Henuz dosya yok'
+                'last_modified': datetime.fromtimestamp(max(os.path.getmtime(os.path.join(output_dir, f)) for f in files)).strftime('%Y-%m-%d %H:%M') if files else 'Henüz dosya yok'
             }
         })
         
@@ -534,14 +534,14 @@ def convert_advanced():
         if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         data = request.form.get('data', '{}')
@@ -584,7 +584,7 @@ def convert_advanced():
         
         return jsonify({
             'success': True,
-            'message': 'Dosya basariyla donusturuldu',
+            'message': 'Dosya başarıyla dönüştürüldü',
             'csv_content': csv_content,
             'csv_filename': csv_filename,
             'filepath': filepath,
@@ -596,5 +596,5 @@ def convert_advanced():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Donusturme hatasi: {str(e)}'
+            'message': f'Dönüştürme hatası: {str(e)}'
         })

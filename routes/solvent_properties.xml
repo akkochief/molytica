@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <solvents>
-    <!-- ============================================================ -->
-    <!-- COMMON SOLVENTS                                              -->
-    <!-- ============================================================ -->
     <solvent name="water">
         <dielectric>80.1</dielectric>
         <bp_c>100.0</bp_c>
@@ -233,10 +230,6 @@
         <viscosity>0.455</viscosity>
         <surface_tension>24.5</surface_tension>
     </solvent>
-
-    <!-- ============================================================ -->
-    <!-- LESS COMMON SOLVENTS                                         -->
-    <!-- ============================================================ -->
     <solvent name="formamide">
         <dielectric>111.0</dielectric>
         <bp_c>210.5</bp_c>
@@ -302,10 +295,6 @@
         <viscosity>1.100</viscosity>
         <surface_tension>30.0</surface_tension>
     </solvent>
-
-    <!-- ============================================================ -->
-    <!-- ALCOHOLS                                                     -->
-    <!-- ============================================================ -->
     <solvent name="1-butanol">
         <dielectric>17.8</dielectric>
         <bp_c>117.7</bp_c>
@@ -382,10 +371,6 @@
         <viscosity>934.000</viscosity>
         <surface_tension>63.4</surface_tension>
     </solvent>
-
-    <!-- ============================================================ -->
-    <!-- ETHERS                                                       -->
-    <!-- ============================================================ -->
     <solvent name="methyl tert-butyl ether">
         <dielectric>4.3</dielectric>
         <bp_c>55.2</bp_c>
@@ -440,10 +425,6 @@
         <viscosity>0.455</viscosity>
         <surface_tension>24.5</surface_tension>
     </solvent>
-
-    <!-- ============================================================ -->
-    <!-- KETONES                                                      -->
-    <!-- ============================================================ -->
     <solvent name="2-butanone">
         <dielectric>18.5</dielectric>
         <bp_c>79.6</bp_c>
@@ -466,9 +447,6 @@
         <surface_tension>34.5</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- ESTERS                                                       -->
-    <!-- ============================================================ -->
     <solvent name="methyl acetate">
         <dielectric>6.7</dielectric>
         <bp_c>56.9</bp_c>
@@ -513,9 +491,6 @@
         <surface_tension>28.5</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- AMIDES                                                       -->
-    <!-- ============================================================ -->
     <solvent name="dimethylacetamide">
         <dielectric>37.8</dielectric>
         <bp_c>165.0</bp_c>
@@ -549,9 +524,6 @@
         <surface_tension>40.7</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- NITRILES                                                     -->
-    <!-- ============================================================ -->
     <solvent name="propionitrile">
         <dielectric>29.3</dielectric>
         <bp_c>97.1</bp_c>
@@ -585,9 +557,6 @@
         <surface_tension>43.5</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- HYDROCARBONS                                                 -->
-    <!-- ============================================================ -->
     <solvent name="heptane">
         <dielectric>1.9</dielectric>
         <bp_c>98.4</bp_c>
@@ -643,9 +612,6 @@
         <surface_tension>30.0</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- AROMATIC HYDROCARBONS                                        -->
-    <!-- ============================================================ -->
     <solvent name="xylene">
         <dielectric>2.4</dielectric>
         <bp_c>138.5</bp_c>
@@ -679,9 +645,6 @@
         <surface_tension>28.2</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- HALOGENATED SOLVENTS                                         -->
-    <!-- ============================================================ -->
     <solvent name="bromobenzene">
         <dielectric>5.4</dielectric>
         <bp_c>156.0</bp_c>
@@ -748,9 +711,6 @@
         <surface_tension>31.7</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- DEUTERATED SOLVENTS                                          -->
-    <!-- ============================================================ -->
     <solvent name="deuterium oxide">
         <dielectric>78.3</dielectric>
         <bp_c>101.4</bp_c>
@@ -872,9 +832,6 @@
         <surface_tension>28.3</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- IONIC LIQUIDS                                                -->
-    <!-- ============================================================ -->
     <solvent name="1-butyl-3-methylimidazolium hexafluorophosphate">
         <dielectric>12.0</dielectric>
         <bp_c>340.0</bp_c>
@@ -897,9 +854,6 @@
         <surface_tension>45.0</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- SUPERCRITICAL FLUIDS                                         -->
-    <!-- ============================================================ -->
     <solvent name="supercritical carbon dioxide">
         <dielectric>1.5</dielectric>
         <bp_c>-78.5</bp_c>
@@ -922,9 +876,6 @@
         <surface_tension>0.0</surface_tension>
     </solvent>
 
-    <!-- ============================================================ -->
-    <!-- PERFLUORINATED SOLVENTS                                      -->
-    <!-- ============================================================ -->
     <solvent name="perfluorohexane">
         <dielectric>1.8</dielectric>
         <bp_c>57.0</bp_c>

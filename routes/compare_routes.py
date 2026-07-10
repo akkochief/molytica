@@ -12,29 +12,26 @@ logger = logging.getLogger(__name__)
 def ensure_directory(path):
     os.makedirs(path, exist_ok=True)
 
-def parse_xml_models(xml_path, lang='tr'):
+def parse_xml_models(xml_path, lang='en'):
     models = []
-
-    # normalize lang, only 'tr' and 'en' supported, default 'tr'
-    lang = lang if lang in ('tr', 'en') else 'tr'
-    other_lang = 'en' if lang == 'tr' else 'tr'
+    lang = lang if lang in ('en', 'tr') else 'en'
+    other_lang = 'tr' if lang == 'en' else 'en'
 
     if not os.path.exists(xml_path):
-        logger.warning(f"XML dosyasi bulunamadi: {xml_path}")
+        logger.warning(f"XML file not found: {xml_path}")
         return models
 
     try:
         tree = ET.parse(xml_path)
         root = tree.getroot()
-
         model_nodes = root.findall('.//model')
 
         for node in model_nodes:
             model = {
                 'id': node.get('id', f"model_{len(models)+1}"),
                 'name': get_node_text(node, 'name', lang, f"Model {len(models)+1}"),
-                'description': get_node_text(node, 'description', lang, 'Aciklama yok'),
-                'detailed_description': get_node_text(node, 'detailed_description', lang, '<p>Detayli bilgi bulunmamaktadir.</p>'),
+                'description': get_node_text(node, 'description', lang, 'No description available'),
+                'detailed_description': get_node_text(node, 'detailed_description', lang, '<p>No detailed information available.</p>'),
                 'accuracy': float(get_node_text(node, 'accuracy', lang, '0') or 0),
                 'speed': float(get_node_text(node, 'speed', lang, '0') or 0),
                 'specs': {},
@@ -44,11 +41,11 @@ def parse_xml_models(xml_path, lang='tr'):
             }
 
             for spec in node.findall('.//spec'):
-                name = spec.get(f'name_{lang}') or spec.get(f'name_{other_lang}') or spec.get('name', 'Ozellik')
+                name = spec.get(f'name_{lang}') or spec.get(f'name_{other_lang}') or spec.get('name', 'Specification')
                 model['specs'][name] = spec.text.strip() if spec.text else '-'
 
             for bench in node.findall('.//benchmark'):
-                name = bench.get(f'name_{lang}') or bench.get(f'name_{other_lang}') or bench.get('name', 'Test')
+                name = bench.get(f'name_{lang}') or bench.get(f'name_{other_lang}') or bench.get('name', 'Benchmark')
                 model['benchmarks'][name] = bench.text.strip() if bench.text else '-'
 
             pro_nodes = node.findall(f'.//pro_{lang}')
@@ -77,23 +74,20 @@ def parse_xml_models(xml_path, lang='tr'):
         return models
 
     except ET.ParseError as e:
-        logger.error(f"XML parse hatasi: {str(e)}")
+        logger.error(f"XML parse error: {str(e)}")
         return []
     except Exception as e:
-        logger.error(f"XML okuma hatasi: {str(e)}")
+        logger.error(f"XML read error: {str(e)}")
         return []
 
-def get_node_text(parent, tag, lang='tr', default=''):
-    other_lang = 'en' if lang == 'tr' else 'tr'
-    # 1) requested language variant, e.g. name_tr / name_en
+def get_node_text(parent, tag, lang='en', default=''):
+    other_lang = 'tr' if lang == 'en' else 'en'
     node = parent.find(f'{tag}_{lang}')
     if node is not None and node.text:
         return node.text.strip()
-    # 2) other language variant as fallback (better than nothing)
     node = parent.find(f'{tag}_{other_lang}')
     if node is not None and node.text:
         return node.text.strip()
-    # 3) legacy plain tag without language suffix (old XML format)
     node = parent.find(tag)
     if node is not None and node.text:
         return node.text.strip()
@@ -234,7 +228,7 @@ def create_default_xml(xml_path):
     with open(xml_path, 'w', encoding='utf-8') as f:
         f.write(default_xml)
     
-    logger.info(f"Varsayilan XML dosyasi olusturuldu: {xml_path}")
+    logger.info(f"Default XML file created: {xml_path}")
 
 @compare_bp.route('/')
 def index():
@@ -248,7 +242,7 @@ def index():
 @compare_bp.route('/api/models', methods=['GET'])
 def get_models():
     try:
-        lang = request.args.get('lang', 'tr')
+        lang = request.args.get('lang', 'en')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
@@ -262,7 +256,7 @@ def get_models():
             'count': len(models)
         })
     except Exception as e:
-        logger.error(f"Model listeleme hatasi: {str(e)}")
+        logger.error(f"Model listing error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -271,7 +265,7 @@ def get_models():
 @compare_bp.route('/api/model/<model_id>', methods=['GET'])
 def get_model(model_id):
     try:
-        lang = request.args.get('lang', 'tr')
+        lang = request.args.get('lang', 'en')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
@@ -288,10 +282,10 @@ def get_model(model_id):
         
         return jsonify({
             'success': False,
-            'message': f'Model bulunamadi: {model_id}'
+            'message': f'Model not found: {model_id}'
         }), 404
     except Exception as e:
-        logger.error(f"Model getirme hatasi: {str(e)}")
+        logger.error(f"Model retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -303,18 +297,18 @@ def compare_models():
         data = request.get_json()
         model1_id = data.get('model1')
         model2_id = data.get('model2')
-        lang = data.get('lang', request.args.get('lang', 'tr'))
+        lang = data.get('lang', request.args.get('lang', 'en'))
         
         if not model1_id or not model2_id:
             return jsonify({
                 'success': False,
-                'message': 'Iki model ID\'si gerekli'
+                'message': 'Two model IDs are required'
             })
         
         if model1_id == model2_id:
             return jsonify({
                 'success': False,
-                'message': 'Ayni model karsilastirilamaz'
+                'message': 'Cannot compare the same model'
             })
         
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
@@ -336,7 +330,7 @@ def compare_models():
         if not model1 or not model2:
             return jsonify({
                 'success': False,
-                'message': 'Modellerden biri bulunamadi'
+                'message': 'One of the models could not be found'
             })
         
         comparison = {
@@ -355,7 +349,7 @@ def compare_models():
             'comparison': comparison
         })
     except Exception as e:
-        logger.error(f"Model karsilastirma hatasi: {str(e)}")
+        logger.error(f"Model comparison error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -370,7 +364,7 @@ def save_xml():
         if not xml_content:
             return jsonify({
                 'success': False,
-                'message': 'XML icerigi bos'
+                'message': 'XML content is empty'
             })
         
         try:
@@ -378,7 +372,7 @@ def save_xml():
         except ET.ParseError as e:
             return jsonify({
                 'success': False,
-                'message': f'Gecersiz XML: {str(e)}'
+                'message': f'Invalid XML: {str(e)}'
             })
         
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
@@ -389,10 +383,10 @@ def save_xml():
         
         return jsonify({
             'success': True,
-            'message': 'XML basariyla kaydedildi'
+            'message': 'XML saved successfully'
         })
     except Exception as e:
-        logger.error(f"XML kaydetme hatasi: {str(e)}")
+        logger.error(f"XML save error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -414,7 +408,7 @@ def get_xml():
             'xml': content
         })
     except Exception as e:
-        logger.error(f"XML getirme hatasi: {str(e)}")
+        logger.error(f"XML retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -431,7 +425,7 @@ def export_comparison():
         if not model1 or not model2:
             return jsonify({
                 'success': False,
-                'message': 'Karsilastirma verisi gerekli'
+                'message': 'Comparison data is required'
             })
         
         comparison_data = {
@@ -453,10 +447,10 @@ def export_comparison():
         else:
             return jsonify({
                 'success': False,
-                'message': f'Desteklenmeyen format: {format_type}'
+                'message': f'Unsupported format: {format_type}'
             })
     except Exception as e:
-        logger.error(f"Dis aktarma hatasi: {str(e)}")
+        logger.error(f"Export error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -472,7 +466,7 @@ def update_model():
         if not model_id:
             return jsonify({
                 'success': False,
-                'message': 'Model ID gerekli'
+                'message': 'Model ID is required'
             })
         
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
@@ -488,7 +482,7 @@ def update_model():
         if model_node is None:
             return jsonify({
                 'success': False,
-                'message': f'Model bulunamadi: {model_id}'
+                'message': f'Model not found: {model_id}'
             })
         
         for key, value in updates.items():
@@ -503,10 +497,10 @@ def update_model():
         
         return jsonify({
             'success': True,
-            'message': f'Model {model_id} guncellendi'
+            'message': f'Model {model_id} updated'
         })
     except Exception as e:
-        logger.error(f"Model guncelleme hatasi: {str(e)}")
+        logger.error(f"Model update error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -515,7 +509,7 @@ def update_model():
 @compare_bp.route('/api/reload', methods=['POST'])
 def reload_models():
     try:
-        lang = request.args.get('lang') or (request.get_json(silent=True) or {}).get('lang', 'tr')
+        lang = request.args.get('lang') or (request.get_json(silent=True) or {}).get('lang', 'en')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
@@ -527,10 +521,10 @@ def reload_models():
             'success': True,
             'models': models,
             'count': len(models),
-            'message': 'Modeller yenilendi'
+            'message': 'Models reloaded'
         })
     except Exception as e:
-        logger.error(f"Model yenileme hatasi: {str(e)}")
+        logger.error(f"Model reload error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -539,7 +533,7 @@ def reload_models():
 @compare_bp.route('/api/stats', methods=['GET'])
 def get_stats():
     try:
-        lang = request.args.get('lang', 'tr')
+        lang = request.args.get('lang', 'en')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
@@ -581,7 +575,7 @@ def get_stats():
             }
         })
     except Exception as e:
-        logger.error(f"Istatistik getirme hatasi: {str(e)}")
+        logger.error(f"Statistics retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)

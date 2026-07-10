@@ -164,20 +164,20 @@ def run_model():
         if not selected_code:
             return jsonify({
                 'success': False,
-                'message': 'Model script secilmedi'
+                'message': 'Model script seçilmedi'
             })
         
         if not selected_datasets:
             return jsonify({
                 'success': False,
-                'message': 'Veri kumesi secilmedi'
+                'message': 'Veri kümesi seçilmedi'
             })
         
         rowcount = merge_csv_to_output(selected_datasets)
         
         return jsonify({
             'success': True,
-            'message': 'Veri kumeleri birlestirildi, egitim baslatilabilir',
+            'message': 'Veri kümeleri birleştirildi, eğitim başlatılabilir',
             'rowcount': rowcount
         })
     except Exception as e:
@@ -195,11 +195,11 @@ def stream_output():
 
     def generate():
         if not selected_code:
-            yield "data: ERROR: Script secilmedi\n\n"
+            yield "data: ERROR: Script seçilmedi\n\n"
             return
         
         if not os.path.exists(script_path):
-            yield f"data: ERROR: Script bulunamadi: code/{selected_code}\n\n"
+            yield f"data: ERROR: Script bulunamadı: code/{selected_code}\n\n"
             return
         
         command = ['python', script_path]
@@ -231,9 +231,9 @@ def stream_output():
                         yield f"data: ERROR: {err.strip()}\n\n"
                 
                 if process.returncode != 0:
-                    yield f"data: ERROR: Script {process.returncode} koduyla sonlandi\n\n"
+                    yield f"data: ERROR: Script {process.returncode} koduyla sonlandı\n\n"
                 else:
-                    yield "data: COMPLETE: Model egitimi tamamlandi\n\n"
+                    yield "data: COMPLETE: Model eğitimi tamamlandı\n\n"
                 break
 
     return Response(generate(), content_type='text/event-stream')
@@ -258,7 +258,7 @@ def get_latest_result():
         if not result_files:
             return jsonify({
                 'success': False,
-                'message': 'Sonuc bulunamadi'
+                'message': 'Sonuç bulunamadı'
             })
         
         latest = max(result_files, key=lambda x: x['modified'])
@@ -285,7 +285,7 @@ def download_model():
         if not os.path.exists(model_path):
             return jsonify({
                 'success': False,
-                'message': 'Model dosyasi bulunamadi'
+                'message': 'Model dosyası bulunamadı'
             }), 404
         
         return send_file(
@@ -311,7 +311,7 @@ def download_dataset():
             if not os.path.exists(filepath):
                 return jsonify({
                     'success': False,
-                    'message': 'Veriset dosyasi bulunamadi'
+                    'message': 'Veriset dosyası bulunamadı'
                 }), 404
         
         return send_file(
@@ -334,7 +334,7 @@ def get_dataset_info():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join(datasets_dir(), filename)
@@ -342,7 +342,7 @@ def get_dataset_info():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         df = pd.read_csv(filepath)
@@ -388,7 +388,7 @@ def delete_dataset():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join(datasets_dir(), filename)
@@ -396,7 +396,7 @@ def delete_dataset():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         os.remove(filepath)
@@ -416,20 +416,20 @@ def upload_dataset():
         if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'success': False,
-                'message': 'Dosya secilmedi'
+                'message': 'Dosya seçilmedi'
             })
         
         if not file.filename.lower().endswith('.csv'):
             return jsonify({
                 'success': False,
-                'message': 'Sadece CSV dosyalari yuklenebilir'
+                'message': 'Sadece CSV dosyaları yüklenebilir'
             })
         
         filename = secure_filename(file.filename)
@@ -439,7 +439,7 @@ def upload_dataset():
         
         return jsonify({
             'success': True,
-            'message': f'{filename} basariyla yuklendi',
+            'message': f'{filename} başarıyla yüklendi',
             'filename': filename
         })
     except Exception as e:
@@ -457,7 +457,7 @@ def compare_models():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join(datasets_dir(), filename)
@@ -465,7 +465,7 @@ def compare_models():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         import random
@@ -526,7 +526,7 @@ def get_result_content():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join(results_dir(), filename)
@@ -534,7 +534,7 @@ def get_result_content():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -560,7 +560,7 @@ def delete_result():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join(results_dir(), filename)
@@ -568,7 +568,7 @@ def delete_result():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         os.remove(filepath)
@@ -642,7 +642,7 @@ def get_code_content():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join(code_dir(), filename)
@@ -650,7 +650,7 @@ def get_code_content():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -677,7 +677,7 @@ def save_code():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         if not filename.endswith('.py'):
@@ -692,7 +692,7 @@ def save_code():
         
         return jsonify({
             'success': True,
-            'message': f'{filename} basariyla kaydedildi',
+            'message': f'{filename} başarıyla kaydedildi',
             'filename': filename
         })
     except Exception as e:
@@ -710,7 +710,7 @@ def delete_code():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join(code_dir(), filename)
@@ -718,7 +718,7 @@ def delete_code():
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         os.remove(filepath)

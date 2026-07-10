@@ -20,24 +20,24 @@ def get_faq():
         faq_data = {
             'tr': [
                 {
-                    'question': 'Hangi veri boyutlarini isleyebilir?',
-                    'answer': '10.000 satira kadar veriyi sorunsuz isleyebilir.'
+                    'question': 'Hangi veri boyutlarını işleyebilir?',
+                    'answer': '10.000 satıra kadar veriyi sorunsuz işleyebilir.'
                 },
                 {
-                    'question': 'Sonuclari nasil disa aktarabilirim?',
-                    'answer': 'Her analiz sonucunda "Indir" butonu ile CSV veya PDF olarak kaydedebilirsiniz.'
+                    'question': 'Sonuçları nasıl dışa aktarabilirim?',
+                    'answer': 'Her analiz sonucunda "İndir" butonu ile CSV veya PDF olarak kaydedebilirsiniz.'
                 },
                 {
-                    'question': 'Ozel modeller ekleyebilir miyim?',
-                    'answer': 'Gelistirici modu ile kendi modellerinizi entegre edebilirsiniz.'
+                    'question': 'Özel modeller ekleyebilir miyim?',
+                    'answer': 'Geliştirici modu ile kendi modellerinizi entegre edebilirsiniz.'
                 },
                 {
-                    'question': 'Veri setimde eksik degerler varsa ne yapmaliyim?',
-                    'answer': 'Eksik degerleri doldurun veya satirlari temizleyin. Sistem otomatik olarak eksik degerleri isleyebilir, ancak temiz veri daha iyi sonuc verir.'
+                    'question': 'Veri setimde eksik değerler varsa ne yapmalıyım?',
+                    'answer': 'Eksik değerleri doldurun veya satırları temizleyin. Sistem otomatik olarak eksik değerleri işleyebilir, ancak temiz veri daha iyi sonuç verir.'
                 },
                 {
-                    'question': 'Model egitimi ne kadar surer?',
-                    'answer': 'Veri boyutuna bagli olarak 1-5 dakika arasinda surebilir. Buyuk veri setlerinde bu sure uzayabilir.'
+                    'question': 'Model eğitimi ne kadar sürer?',
+                    'answer': 'Veri boyutuna bağlı olarak 1-5 dakika arasında sürebilir. Büyük veri setlerinde bu süre uzayabilir.'
                 }
             ],
             'en': [
@@ -69,7 +69,7 @@ def get_faq():
             'faq': faq_data
         })
     except Exception as e:
-        logger.error(f"FAQ getirme hatasi: {str(e)}")
+        logger.error(f"FAQ retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -90,7 +90,7 @@ def get_contact_info():
             'contact': contact_info
         })
     except Exception as e:
-        logger.error(f"Iletisim bilgisi getirme hatasi: {str(e)}")
+        logger.error(f"Contact info retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -101,11 +101,11 @@ def get_requirements():
     try:
         requirements = {
             'tr': {
-                'browser': 'Google Chrome, Mozilla Firefox, Safari veya Microsoft Edge (en son surumler)',
+                'browser': 'Google Chrome, Mozilla Firefox, Safari veya Microsoft Edge (en son sürümler)',
                 'os': 'Windows 10+, macOS 10.15+ veya Linux (Ubuntu 20.04+)',
                 'python': 'Python 3.8+',
                 'node': 'Node.js 14+',
-                'internet': 'Stabil internet baglantisi'
+                'internet': 'Stabil internet bağlantısı'
             },
             'en': {
                 'browser': 'Latest versions of Google Chrome, Mozilla Firefox, Safari, or Microsoft Edge',
@@ -121,7 +121,7 @@ def get_requirements():
             'requirements': requirements
         })
     except Exception as e:
-        logger.error(f"Gereksinim getirme hatasi: {str(e)}")
+        logger.error(f"Requirements retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -134,17 +134,17 @@ def get_file_formats():
             'tr': [
                 {
                     'name': 'CSV',
-                    'description': 'Tabular veriler icin standart format. Her kolon basligi duzgun etiketlenmelidir.',
+                    'description': 'Tabular veriler için standart format. Her kolon başlığı düzgün etiketlenmelidir.',
                     'icon': 'fa-file-csv'
                 },
                 {
                     'name': 'Excel (.xlsx, .xls)',
-                    'description': 'Excel dosyalarini CSV\'ye donusturerek yukleyebilirsiniz.',
+                    'description': 'Excel dosyalarını CSV\'ye dönüştürerek yükleyebilirsiniz.',
                     'icon': 'fa-file-excel'
                 },
                 {
-                    'name': 'Manuel Veri Girisi',
-                    'description': 'Kucuk veri setleri icin dogrudan veri girisi yapabilirsiniz.',
+                    'name': 'Manuel Veri Girişi',
+                    'description': 'Küçük veri setleri için doğrudan veri girişi yapabilirsiniz.',
                     'icon': 'fa-keyboard'
                 }
             ],
@@ -172,7 +172,7 @@ def get_file_formats():
             'formats': formats
         })
     except Exception as e:
-        logger.error(f"Dosya formati getirme hatasi: {str(e)}")
+        logger.error(f"File format retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -184,20 +184,20 @@ def get_tutorials():
         tutorials = {
             'tr': [
                 {
-                    'title': 'Baslangic Rehberi',
-                    'description': 'Uygulamaya ilk adim ve temel islemler',
+                    'title': 'Başlangıç Rehberi',
+                    'description': 'Uygulamaya ilk adım ve temel işlemler',
                     'url': '#',
                     'duration': '5 dk'
                 },
                 {
-                    'title': 'Veri Yukleme ve Analiz',
-                    'description': 'Veri yukleme, temizleme ve analiz islemleri',
+                    'title': 'Veri Yükleme ve Analiz',
+                    'description': 'Veri yükleme, temizleme ve analiz işlemleri',
                     'url': '#',
                     'duration': '10 dk'
                 },
                 {
-                    'title': 'Tahmin ve Gorsellestirme',
-                    'description': 'Tahmin yapma ve sonuclari gorsellestirme',
+                    'title': 'Tahmin ve Görselleştirme',
+                    'description': 'Tahmin yapma ve sonuçları görselleştirme',
                     'url': '#',
                     'duration': '8 dk'
                 }
@@ -229,7 +229,7 @@ def get_tutorials():
             'tutorials': tutorials
         })
     except Exception as e:
-        logger.error(f"Egitim getirme hatasi: {str(e)}")
+        logger.error(f"Tutorial retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -242,23 +242,23 @@ def get_dataset_requirements():
             'tr': [
                 {
                     'title': 'Zaman Bilgisi',
-                    'description': 'Zaman serisi tahmini yapiyorsaniz, veriniz tarih/saat icermelidir.'
+                    'description': 'Zaman serisi tahmini yapıyorsanız, veriniz tarih/saat içermelidir.'
                 },
                 {
-                    'title': 'Kategorik Ozellikler',
-                    'description': 'Kimyasal tur, bolge gibi kategorik degiskenler bulunmalidir.'
+                    'title': 'Kategorik Özellikler',
+                    'description': 'Kimyasal tür, bölge gibi kategorik değişkenler bulunmalıdır.'
                 },
                 {
-                    'title': 'Sayisal Ozellikler',
-                    'description': 'Sicaklik, yogunluk, konsantrasyon gibi sayisal degiskenler gereklidir.'
+                    'title': 'Sayısal Özellikler',
+                    'description': 'Sıcaklık, yoğunluk, konsantrasyon gibi sayısal değişkenler gereklidir.'
                 },
                 {
                     'title': 'Eksik Veriler',
-                    'description': 'Eksik veriler temizlenmeli veya uygun sekilde doldurulmalidir.'
+                    'description': 'Eksik veriler temizlenmeli veya uygun şekilde doldurulmalıdır.'
                 },
                 {
-                    'title': 'Kolon Basliklari',
-                    'description': 'Tum kolonlar acik ve anlasilir sekilde etiketlenmelidir.'
+                    'title': 'Kolon Başlıkları',
+                    'description': 'Tüm kolonlar açık ve anlaşılır şekilde etiketlenmelidir.'
                 }
             ],
             'en': [
@@ -290,7 +290,7 @@ def get_dataset_requirements():
             'requirements': requirements
         })
     except Exception as e:
-        logger.error(f"Veri seti gereksinimi getirme hatasi: {str(e)}")
+        logger.error(f"Dataset requirements retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -312,25 +312,25 @@ def search_help():
         help_content = {
             'tr': [
                 'Sistem Gereksinimleri',
-                'Desteklenen Dosya Formatlari',
-                'Manuel Veri Girisi',
-                'CSV Dosyasi Yukle',
-                'Excel\'den CSV\'ye Donustur',
+                'Desteklenen Dosya Formatları',
+                'Manuel Veri Girişi',
+                'CSV Dosyası Yükle',
+                "Excel'den CSV'ye Dönüştür",
                 'Veri Analizi',
-                'Katalizor Tahmini',
+                'Katalizör Tahmini',
                 'Verim Tahmini',
                 'Tahmin Yap',
-                'Gorsellestirme',
-                'Model Karsilastirmasi',
+                'Görselleştirme',
+                'Model Karşılaştırması',
                 'Raporlama',
                 'Zaman Bilgisi',
-                'Kategorik Ozellikler',
-                'Sayisal Ozellikler',
+                'Kategorik Özellikler',
+                'Sayısal Özellikler',
                 'Eksik Veriler',
-                'Kolon Basliklari',
-                'Veri boyutlari',
-                'Sonuclari disa aktarma',
-                'Ozel modeller'
+                'Kolon Başlıkları',
+                'Veri boyutları',
+                'Sonuçları dışa aktarma',
+                'Özel modeller'
             ],
             'en': [
                 'System Requirements',
@@ -368,7 +368,7 @@ def search_help():
             'query': query
         })
     except Exception as e:
-        logger.error(f"Arama hatasi: {str(e)}")
+        logger.error(f"Search error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -409,10 +409,10 @@ def submit_feedback():
         
         return jsonify({
             'success': True,
-            'message': 'Geri bildiriminiz icin tesekkurler!'
+            'message': 'Geri bildiriminiz için teşekkürler!'
         })
     except Exception as e:
-        logger.error(f"Geri bildirim hatasi: {str(e)}")
+        logger.error(f"Feedback error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -434,7 +434,7 @@ def get_version():
             'version': version_info
         })
     except Exception as e:
-        logger.error(f"Versiyon getirme hatasi: {str(e)}")
+        logger.error(f"Version retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -463,7 +463,7 @@ def get_stats():
             'stats': stats
         })
     except Exception as e:
-        logger.error(f"Istatistik getirme hatasi: {str(e)}")
+        logger.error(f"Stats retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -478,7 +478,7 @@ def get_sitemap():
                 {'title': 'Veri Yükleme', 'url': '/dataset'},
                 {'title': 'Manuel Veri Girişi', 'url': '/manual'},
                 {'title': 'CSV Yükle', 'url': '/upload-csv'},
-                {'title': 'Excel\'den CSV', 'url': '/excel_to_csv'},
+                {"title": "Excel'den CSV", 'url': '/excel_to_csv'},
                 {'title': 'Tahmin', 'url': '/predict'},
                 {'title': 'ML Tahmin', 'url': '/predict_ml'},
                 {'title': 'Görselleştirme', 'url': '/visual'},
@@ -504,7 +504,7 @@ def get_sitemap():
             'sitemap': sitemap
         })
     except Exception as e:
-        logger.error(f"Site haritasi getirme hatasi: {str(e)}")
+        logger.error(f"Sitemap retrieval error: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)

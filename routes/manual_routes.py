@@ -46,7 +46,7 @@ def save_data():
         
         return jsonify({
             'success': True,
-            'message': f'Veriler basariyla kaydedildi: {filename}',
+            'message': f'Veriler başarıyla kaydedildi: {filename}',
             'filename': filename,
             'path': filepath
         })
@@ -55,7 +55,7 @@ def save_data():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Kaydetme hatasi: {str(e)}'
+            'message': f'Kaydetme hatası: {str(e)}'
         })
 
 @manual_bp.route('/load', methods=['POST'])
@@ -67,14 +67,14 @@ def load_data():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join('static/datasets', filename)
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         df = pd.read_csv(filepath)
@@ -90,7 +90,7 @@ def load_data():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Yukleme hatasi: {str(e)}'
+            'message': f'Yükleme hatası: {str(e)}'
         })
 
 @manual_bp.route('/list', methods=['GET'])
@@ -133,14 +133,14 @@ def delete_file():
         if not filename:
             return jsonify({
                 'success': False,
-                'message': 'Dosya adi gerekli'
+                'message': 'Dosya adı gerekli'
             })
         
         filepath = os.path.join('static/datasets', filename)
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         os.remove(filepath)
@@ -164,7 +164,7 @@ def preview_data():
         if not rows:
             return jsonify({
                 'success': False,
-                'message': 'Onizlenecek veri yok'
+                'message': 'Önizlenecek veri yok'
             })
         
         return jsonify({
@@ -188,7 +188,7 @@ def validate_data():
         if not rows:
             return jsonify({
                 'success': False,
-                'message': 'Dogrulanacak veri yok'
+                'message': 'Doğrulanacak veri yok'
             })
         
         expected_columns = ['ArB', 'ArX', 'Product', 'Catalizor', 'Base', 
@@ -201,7 +201,7 @@ def validate_data():
         for i, row in enumerate(rows):
             for col in expected_columns:
                 if col not in row:
-                    errors.append(f"Satir {i+1}: '{col}' sutunu eksik")
+                    errors.append(f"Satır {i+1}: '{col}' sütunu eksik")
             
             numeric_fields = ['Amount', 'Centigrades', 'Minute', 'Cycle', 'Yield']
             for field in numeric_fields:
@@ -209,13 +209,13 @@ def validate_data():
                     try:
                         float(row[field])
                     except ValueError:
-                        errors.append(f"Satir {i+1}: '{field}' sayisal olmali")
+                        errors.append(f"Satır {i+1}: '{field}' sayısal olmalı")
             
             if 'Yield' in row and row['Yield']:
                 try:
                     y = float(row['Yield'])
                     if y < 0 or y > 100:
-                        warnings.append(f"Satir {i+1}: Yield {y} degeri 0-100 araliginda olmali")
+                        warnings.append(f"Satır {i+1}: Yield {y} değeri 0-100 aralığında olmalı")
                 except:
                     pass
         
@@ -243,7 +243,7 @@ def rename_file():
         if not old_name or not new_name:
             return jsonify({
                 'success': False,
-                'message': 'Eski ve yeni dosya adi gerekli'
+                'message': 'Eski ve yeni dosya adı gerekli'
             })
         
         old_name = sanitize_filename(old_name)
@@ -255,7 +255,7 @@ def rename_file():
         if not os.path.exists(old_path):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {old_name}'
+                'message': f'Dosya bulunamadı: {old_name}'
             })
         
         if os.path.exists(new_path):
@@ -288,7 +288,7 @@ def export_data():
         if not rows:
             return jsonify({
                 'success': False,
-                'message': 'Dis aktarilacak veri yok'
+                'message': 'Dışa aktarılacak veri yok'
             })
         
         columns = list(rows[0].keys()) if rows else []
@@ -320,7 +320,7 @@ def export_data():
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Dis aktarma hatasi: {str(e)}'
+            'message': f'Dışa aktarma hatası: {str(e)}'
         }), 500
 
 @manual_bp.route('/info/<filename>', methods=['GET'])
@@ -332,7 +332,7 @@ def file_info(filename):
         if not os.path.exists(filepath):
             return jsonify({
                 'success': False,
-                'message': f'Dosya bulunamadi: {filename}'
+                'message': f'Dosya bulunamadı: {filename}'
             })
         
         df = pd.read_csv(filepath)
