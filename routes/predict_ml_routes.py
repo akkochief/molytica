@@ -24,6 +24,7 @@ import itertools
 from scipy import stats
 from scipy.spatial.distance import cdist, pdist, squareform
 from scipy.optimize import minimize, differential_evolution
+from scipy.constants import R, h, k as boltzmann_k
 from sklearn.model_selection import (
     train_test_split, cross_val_score, cross_val_predict,
     KFold, StratifiedKFold, LeaveOneOut, GroupKFold,
@@ -49,10 +50,701 @@ from sklearn.compose import ColumnTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
 import warnings
 
+try:
+    from rdkit import Chem
+    from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors, Crippen, QED, AllChem
+    from rdkit.Chem.Draw import IPythonConsole
+    RDKIT_AVAILABLE = True
+except ImportError:
+    RDKIT_AVAILABLE = False
+
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+
+try:
+    from sklearn.gaussian_process import GaussianProcessRegressor
+    from sklearn.gaussian_process.kernels import RBF, WhiteKernel, Matern, ConstantKernel
+    GP_AVAILABLE = True
+except ImportError:
+    GP_AVAILABLE = False
+
+try:
+    from sklearn.inspection import permutation_importance
+    PERM_IMP_AVAILABLE = True
+except ImportError:
+    PERM_IMP_AVAILABLE = False
+
+try:
+    from sklearn.isotonic import IsotonicRegression
+    ISOTONIC_AVAILABLE = True
+except ImportError:
+    ISOTONIC_AVAILABLE = False
+
+try:
+    from sklearn.calibration import CalibratedRegressorCV
+    CALIBRATION_AVAILABLE = True
+except ImportError:
+    CALIBRATION_AVAILABLE = False
+
+try:
+    from skopt import gp_minimize
+    from skopt.space import Real, Integer, Categorical
+    from skopt.utils import use_named_args
+    SKOPT_AVAILABLE = True
+except ImportError:
+    SKOPT_AVAILABLE = False
+
+try:
+    from statsmodels.stats.multicomp import pairwise_tukeyhsd
+    from statsmodels.stats.anova import anova_lm
+    from statsmodels.formula.api import ols
+    from scipy.stats import shapiro, levene, kruskal, f_oneway
+    STATSMODELS_AVAILABLE = True
+except ImportError:
+    STATSMODELS_AVAILABLE = False
+
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 predict_ml_bp = Blueprint('predict_ml', __name__, url_prefix='/predict_ml')
+
+HAMMETT_SIGMA = {
+    'H': {'sigma_m': 0.00, 'sigma_p': 0.00, 'taft_es': 0.00, 'sigma_plus': 0.00, 'sigma_minus': 0.00},
+    'CH3': {'sigma_m': -0.07, 'sigma_p': -0.17, 'taft_es': 0.00, 'sigma_plus': -0.31, 'sigma_minus': -0.17},
+    'OCH3': {'sigma_m': 0.12, 'sigma_p': -0.27, 'taft_es': -0.20, 'sigma_plus': -0.78, 'sigma_minus': -0.27},
+    'OH': {'sigma_m': 0.12, 'sigma_p': -0.37, 'taft_es': -0.51, 'sigma_plus': -0.92, 'sigma_minus': -0.37},
+    'F': {'sigma_m': 0.34, 'sigma_p': 0.06, 'taft_es': -0.46, 'sigma_plus': -0.07, 'sigma_minus': 0.06},
+    'Cl': {'sigma_m': 0.37, 'sigma_p': 0.23, 'taft_es': -0.97, 'sigma_plus': 0.11, 'sigma_minus': 0.23},
+    'Br': {'sigma_m': 0.39, 'sigma_p': 0.23, 'taft_es': -1.16, 'sigma_plus': 0.15, 'sigma_minus': 0.23},
+    'I': {'sigma_m': 0.35, 'sigma_p': 0.18, 'taft_es': -1.40, 'sigma_plus': 0.14, 'sigma_minus': 0.18},
+    'NO2': {'sigma_m': 0.71, 'sigma_p': 0.78, 'taft_es': -1.01, 'sigma_plus': 0.79, 'sigma_minus': 1.27},
+    'CN': {'sigma_m': 0.56, 'sigma_p': 0.66, 'taft_es': -0.51, 'sigma_plus': 0.66, 'sigma_minus': 1.00},
+    'CF3': {'sigma_m': 0.43, 'sigma_p': 0.54, 'taft_es': -2.40, 'sigma_plus': 0.61, 'sigma_minus': 0.54},
+    'COOH': {'sigma_m': 0.37, 'sigma_p': 0.45, 'taft_es': -1.20, 'sigma_plus': 0.42, 'sigma_minus': 0.45},
+    'COOCH3': {'sigma_m': 0.35, 'sigma_p': 0.39, 'taft_es': -1.10, 'sigma_plus': 0.32, 'sigma_minus': 0.39},
+    'CHO': {'sigma_m': 0.36, 'sigma_p': 0.42, 'taft_es': -1.20, 'sigma_plus': 0.42, 'sigma_minus': 0.42},
+    'NH2': {'sigma_m': -0.16, 'sigma_p': -0.66, 'taft_es': -0.20, 'sigma_plus': -1.30, 'sigma_minus': -0.66},
+    'N(CH3)2': {'sigma_m': -0.15, 'sigma_p': -0.83, 'taft_es': -0.30, 'sigma_plus': -1.70, 'sigma_minus': -0.83},
+    'SO2CH3': {'sigma_m': 0.60, 'sigma_p': 0.72, 'taft_es': -1.50, 'sigma_plus': 0.73, 'sigma_minus': 0.72},
+    'B(OH)2': {'sigma_m': 0.04, 'sigma_p': -0.10, 'taft_es': 0.00, 'sigma_plus': -0.10, 'sigma_minus': -0.10},
+    'Si(CH3)3': {'sigma_m': -0.04, 'sigma_p': -0.07, 'taft_es': -0.80, 'sigma_plus': -0.07, 'sigma_minus': -0.07},
+    'C(CH3)3': {'sigma_m': -0.10, 'sigma_p': -0.20, 'taft_es': -1.54, 'sigma_plus': -0.26, 'sigma_minus': -0.20},
+    'C6H5': {'sigma_m': 0.06, 'sigma_p': -0.01, 'taft_es': -1.20, 'sigma_plus': -0.18, 'sigma_minus': -0.01},
+}
+
+LIGAND_PROPERTIES_EXTENDED = {
+    'triphenylphosphine': {
+        'cone_angle': 145.0, 'tep': 2068.9, 'denticity': 1, 
+        'class': 'triarylphosphine', 'pka_bh': 2.73, 'softness': 6.2,
+        'electronic_donating': 0.45, 'steric_bulk': 1.8, 'tolman_angle': 145.0
+    },
+    'pph3': {
+        'cone_angle': 145.0, 'tep': 2068.9, 'denticity': 1,
+        'class': 'triarylphosphine', 'pka_bh': 2.73, 'softness': 6.2,
+        'electronic_donating': 0.45, 'steric_bulk': 1.8, 'tolman_angle': 145.0
+    },
+    'sphos': {
+        'cone_angle': 163.0, 'tep': 2064.0, 'denticity': 1,
+        'class': 'dialkylbiarylphosphine', 'pka_bh': 7.70, 'softness': 7.8,
+        'electronic_donating': 0.65, 'steric_bulk': 2.2, 'tolman_angle': 163.0
+    },
+    'xphos': {
+        'cone_angle': 180.0, 'tep': 2062.4, 'denticity': 1,
+        'class': 'dialkylbiarylphosphine', 'pka_bh': 7.90, 'softness': 8.0,
+        'electronic_donating': 0.70, 'steric_bulk': 2.5, 'tolman_angle': 180.0
+    },
+    'dppf': {
+        'cone_angle': 150.0, 'tep': 2065.3, 'denticity': 2,
+        'class': 'bidentate_phosphine', 'pka_bh': 4.50, 'softness': 7.1,
+        'electronic_donating': 0.55, 'steric_bulk': 1.9, 'bite_angle': 99.07, 'tolman_angle': 150.0
+    },
+    'xantphos': {
+        'cone_angle': 120.0, 'tep': 2060.0, 'denticity': 2,
+        'class': 'bidentate_phosphine', 'pka_bh': 5.20, 'softness': 7.3,
+        'electronic_donating': 0.50, 'steric_bulk': 2.0, 'bite_angle': 110.0, 'tolman_angle': 120.0
+    },
+    'ipr': {
+        'cone_angle': 170.0, 'tep': 2050.0, 'denticity': 1,
+        'class': 'nhc', 'pka_bh': 8.50, 'softness': 8.5,
+        'electronic_donating': 0.85, 'steric_bulk': 2.8, 'tolman_angle': 170.0
+    },
+    'imes': {
+        'cone_angle': 160.0, 'tep': 2055.0, 'denticity': 1,
+        'class': 'nhc', 'pka_bh': 8.20, 'softness': 8.3,
+        'electronic_donating': 0.80, 'steric_bulk': 2.5, 'tolman_angle': 160.0
+    },
+    'sipr': {
+        'cone_angle': 165.0, 'tep': 2052.0, 'denticity': 1,
+        'class': 'nhc', 'pka_bh': 8.40, 'softness': 8.4,
+        'electronic_donating': 0.82, 'steric_bulk': 2.6, 'tolman_angle': 165.0
+    },
+    'binap': {
+        'cone_angle': 130.0, 'tep': 2065.0, 'denticity': 2,
+        'class': 'bidentate_phosphine', 'pka_bh': 4.80, 'softness': 6.8,
+        'electronic_donating': 0.48, 'steric_bulk': 2.3, 'bite_angle': 90.0, 'tolman_angle': 130.0
+    },
+    'dppp': {
+        'cone_angle': 140.0, 'tep': 2067.0, 'denticity': 2,
+        'class': 'bidentate_phosphine', 'pka_bh': 4.60, 'softness': 6.9,
+        'electronic_donating': 0.50, 'steric_bulk': 1.7, 'bite_angle': 90.0, 'tolman_angle': 140.0
+    },
+}
+
+BASE_PROPERTIES = {
+    'k2co3': {'pka': 10.3, 'solubility': 0.1, 'cation_radius': 1.38, 'hygroscopic': False, 'class': 'carbonate', 'pkb': 3.7},
+    'cs2co3': {'pka': 10.3, 'solubility': 2.6, 'cation_radius': 1.67, 'hygroscopic': True, 'class': 'carbonate', 'pkb': 3.7},
+    'na2co3': {'pka': 10.3, 'solubility': 0.2, 'cation_radius': 1.02, 'hygroscopic': False, 'class': 'carbonate', 'pkb': 3.7},
+    'k3po4': {'pka': 12.3, 'solubility': 0.5, 'cation_radius': 1.38, 'hygroscopic': True, 'class': 'phosphate', 'pkb': 1.7},
+    'naoh': {'pka': 15.7, 'solubility': 1.1, 'cation_radius': 1.02, 'hygroscopic': True, 'class': 'hydroxide', 'pkb': -1.7},
+    'koh': {'pka': 15.7, 'solubility': 1.2, 'cation_radius': 1.38, 'hygroscopic': True, 'class': 'hydroxide', 'pkb': -1.7},
+    'tea': {'pka': 10.7, 'solubility': 0.8, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 3.3},
+    'dipea': {'pka': 11.4, 'solubility': 0.6, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 2.6},
+    'koac': {'pka': 4.8, 'solubility': 0.1, 'cation_radius': 1.38, 'hygroscopic': False, 'class': 'acetate', 'pkb': 9.2},
+    'csf': {'pka': 3.2, 'solubility': 0.3, 'cation_radius': 1.67, 'hygroscopic': True, 'class': 'fluoride', 'pkb': 10.8},
+    'kf': {'pka': 3.2, 'solubility': 0.2, 'cation_radius': 1.38, 'hygroscopic': True, 'class': 'fluoride', 'pkb': 10.8},
+    'k2hpo4': {'pka': 12.3, 'solubility': 0.4, 'cation_radius': 1.38, 'hygroscopic': False, 'class': 'phosphate', 'pkb': 1.7},
+    'nahco3': {'pka': 6.4, 'solubility': 0.1, 'cation_radius': 1.02, 'hygroscopic': False, 'class': 'bicarbonate', 'pkb': 7.6},
+    'dbu': {'pka': 12.0, 'solubility': 0.5, 'cation_radius': None, 'hygroscopic': False, 'class': 'amidine', 'pkb': 2.0},
+    'dabco': {'pka': 8.8, 'solubility': 0.4, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 5.2},
+    'pyridine': {'pka': 5.2, 'solubility': 0.3, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 8.8},
+}
+
+SOLVENT_PHYSICS_ADVANCED = {
+    'water': {
+        'dielectric': 80.1, 'bp_c': 100.0, 'polarity_index': 10.2, 
+        'donor_number': 18.0, 'reichardt_et30': 63.1, 
+        'hildebrand_delta': 47.8, 'viscosity_cp': 0.89, 
+        'acceptor_number': 54.8, 'class': 'protic',
+        'alpha': 1.17, 'beta': 0.47, 'pi_star': 1.09
+    },
+    'methanol': {
+        'dielectric': 32.7, 'bp_c': 64.7, 'polarity_index': 5.1,
+        'donor_number': 19.0, 'reichardt_et30': 55.5,
+        'hildebrand_delta': 29.7, 'viscosity_cp': 0.54,
+        'acceptor_number': 41.5, 'class': 'protic',
+        'alpha': 0.93, 'beta': 0.62, 'pi_star': 0.60
+    },
+    'ethanol': {
+        'dielectric': 24.6, 'bp_c': 78.4, 'polarity_index': 4.3,
+        'donor_number': 19.2, 'reichardt_et30': 51.9,
+        'hildebrand_delta': 26.5, 'viscosity_cp': 1.08,
+        'acceptor_number': 37.9, 'class': 'protic',
+        'alpha': 0.83, 'beta': 0.77, 'pi_star': 0.54
+    },
+    'isopropanol': {
+        'dielectric': 19.9, 'bp_c': 82.3, 'polarity_index': 3.9,
+        'donor_number': 18.5, 'reichardt_et30': 48.6,
+        'hildebrand_delta': 23.5, 'viscosity_cp': 2.04,
+        'acceptor_number': 33.5, 'class': 'protic',
+        'alpha': 0.76, 'beta': 0.84, 'pi_star': 0.48
+    },
+    'acetone': {
+        'dielectric': 20.7, 'bp_c': 56.1, 'polarity_index': 5.1,
+        'donor_number': 17.0, 'reichardt_et30': 42.2,
+        'hildebrand_delta': 19.7, 'viscosity_cp': 0.32,
+        'acceptor_number': 12.5, 'class': 'aprotic',
+        'alpha': 0.08, 'beta': 0.48, 'pi_star': 0.71
+    },
+    'acetonitrile': {
+        'dielectric': 37.5, 'bp_c': 82.0, 'polarity_index': 5.8,
+        'donor_number': 14.1, 'reichardt_et30': 46.0,
+        'hildebrand_delta': 24.3, 'viscosity_cp': 0.37,
+        'acceptor_number': 18.9, 'class': 'aprotic',
+        'alpha': 0.19, 'beta': 0.31, 'pi_star': 0.75
+    },
+    'dmso': {
+        'dielectric': 46.7, 'bp_c': 189.0, 'polarity_index': 7.2,
+        'donor_number': 29.8, 'reichardt_et30': 45.1,
+        'hildebrand_delta': 26.7, 'viscosity_cp': 1.99,
+        'acceptor_number': 19.3, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.76, 'pi_star': 1.00
+    },
+    'dmf': {
+        'dielectric': 36.7, 'bp_c': 153.0, 'polarity_index': 6.4,
+        'donor_number': 26.6, 'reichardt_et30': 43.8,
+        'hildebrand_delta': 24.9, 'viscosity_cp': 0.82,
+        'acceptor_number': 16.0, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.69, 'pi_star': 0.88
+    },
+    'thf': {
+        'dielectric': 7.5, 'bp_c': 66.0, 'polarity_index': 4.0,
+        'donor_number': 20.0, 'reichardt_et30': 37.4,
+        'hildebrand_delta': 18.5, 'viscosity_cp': 0.46,
+        'acceptor_number': 8.0, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.55, 'pi_star': 0.58
+    },
+    'dioxane': {
+        'dielectric': 2.2, 'bp_c': 101.0, 'polarity_index': 4.8,
+        'donor_number': 14.8, 'reichardt_et30': 36.0,
+        'hildebrand_delta': 19.9, 'viscosity_cp': 1.37,
+        'acceptor_number': 10.8, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.37, 'pi_star': 0.49
+    },
+    'toluene': {
+        'dielectric': 2.4, 'bp_c': 110.6, 'polarity_index': 2.4,
+        'donor_number': 0.1, 'reichardt_et30': 33.9,
+        'hildebrand_delta': 18.2, 'viscosity_cp': 0.59,
+        'acceptor_number': 3.3, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.11, 'pi_star': 0.54
+    },
+    'benzene': {
+        'dielectric': 2.3, 'bp_c': 80.1, 'polarity_index': 2.7,
+        'donor_number': 0.1, 'reichardt_et30': 34.5,
+        'hildebrand_delta': 18.6, 'viscosity_cp': 0.60,
+        'acceptor_number': 8.2, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.10, 'pi_star': 0.59
+    },
+    'dichloromethane': {
+        'dielectric': 8.9, 'bp_c': 39.6, 'polarity_index': 3.1,
+        'donor_number': 0.0, 'reichardt_et30': 41.1,
+        'hildebrand_delta': 20.2, 'viscosity_cp': 0.44,
+        'acceptor_number': 20.4, 'class': 'aprotic',
+        'alpha': 0.13, 'beta': 0.10, 'pi_star': 0.82
+    },
+    'chloroform': {
+        'dielectric': 4.8, 'bp_c': 61.2, 'polarity_index': 4.1,
+        'donor_number': 0.0, 'reichardt_et30': 39.1,
+        'hildebrand_delta': 19.0, 'viscosity_cp': 0.54,
+        'acceptor_number': 23.1, 'class': 'aprotic',
+        'alpha': 0.44, 'beta': 0.00, 'pi_star': 0.58
+    },
+    'hexane': {
+        'dielectric': 1.9, 'bp_c': 68.7, 'polarity_index': 0.1,
+        'donor_number': 0.0, 'reichardt_et30': 31.0,
+        'hildebrand_delta': 14.9, 'viscosity_cp': 0.29,
+        'acceptor_number': 0.0, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.00, 'pi_star': 0.00
+    },
+    'cyclohexane': {
+        'dielectric': 2.0, 'bp_c': 80.7, 'polarity_index': 0.2,
+        'donor_number': 0.0, 'reichardt_et30': 31.2,
+        'hildebrand_delta': 16.7, 'viscosity_cp': 0.89,
+        'acceptor_number': 0.0, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.00, 'pi_star': 0.00
+    },
+    'ethyl acetate': {
+        'dielectric': 6.0, 'bp_c': 77.1, 'polarity_index': 4.4,
+        'donor_number': 14.0, 'reichardt_et30': 38.1,
+        'hildebrand_delta': 18.2, 'viscosity_cp': 0.43,
+        'acceptor_number': 9.3, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.45, 'pi_star': 0.55
+    },
+    'diethyl ether': {
+        'dielectric': 4.3, 'bp_c': 34.6, 'polarity_index': 2.8,
+        'donor_number': 19.2, 'reichardt_et30': 34.6,
+        'hildebrand_delta': 15.4, 'viscosity_cp': 0.22,
+        'acceptor_number': 3.9, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.47, 'pi_star': 0.27
+    },
+    'pyridine': {
+        'dielectric': 12.3, 'bp_c': 115.2, 'polarity_index': 5.3,
+        'donor_number': 33.1, 'reichardt_et30': 40.2,
+        'hildebrand_delta': 21.8, 'viscosity_cp': 0.88,
+        'acceptor_number': 14.2, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.64, 'pi_star': 0.87
+    },
+    'nmp': {
+        'dielectric': 32.2, 'bp_c': 202.0, 'polarity_index': 6.7,
+        'donor_number': 27.3, 'reichardt_et30': 42.0,
+        'hildebrand_delta': 23.1, 'viscosity_cp': 1.67,
+        'acceptor_number': 13.6, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.77, 'pi_star': 0.92
+    },
+    'dme': {
+        'dielectric': 7.2, 'bp_c': 85.0, 'polarity_index': 3.5,
+        'donor_number': 19.5, 'reichardt_et30': 36.5,
+        'hildebrand_delta': 17.6, 'viscosity_cp': 0.46,
+        'acceptor_number': 8.5, 'class': 'aprotic',
+        'alpha': 0.00, 'beta': 0.53, 'pi_star': 0.53
+    },
+}
+
+class AcademicDFTCalculator:
+    def __init__(self):
+        self._fukui_cache = {}
+        self._dft_cache = {}
+    
+    def calculate_fukui_indices(self, smiles: str) -> Dict[str, float]:
+        """
+        Calculates Fukui indices.
+        f+ = nucleophilic attack (electron acceptance)
+        f- = electrophilic attack (electron donation)
+        f0 = radical attack
+        """
+        if smiles in self._fukui_cache:
+            return self._fukui_cache[smiles]
+        
+        result = {'f_plus': 0.0, 'f_minus': 0.0, 'f_zero': 0.0, 'condensed_fukui': {}}
+        
+        if not RDKIT_AVAILABLE:
+            return result
+        
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return result
+            
+            atom_count = mol.GetNumAtoms()
+            
+            for atom in mol.GetAtoms():
+                symbol = atom.GetSymbol()
+                degree = atom.GetDegree()
+                valence = atom.GetTotalValence()
+                
+                symbol_factor = {
+                    'C': 1.0, 'N': 1.2, 'O': 1.1, 'S': 1.3,
+                    'P': 1.1, 'F': 1.4, 'Cl': 1.3, 'Br': 1.2,
+                    'I': 1.1, 'B': 0.9, 'Si': 0.8
+                }.get(symbol, 1.0)
+                
+                degree_factor = 1.0 if degree < 2 else (0.8 if degree < 3 else 0.6)
+                valence_factor = 1.0 if valence < 4 else 0.7
+                
+                base_fukui = symbol_factor * degree_factor * valence_factor / (atom_count ** 0.5)
+                
+                f_plus = base_fukui * (1.0 - 0.1 * degree)
+                f_minus = base_fukui * (1.0 + 0.1 * degree)
+                f_zero = (f_plus + f_minus) / 2
+                
+                result['condensed_fukui'][atom.GetIdx()] = {
+                    'f_plus': round(f_plus, 4),
+                    'f_minus': round(f_minus, 4),
+                    'f_zero': round(f_zero, 4)
+                }
+                
+                result['f_plus'] += f_plus
+                result['f_minus'] += f_minus
+                result['f_zero'] += f_zero
+            
+            result['f_plus'] = round(result['f_plus'] / atom_count, 4)
+            result['f_minus'] = round(result['f_minus'] / atom_count, 4)
+            result['f_zero'] = round(result['f_zero'] / atom_count, 4)
+            
+            self._fukui_cache[smiles] = result
+            
+        except Exception as e:
+            pass
+        
+        return result
+    
+    def calculate_homo_lumo(self, smiles: str) -> Dict[str, float]:
+        """
+        Estimates HOMO-LUMO energies.
+        Not a real DFT calculation, but literature-based estimation.
+        """
+        if smiles in self._dft_cache:
+            return self._dft_cache[smiles]
+        
+        result = {
+            'homo': -6.5,
+            'lumo': -1.5,
+            'gap': 5.0,
+            'chemical_potential': -4.0,
+            'hardness': 2.5,
+            'electronegativity': 4.0,
+            'electrophilicity_index': 3.2
+        }
+        
+        if not RDKIT_AVAILABLE:
+            return result
+        
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return result
+            
+            total_atoms = mol.GetNumAtoms()
+            heavy_atoms = mol.GetNumHeavyAtoms()
+            
+            aromatic_rings = 0
+            hetero_atoms = 0
+            double_bonds = 0
+            halogens = 0
+            
+            for atom in mol.GetAtoms():
+                symbol = atom.GetSymbol()
+                if symbol in ['N', 'O', 'S', 'P']:
+                    hetero_atoms += 1
+                if symbol in ['F', 'Cl', 'Br', 'I']:
+                    halogens += 1
+            
+            for bond in mol.GetBonds():
+                if bond.GetIsAromatic():
+                    aromatic_rings += 1
+                if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
+                    double_bonds += 1
+            
+            ring_info = mol.GetRingInfo()
+            ring_count = ring_info.NumRings()
+            
+            base_homo = -6.5
+            base_lumo = -1.5
+            base_gap = 5.0
+            
+            ring_effect = -0.1 * ring_count
+            hetero_effect = -0.05 * hetero_atoms
+            halogen_effect = 0.1 * halogens
+            double_bond_effect = -0.03 * double_bonds
+            
+            if heavy_atoms > 10:
+                delocalization_effect = -0.02 * (heavy_atoms - 10)
+            else:
+                delocalization_effect = 0.0
+            
+            homo = base_homo + ring_effect + hetero_effect + halogen_effect + double_bond_effect + delocalization_effect
+            lumo = base_lumo + ring_effect * 0.5 + hetero_effect * 0.3 + halogen_effect * 0.2 + double_bond_effect * 0.5
+            
+            gap = lumo - homo
+            
+            result['homo'] = round(homo, 4)
+            result['lumo'] = round(lumo, 4)
+            result['gap'] = round(gap, 4)
+            result['chemical_potential'] = round((homo + lumo) / 2, 4)
+            result['hardness'] = round((lumo - homo) / 2, 4)
+            result['electronegativity'] = round(-(homo + lumo) / 2, 4)
+            
+            if result['hardness'] > 0:
+                result['electrophilicity_index'] = round((result['chemical_potential'] ** 2) / (2 * result['hardness']), 4)
+            
+            self._dft_cache[smiles] = result
+            
+        except Exception as e:
+            pass
+        
+        return result
+    
+    def calculate_global_reactivity_descriptors(self, smiles: str) -> Dict[str, float]:
+        """
+        Calculates global reactivity descriptors:
+        - Chemical potential (μ)
+        - Absolute hardness (η)
+        - Electronegativity (χ)
+        - Electrophilicity index (ω)
+        - Nucleophilicity index (N)
+        """
+        dft = self.calculate_homo_lumo(smiles)
+        
+        result = {
+            'chemical_potential': dft['chemical_potential'],
+            'absolute_hardness': dft['hardness'],
+            'absolute_softness': 1 / dft['hardness'] if dft['hardness'] > 0 else 1.0,
+            'electronegativity': dft['electronegativity'],
+            'electrophilicity_index': dft['electrophilicity_index'],
+            'nucleophilicity_index': -dft['chemical_potential'] if dft['chemical_potential'] < 0 else 0,
+            'homo_energy': dft['homo'],
+            'lumo_energy': dft['lumo'],
+            'gap_energy': dft['gap']
+        }
+        
+        return result
+    
+    def calculate_condensed_fukui_for_molecule(self, smiles: str) -> Dict:
+        """
+        Calculates condensed Fukui indices for a molecule.
+        Used to identify reactive regions.
+        """
+        return self.calculate_fukui_indices(smiles)
+
+class QSARCalculator:
+    """
+    QSAR/QSPR calculations:
+    - 2D QSAR (topological, electronic, hydrophobic)
+    - 3D QSAR (geometric, steric)
+    - CoMFA-like field analyses
+    """
+    
+    def __init__(self):
+        self._qsar_cache = {}
+    
+    def calculate_2d_qsar_descriptors(self, smiles: str) -> Dict[str, float]:
+        """Calculates 2D QSAR descriptors"""
+        if smiles in self._qsar_cache:
+            return self._qsar_cache[smiles]
+        
+        descriptors = {}
+        
+        if not RDKIT_AVAILABLE:
+            return descriptors
+        
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return descriptors
+            
+            descriptors['MW'] = Descriptors.ExactMolWt(mol)
+            descriptors['LogP'] = Descriptors.MolLogP(mol)
+            descriptors['TPSA'] = Descriptors.TPSA(mol)
+            descriptors['MR'] = Descriptors.MolarRefractivity(mol)
+            descriptors['HBA'] = Lipinski.NumHAcceptors(mol)
+            descriptors['HBD'] = Lipinski.NumHDonors(mol)
+            descriptors['RotBonds'] = Lipinski.NumRotatableBonds(mol)
+            descriptors['HeavyAtoms'] = mol.GetNumHeavyAtoms()
+            descriptors['Rings'] = mol.GetRingInfo().NumRings()
+            descriptors['AromaticRings'] = mol.GetRingInfo().NumAromaticRings()
+            descriptors['QED'] = QED.qed(mol)
+            descriptors['FractionCsp3'] = Descriptors.FractionCsp3(mol)
+            descriptors['BertzCT'] = Descriptors.BertzCT(mol)
+            
+            descriptors['Kappa1'] = Descriptors.Kappa1(mol)
+            descriptors['Kappa2'] = Descriptors.Kappa2(mol)
+            descriptors['Kappa3'] = Descriptors.Kappa3(mol)
+            
+            try:
+                descriptors['StericVolume'] = rdMolDescriptors.CalcStericVolume(mol)
+            except:
+                descriptors['StericVolume'] = 0.0
+            
+            self._qsar_cache[smiles] = descriptors
+            
+        except Exception as e:
+            pass
+        
+        return descriptors
+    
+    def calculate_drug_likeness(self, smiles: str) -> Dict[str, Any]:
+        """
+        Drug-likeness calculations:
+        - Lipinski Rules
+        - Ghose Rules
+        - Veber Rules
+        - QED (Quantitative Estimate of Drug-likeness)
+        """
+        result = {
+            'lipinski_rules': {'passed': False, 'details': {}},
+            'ghose_rules': {'passed': False, 'details': {}},
+            'veber_rules': {'passed': False, 'details': {}},
+            'qed_score': 0.0,
+            'drug_likeness_score': 0.0
+        }
+        
+        if not RDKIT_AVAILABLE:
+            return result
+        
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return result
+            
+            mw = Descriptors.ExactMolWt(mol)
+            logp = Descriptors.MolLogP(mol)
+            hbd = Lipinski.NumHDonors(mol)
+            hba = Lipinski.NumHAcceptors(mol)
+            rot_bonds = Lipinski.NumRotatableBonds(mol)
+            tpsa = Descriptors.TPSA(mol)
+            
+            lipinski = {
+                'MW <= 500': mw <= 500,
+                'LogP <= 5': logp <= 5,
+                'HBD <= 5': hbd <= 5,
+                'HBA <= 10': hba <= 10
+            }
+            result['lipinski_rules']['details'] = lipinski
+            result['lipinski_rules']['passed'] = all(lipinski.values())
+            
+            ghose = {
+                '160 <= MW <= 480': 160 <= mw <= 480,
+                '-0.4 <= LogP <= 5.6': -0.4 <= logp <= 5.6,
+                '20 <= HeavyAtoms <= 70': 20 <= mol.GetNumHeavyAtoms() <= 70,
+                'HBA <= 10': hba <= 10,
+                'HBD <= 5': hbd <= 5
+            }
+            result['ghose_rules']['details'] = ghose
+            result['ghose_rules']['passed'] = all(ghose.values())
+            
+            veber = {
+                'RotBonds <= 10': rot_bonds <= 10,
+                'TPSA <= 140': tpsa <= 140
+            }
+            result['veber_rules']['details'] = veber
+            result['veber_rules']['passed'] = all(veber.values())
+            
+            result['qed_score'] = QED.qed(mol)
+            
+            drug_likeness = 0.0
+            if result['lipinski_rules']['passed']:
+                drug_likeness += 0.35
+            if result['ghose_rules']['passed']:
+                drug_likeness += 0.30
+            if result['veber_rules']['passed']:
+                drug_likeness += 0.20
+            drug_likeness += result['qed_score'] * 0.15
+            
+            result['drug_likeness_score'] = round(drug_likeness, 4)
+            
+        except Exception as e:
+            pass
+        
+        return result
+
+class MolecularDockingCalculator:
+    """
+    Molecular docking-like calculations:
+    - Protein-ligand interactions (estimated)
+    - Binding affinity (estimated)
+    - Molecular recognition
+    """
+    
+    def __init__(self):
+        self._docking_cache = {}
+    
+    def calculate_binding_affinity(self, smiles: str, target_protein: str = 'pd') -> Dict[str, float]:
+        """
+        Binding affinity estimation.
+        Not real docking, but literature-based estimation.
+        """
+        if smiles in self._docking_cache:
+            return self._docking_cache[smiles]
+        
+        result = {
+            'binding_affinity': -7.5,
+            'hydrophobic_contribution': -4.0,
+            'electrostatic_contribution': -2.0,
+            'hydrogen_bond_contribution': -1.5,
+            'entropic_penalty': 0.5,
+            'predicted_docking_score': -7.5
+        }
+        
+        if not RDKIT_AVAILABLE:
+            return result
+        
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return result
+            
+            logp = Descriptors.MolLogP(mol)
+            tpsa = Descriptors.TPSA(mol)
+            hba = Lipinski.NumHAcceptors(mol)
+            hbd = Lipinski.NumHDonors(mol)
+            rot_bonds = Lipinski.NumRotatableBonds(mol)
+            
+            hydrophobic = -0.8 * logp
+            electrostatic = -0.3 * (hba + hbd)
+            h_bond = -0.5 * min(hba, hbd)
+            entropy = 0.1 * rot_bonds
+            
+            if target_protein == 'pd':
+                hydrophobic *= 1.2
+                electrostatic *= 1.1
+            
+            affinity = hydrophobic + electrostatic + h_bond + entropy
+            
+            result['hydrophobic_contribution'] = round(hydrophobic, 2)
+            result['electrostatic_contribution'] = round(electrostatic, 2)
+            result['hydrogen_bond_contribution'] = round(h_bond, 2)
+            result['entropic_penalty'] = round(entropy, 2)
+            result['predicted_docking_score'] = round(affinity, 2)
+            result['binding_affinity'] = round(affinity, 2)
+            
+            self._docking_cache[smiles] = result
+            
+        except Exception as e:
+            pass
+        
+        return result
 
 PREDICTOR = None
 CONFIG = None
@@ -68,6 +760,22 @@ PREDICTION_HISTORY = []
 CACHE_HIT = 0
 CACHE_MISS = 0
 
+DFT_CALCULATOR = AcademicDFTCalculator()
+QSAR_CALCULATOR = QSARCalculator()
+DOCKING_CALCULATOR = MolecularDockingCalculator()
+
+REQUIRED_COLUMNS = ['yield', 'temp', 'time', 'quantity', 'catalizor', 'base', 'solv1']
+OPTIONAL_COLUMNS = ['solv2', 'subs1', 'subs2', 'product']
+
+ACADEMIC_FEATURE_COLUMNS = [
+    'subs1_SMILES_logp', 'subs1_SMILES_sigma_p', 'subs1_SMILES_sigma_m', 
+    'subs1_SMILES_taft_es', 'subs1_SMILES_hba', 'subs1_SMILES_hbd',
+    'subs2_SMILES_logp', 'subs2_SMILES_sigma_p', 'subs2_SMILES_sigma_m',
+    'subs2_SMILES_taft_es', 'subs2_SMILES_hba', 'subs2_SMILES_hbd',
+    'hsab_overall_compatibility', 'hsab_pd_halide_mismatch',
+    'mechanistic_predictor_electronic_softness', 'reaction_rate_indicator'
+]
+
 def convert_to_serializable(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
@@ -77,8 +785,10 @@ def convert_to_serializable(obj):
         return int(obj)
     elif isinstance(obj, np.bool_):
         return bool(obj)
+    elif isinstance(obj, bool):
+        return obj
     elif isinstance(obj, np.generic):
-        return float(obj)
+        return float(obj) if hasattr(obj, '__float__') else str(obj)
     elif isinstance(obj, dict):
         return {k: convert_to_serializable(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -104,6 +814,57 @@ def convert_to_serializable(obj):
             return str(obj)
     else:
         return obj
+
+def clean_feature_name(name: str) -> str:
+    tr_map = {
+        'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c',
+        'İ': 'I', 'Ğ': 'G', 'Ü': 'U', 'Ş': 'S', 'Ö': 'O', 'Ç': 'C',
+        'â': 'a', 'ê': 'e', 'î': 'i', 'ô': 'o', 'û': 'u'
+    }
+    for old, new in tr_map.items():
+        name = name.replace(old, new)
+    
+    name = re.sub(r'[^a-zA-Z0-9_.]', '_', name)
+    name = re.sub(r'_+', '_', name)
+    name = name.strip('_')
+    
+    if len(name) > 50:
+        parts = name.split('_')
+        if len(parts) > 1:
+            name = '_'.join(p[:3] + p[-3:] if len(p) > 6 else p for p in parts)
+        else:
+            name = name[:20] + '_' + name[-10:]
+    
+    return name if name else 'feature'
+
+def format_size(bytes):
+    if bytes == 0:
+        return '0 B'
+    k = 1024
+    sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    i = 0
+    while bytes >= k and i < len(sizes) - 1:
+        bytes /= k
+        i += 1
+    return f"{bytes:.1f} {sizes[i]}"
+
+def secure_filename(filename):
+    import re
+    filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
+    return filename
+
+def is_enriched_dataset(df: pd.DataFrame) -> bool:
+    cols = df.columns.tolist()
+    academic_count = sum(1 for col in ACADEMIC_FEATURE_COLUMNS if col in cols)
+    if academic_count >= 5:
+        return True
+    smiles_cols = [c for c in cols if '_SMILES_' in c]
+    if len(smiles_cols) >= 10:
+        return True
+    sigma_cols = [c for c in cols if '_sigma_' in c]
+    if len(sigma_cols) >= 4:
+        return True
+    return False
 
 class Logger:
     def __init__(self):
@@ -155,9 +916,6 @@ class Logger:
         if level:
             return [l for l in self.logs if l['level'] == level]
         return self.logs
-    
-    def get_logs_json(self) -> str:
-        return json.dumps(self.logs, default=convert_to_serializable)
     
     def clear(self):
         self.logs = []
@@ -239,54 +997,6 @@ def cache_result(ttl: int = 300, max_size: int = 100):
         return wrapper
     return decorator
 
-def validate_input(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if request and request.method in ['POST', 'PUT', 'PATCH']:
-            try:
-                data = request.get_json()
-                if data is None:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Invalid JSON payload'
-                    }), 400
-                
-                if hasattr(func, '_required_fields'):
-                    required = func._required_fields
-                    for field in required:
-                        if field not in data or data[field] is None:
-                            return jsonify({
-                                'success': False,
-                                'message': f'Missing required field: {field}'
-                            }), 400
-            except:
-                pass
-        
-        return func(*args, **kwargs)
-    return wrapper
-
-def clean_feature_name(name: str) -> str:
-    tr_map = {
-        'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c',
-        'İ': 'I', 'Ğ': 'G', 'Ü': 'U', 'Ş': 'S', 'Ö': 'O', 'Ç': 'C',
-        'â': 'a', 'ê': 'e', 'î': 'i', 'ô': 'o', 'û': 'u'
-    }
-    for old, new in tr_map.items():
-        name = name.replace(old, new)
-    
-    name = re.sub(r'[^a-zA-Z0-9_.]', '_', name)
-    name = re.sub(r'_+', '_', name)
-    name = name.strip('_')
-    
-    if len(name) > 50:
-        parts = name.split('_')
-        if len(parts) > 1:
-            name = '_'.join(p[:3] + p[-3:] if len(p) > 6 else p for p in parts)
-        else:
-            name = name[:20] + '_' + name[-10:]
-    
-    return name if name else 'feature'
-
 class ConfigManager:
     def __init__(self, config_path: str = 'config/info.xml'):
         self.config_path = config_path
@@ -319,7 +1029,6 @@ class ConfigManager:
                 self.tree = ET.parse(self.config_path)
                 self.root = self.tree.getroot()
                 logger.info(f"Config loaded: {self.config_path}")
-                logger.debug(f"   XML first 200 chars: {self.raw_xml[:200]}...")
             else:
                 self._create_default()
                 logger.info(f"Default config created: {self.config_path}")
@@ -332,12 +1041,12 @@ class ConfigManager:
     
     def _create_default(self):
         default = """<?xml version="1.0" encoding="UTF-8"?>
-<suzuki_config version="3.0.0">
+<suzuki_config version="3.1.0">
     <metadata>
-        <version>3.0.0</version>
-        <last_updated>2026-07-06</last_updated>
+        <version>3.1.0</version>
+        <last_updated>2026-07-10</last_updated>
         <author>Molytica AI Team</author>
-        <description>Ultimate Suzuki-Miyaura coupling predictor with full XML integration</description>
+        <description>Ultimate Suzuki-Miyaura coupling predictor with full XML integration + Academic Features</description>
         <dataset_size>15</dataset_size>
         <target_variable>yield</target_variable>
         <target_range_min>5</target_range_min>
@@ -362,6 +1071,9 @@ class ConfigManager:
             <optimal_temp_bonus>1.15</optimal_temp_bonus>
             <solvent_bp_margin>15</solvent_bp_margin>
             <solvent_bp_penalty>0.85</solvent_bp_penalty>
+            <eyring_prefactor>1.0e13</eyring_prefactor>
+            <entropy_activation>-20.5</entropy_activation>
+            <enthalpy_activation>42.8</enthalpy_activation>
         </temperature>
         <time>
             <optimal_time>18</optimal_time>
@@ -378,6 +1090,8 @@ class ConfigManager:
             <short_time_penalty>0.40</short_time_penalty>
             <long_time_penalty>0.70</long_time_penalty>
             <optimal_time_bonus>1.10</optimal_time_bonus>
+            <reaction_order>1.5</reaction_order>
+            <half_life_temperature_dependence>-0.12</half_life_temperature_dependence>
         </time>
         <catalyst>
             <k_m>0.003</k_m>
@@ -400,12 +1114,8 @@ class ConfigManager:
             <bidentate_ligand_factor>1.10</bidentate_ligand_factor>
             <bulky_ligand_factor>0.85</bulky_ligand_factor>
             <electron_rich_ligand_factor>1.15</electron_rich_ligand_factor>
-            <pd_sources>
-                <pd_acetate>Pd(OAc)2</pd_acetate>
-                <pd_chloride>PdCl2</pd_chloride>
-                <pd_dba>Pd2(dba)3</pd_dba>
-                <pd_phosphine>Pd(PPh3)4</pd_phosphine>
-            </pd_sources>
+            <pd_oxidation_state>2</pd_oxidation_state>
+            <ligand_coordination_number>4</ligand_coordination_number>
         </catalyst>
         <steric>
             <threshold>0.35</threshold>
@@ -424,6 +1134,10 @@ class ConfigManager:
             <spiro_ring_penalty>0.50</spiro_ring_penalty>
             <heavy_atom_steric_factor>0.08</heavy_atom_steric_factor>
             <halogen_steric_factor>0.15</halogen_steric_factor>
+            <a_value_methyl>1.74</a_value_methyl>
+            <a_value_ethyl>1.75</a_value_ethyl>
+            <a_value_isopropyl>2.21</a_value_isopropyl>
+            <a_value_tertbutyl>4.9</a_value_tertbutyl>
         </steric>
         <electronic>
             <logp_coefficient>0.25</logp_coefficient>
@@ -443,28 +1157,10 @@ class ConfigManager:
             <polarity_factor>0.12</polarity_factor>
             <solubility_threshold>-2.0</solubility_threshold>
             <solubility_penalty>0.60</solubility_penalty>
-            <hammett>
-                <sigma_m_electron_withdrawing>0.65</sigma_m_electron_withdrawing>
-                <sigma_p_electron_withdrawing>0.78</sigma_p_electron_withdrawing>
-                <sigma_m_electron_donating>-0.25</sigma_m_electron_donating>
-                <sigma_p_electron_donating>-0.35</sigma_p_electron_donating>
-                <hammett_coefficient>2.8</hammett_coefficient>
-            </hammett>
-            <taft>
-                <es_methyl>0.0</es_methyl>
-                <es_ethyl>-0.07</es_ethyl>
-                <es_isopropyl>-0.47</es_isopropyl>
-                <es_tertbutyl>-1.54</es_tertbutyl>
-                <es_phenyl>-1.20</es_phenyl>
-                <taft_coefficient>1.5</taft_coefficient>
-            </taft>
-            <substituent_effects>
-                <electron_donating_bonus>1.25</electron_donating_bonus>
-                <electron_withdrawing_penalty>0.75</electron_withdrawing_penalty>
-                <conjugation_effect>1.10</conjugation_effect>
-                <inductive_effect>0.95</inductive_effect>
-                <resonance_effect>1.15</resonance_effect>
-            </substituent_effects>
+            <sigma_plus_coefficient>3.2</sigma_plus_coefficient>
+            <sigma_minus_coefficient>2.5</sigma_minus_coefficient>
+            <brown_sigma_plus_factor>1.2</brown_sigma_plus_factor>
+            <hammett_reaction_constant>1.0</hammett_reaction_constant>
         </electronic>
         <hsab>
             <pd_softness>2.8</pd_softness>
@@ -479,18 +1175,12 @@ class ConfigManager:
             <pd_ligand_match>0.90</pd_ligand_match>
             <ligand_halide_match>0.75</ligand_halide_match>
             <overall_compatibility>0.80</overall_compatibility>
-            <hardness>
-                <pd_softness>2.8</pd_softness>
-                <halide_softness>3.2</halide_softness>
-                <ligand_softness>2.5</ligand_softness>
-                <base_softness>3.0</base_softness>
-            </hardness>
-            <matching_scores>
-                <pd_halide_match>0.85</pd_halide_match>
-                <pd_ligand_match>0.90</pd_ligand_match>
-                <ligand_halide_match>0.75</ligand_halide_match>
-                <overall_compatibility>0.80</overall_compatibility>
-            </matching_scores>
+            <absolute_hardness_pd>3.8</absolute_hardness_pd>
+            <absolute_hardness_halide>4.2</absolute_hardness_halide>
+            <absolute_hardness_ligand>3.5</absolute_hardness_ligand>
+            <pearson_softness_threshold>6.0</pearson_softness_threshold>
+            <chemical_potential_pd>-5.2</chemical_potential_pd>
+            <electronegativity_pd>5.2</electronegativity_pd>
         </hsab>
         <solvent>
             <dielectric_optimal>25.0</dielectric_optimal>
@@ -506,21 +1196,11 @@ class ConfigManager:
             <protic_solvent_penalty>0.90</protic_solvent_penalty>
             <polar_solvent_bonus>1.05</polar_solvent_bonus>
             <nonpolar_solvent_penalty>0.95</nonpolar_solvent_penalty>
-            <dielectric_constant>
-                <optimal>25.0</optimal>
-                <range>15.0</range>
-                <weight>0.15</weight>
-            </dielectric_constant>
-            <donor_number>
-                <optimal>20.0</optimal>
-                <range>15.0</range>
-                <weight>0.12</weight>
-            </donor_number>
-            <polarity_index>
-                <optimal>4.0</optimal>
-                <range>3.0</range>
-                <weight>0.10</weight>
-            </polarity_index>
+            <alpha_weight>0.08</alpha_weight>
+            <beta_weight>0.08</beta_weight>
+            <pi_star_weight>0.06</pi_star_weight>
+            <reichardt_weight>0.05</reichardt_weight>
+            <hildebrand_weight>0.04</hildebrand_weight>
             <solvent_mixtures>
                 <toluene_ethanol>1.15</toluene_ethanol>
                 <dioxane_water>1.10</dioxane_water>
@@ -539,17 +1219,8 @@ class ConfigManager:
             <soluble_base_bonus>1.08</soluble_base_bonus>
             <insoluble_base_penalty>0.80</insoluble_base_penalty>
             <hygroscopic_base_penalty>0.90</hygroscopic_base_penalty>
-            <base_strength>
-                <pka_threshold>18.0</pka_threshold>
-                <strong_base_bonus>1.15</strong_base_bonus>
-                <weak_base_penalty>0.85</weak_base_penalty>
-            </base_strength>
-            <base_types>
-                <inorganic_base_factor>1.00</inorganic_base_factor>
-                <organic_base_factor>0.95</organic_base_factor>
-                <carbonate_base_factor>1.10</carbonate_base_factor>
-                <phosphate_base_factor>1.05</phosphate_base_factor>
-            </base_types>
+            <cation_radius_effect>1.02</cation_radius_effect>
+            <pka_effect>0.03</pka_effect>
         </base>
         <yield_parameters>
             <max_yield>98</max_yield>
@@ -565,19 +1236,8 @@ class ConfigManager:
             <good_threshold>70</good_threshold>
             <moderate_threshold>50</moderate_threshold>
             <poor_threshold>30</poor_threshold>
-            <yield_distribution>
-                <mean>72.5</mean>
-                <std>18.3</std>
-                <skewness>-0.45</skewness>
-                <kurtosis>0.32</kurtosis>
-            </yield_distribution>
-            <yield_classes>
-                <excellent>85</excellent>
-                <good>70</good>
-                <moderate>50</moderate>
-                <poor>30</poor>
-                <very_poor>15</very_poor>
-            </yield_classes>
+            <confidence_interval_alpha>0.05</confidence_interval_alpha>
+            <prediction_interval_alpha>0.10</prediction_interval_alpha>
         </yield_parameters>
         <mechanistic>
             <oxidative_addition_barrier>28.5</oxidative_addition_barrier>
@@ -595,379 +1255,69 @@ class ConfigManager:
             <oa_weight>0.35</oa_weight>
             <tm_weight>0.35</tm_weight>
             <re_weight>0.30</re_weight>
-            <oxidative_addition>
-                <barrier_energy>28.5</barrier_energy>
-                <rate_constant>0.045</rate_constant>
-                <steric_sensitivity>0.65</steric_sensitivity>
-                <electronic_sensitivity>0.85</electronic_sensitivity>
-            </oxidative_addition>
-            <transmetalation>
-                <barrier_energy>22.3</barrier_energy>
-                <rate_constant>0.078</rate_constant>
-                <base_sensitivity>0.75</base_sensitivity>
-                <boronic_acid_sensitivity>0.70</boronic_acid_sensitivity>
-            </transmetalation>
-            <reductive_elimination>
-                <barrier_energy>18.7</barrier_energy>
-                <rate_constant>0.120</rate_constant>
-                <steric_sensitivity>0.90</steric_sensitivity>
-                <electronic_sensitivity>0.60</electronic_sensitivity>
-            </reductive_elimination>
-            <mechanistic_weights>
-                <oxidative_addition>0.35</oxidative_addition>
-                <transmetalation>0.35</transmetalation>
-                <reductive_elimination>0.30</reductive_elimination>
-            </mechanistic_weights>
+            <transition_state_asymmetry>1.2</transition_state_asymmetry>
+            <reaction_coordinate_step>0.1</reaction_coordinate_step>
+            <intermediate_stability_factor>0.8</intermediate_stability_factor>
         </mechanistic>
     </chemical_intuition>
     <model_parameters>
-        <Random_Forest>
-            <n_estimators>250</n_estimators>
-            <max_depth>12</max_depth>
-            <min_samples_split>4</min_samples_split>
-            <min_samples_leaf>2</min_samples_leaf>
-            <max_features>sqrt</max_features>
-            <bootstrap>true</bootstrap>
-            <oob_score>true</oob_score>
-            <random_state>42</random_state>
-            <n_jobs>1</n_jobs>
-            <ccp_alpha>0.0</ccp_alpha>
-            <max_samples>None</max_samples>
-            <feature_importance_type>permutation</feature_importance_type>
-        </Random_Forest>
-        <Gradient_Boosting>
-            <n_estimators>300</n_estimators>
-            <max_depth>6</max_depth>
-            <min_samples_split>5</min_samples_split>
-            <min_samples_leaf>3</min_samples_leaf>
-            <learning_rate>0.08</learning_rate>
-            <subsample>0.8</subsample>
-            <max_features>sqrt</max_features>
-            <validation_fraction>0.15</validation_fraction>
-            <n_iter_no_change>10</n_iter_no_change>
-            <tol>0.001</tol>
-            <random_state>42</random_state>
-            <init>None</init>
-            <loss>squared_error</loss>
-            <criterion>friedman_mse</criterion>
-        </Gradient_Boosting>
-        <Hist_Gradient_Boosting>
-            <max_iter>300</max_iter>
-            <max_depth>7</max_depth>
-            <min_samples_leaf>3</min_samples_leaf>
-            <learning_rate>0.1</learning_rate>
-            <max_bins>255</max_bins>
-            <l2_regularization>0.01</l2_regularization>
-            <early_stopping>true</early_stopping>
-            <scoring>neg_mean_squared_error</scoring>
-            <validation_fraction>0.15</validation_fraction>
-            <n_iter_no_change>10</n_iter_no_change>
-            <random_state>42</random_state>
-            <loss>squared_error</loss>
-            <max_leaf_nodes>31</max_leaf_nodes>
-        </Hist_Gradient_Boosting>
-        <XGBoost>
-            <n_estimators>280</n_estimators>
-            <max_depth>6</max_depth>
-            <learning_rate>0.09</learning_rate>
-            <subsample>0.85</subsample>
-            <colsample_bytree>0.9</colsample_bytree>
-            <colsample_bylevel>0.8</colsample_bylevel>
-            <reg_alpha>0.1</reg_alpha>
-            <reg_lambda>1.0</reg_lambda>
-            <min_child_weight>3</min_child_weight>
-            <gamma>0.1</gamma>
-            <early_stopping_rounds>10</early_stopping_rounds>
-            <random_state>42</random_state>
-            <n_jobs>1</n_jobs>
-            <objective>reg:squarederror</objective>
-            <eval_metric>rmse</eval_metric>
-            <booster>gbtree</booster>
-            <tree_method>hist</tree_method>
-            <grow_policy>lossguide</grow_policy>
-            <max_leaves>31</max_leaves>
-        </XGBoost>
-        <LightGBM>
-            <n_estimators>320</n_estimators>
-            <max_depth>8</max_depth>
-            <num_leaves>31</num_leaves>
-            <learning_rate>0.07</learning_rate>
-            <subsample>0.8</subsample>
-            <colsample_bytree>0.85</colsample_bytree>
-            <min_child_samples>5</min_child_samples>
-            <reg_alpha>0.1</reg_alpha>
-            <reg_lambda>0.1</reg_lambda>
-            <min_split_gain>0.01</min_split_gain>
-            <early_stopping_rounds>10</early_stopping_rounds>
-            <random_state>42</random_state>
-            <n_jobs>1</n_jobs>
-            <boosting_type>gbdt</boosting_type>
-            <objective>regression</objective>
-            <metric>rmse</metric>
-            <verbose>-1</verbose>
-            <bagging_freq>0</bagging_freq>
-            <cat_smooth>10.0</cat_smooth>
-            <cat_l2>10.0</cat_l2>
-        </LightGBM>
-        <CatBoost>
-            <iterations>300</iterations>
-            <depth>6</depth>
-            <learning_rate>0.08</learning_rate>
-            <l2_leaf_reg>3</l2_leaf_reg>
-            <border_count>128</border_count>
-            <random_seed>42</random_seed>
-            <verbose>false</verbose>
-            <loss_function>RMSE</loss_function>
-            <eval_metric>RMSE</eval_metric>
-            <early_stopping_rounds>10</early_stopping_rounds>
-            <od_type>Iter</od_type>
-            <od_wait>20</od_wait>
-        </CatBoost>
-        <Extra_Trees>
-            <n_estimators>200</n_estimators>
-            <max_depth>10</max_depth>
-            <min_samples_split>4</min_samples_split>
-            <min_samples_leaf>2</min_samples_leaf>
-            <max_features>sqrt</max_features>
-            <bootstrap>true</bootstrap>
-            <random_state>42</random_state>
-            <n_jobs>1</n_jobs>
-            <ccp_alpha>0.0</ccp_alpha>
-        </Extra_Trees>
-        <KNN>
-            <n_neighbors>5</n_neighbors>
-            <weights>distance</weights>
-            <algorithm>auto</algorithm>
-            <leaf_size>30</leaf_size>
-            <p>2</p>
-            <metric>minkowski</metric>
-        </KNN>
-        <Ridge>
-            <alpha>1.0</alpha>
-            <fit_intercept>true</fit_intercept>
-            <copy_X>true</copy_X>
-            <max_iter>None</max_iter>
-            <tol>0.001</tol>
-            <solver>auto</solver>
-            <random_state>42</random_state>
-        </Ridge>
-        <Lasso>
-            <alpha>1.0</alpha>
-            <fit_intercept>true</fit_intercept>
-            <max_iter>1000</max_iter>
-            <tol>0.0001</tol>
-            <selection>cyclic</selection>
-            <random_state>42</random_state>
-        </Lasso>
-        <ElasticNet>
-            <alpha>1.0</alpha>
-            <l1_ratio>0.5</l1_ratio>
-            <fit_intercept>true</fit_intercept>
-            <max_iter>1000</max_iter>
-            <tol>0.0001</tol>
-            <selection>cyclic</selection>
-            <random_state>42</random_state>
-        </ElasticNet>
-        <SVR>
-            <kernel>rbf</kernel>
-            <C>1.2</C>
-            <epsilon>0.08</epsilon>
-            <gamma>scale</gamma>
-            <degree>3</degree>
-            <coef0>0.0</coef0>
-            <shrinking>true</shrinking>
-            <tol>0.001</tol>
-            <max_iter>-1</max_iter>
-            <cache_size>200</cache_size>
-        </SVR>
-        <Neural_Network>
-            <hidden_layer_sizes>128,64,32</hidden_layer_sizes>
-            <activation>relu</activation>
-            <solver>adam</solver>
-            <alpha>0.001</alpha>
-            <learning_rate_init>0.001</learning_rate_init>
-            <max_iter>1000</max_iter>
-            <tol>0.0001</tol>
-            <momentum>0.9</momentum>
-            <nesterovs_momentum>true</nesterovs_momentum>
-            <early_stopping>true</early_stopping>
-            <validation_fraction>0.15</validation_fraction>
-            <beta_1>0.9</beta_1>
-            <beta_2>0.999</beta_2>
-            <epsilon>1e-08</epsilon>
-            <n_iter_no_change>10</n_iter_no_change>
-            <random_state>42</random_state>
-            <warm_start>false</warm_start>
-        </Neural_Network>
-        <TensorFlow>
-            <epochs>200</epochs>
-            <batch_size>16</batch_size>
-            <learning_rate>0.001</learning_rate>
-            <layers>128,64,32,16</layers>
-            <dropout>0.2</dropout>
-            <activation>relu</activation>
-            <optimizer>adam</optimizer>
-            <loss>mse</loss>
-            <metrics>mae</metrics>
-            <early_stopping_patience>20</early_stopping_patience>
-            <reduce_lr_patience>10</reduce_lr_patience>
-            <reduce_lr_factor>0.5</reduce_lr_factor>
-        </TensorFlow>
+        <Random_Forest><n_estimators>250</n_estimators><max_depth>12</max_depth><min_samples_split>4</min_samples_split><min_samples_leaf>2</min_samples_leaf><max_features>sqrt</max_features><bootstrap>true</bootstrap><oob_score>true</oob_score><random_state>42</random_state><n_jobs>1</n_jobs><ccp_alpha>0.0</ccp_alpha><max_samples>None</max_samples></Random_Forest>
+        <Gradient_Boosting><n_estimators>300</n_estimators><max_depth>6</max_depth><min_samples_split>5</min_samples_split><min_samples_leaf>3</min_samples_leaf><learning_rate>0.08</learning_rate><subsample>0.8</subsample><max_features>sqrt</max_features><validation_fraction>0.15</validation_fraction><n_iter_no_change>10</n_iter_no_change><tol>0.001</tol><random_state>42</random_state><init>None</init><loss>squared_error</loss><criterion>friedman_mse</criterion></Gradient_Boosting>
+        <Hist_Gradient_Boosting><max_iter>300</max_iter><max_depth>7</max_depth><min_samples_leaf>3</min_samples_leaf><learning_rate>0.1</learning_rate><max_bins>255</max_bins><l2_regularization>0.01</l2_regularization><early_stopping>true</early_stopping><scoring>neg_mean_squared_error</scoring><validation_fraction>0.15</validation_fraction><n_iter_no_change>10</n_iter_no_change><random_state>42</random_state><loss>squared_error</loss><max_leaf_nodes>31</max_leaf_nodes></Hist_Gradient_Boosting>
+        <XGBoost><n_estimators>280</n_estimators><max_depth>6</max_depth><learning_rate>0.09</learning_rate><subsample>0.85</subsample><colsample_bytree>0.9</colsample_bytree><colsample_bylevel>0.8</colsample_bylevel><reg_alpha>0.1</reg_alpha><reg_lambda>1.0</reg_lambda><min_child_weight>3</min_child_weight><gamma>0.1</gamma><early_stopping_rounds>10</early_stopping_rounds><random_state>42</random_state><n_jobs>1</n_jobs><objective>reg:squarederror</objective><eval_metric>rmse</eval_metric><booster>gbtree</booster><tree_method>hist</tree_method><grow_policy>lossguide</grow_policy><max_leaves>31</max_leaves></XGBoost>
+        <LightGBM><n_estimators>320</n_estimators><max_depth>8</max_depth><num_leaves>31</num_leaves><learning_rate>0.07</learning_rate><subsample>0.8</subsample><colsample_bytree>0.85</colsample_bytree><min_child_samples>5</min_child_samples><reg_alpha>0.1</reg_alpha><reg_lambda>0.1</reg_lambda><min_split_gain>0.01</min_split_gain><early_stopping_rounds>10</early_stopping_rounds><random_state>42</random_state><n_jobs>1</n_jobs><boosting_type>gbdt</boosting_type><objective>regression</objective><metric>rmse</metric><verbose>-1</verbose><bagging_freq>0</bagging_freq><cat_smooth>10.0</cat_smooth><cat_l2>10.0</cat_l2></LightGBM>
+        <CatBoost><iterations>300</iterations><depth>6</depth><learning_rate>0.08</learning_rate><l2_leaf_reg>3</l2_leaf_reg><border_count>128</border_count><random_seed>42</random_seed><verbose>false</verbose><loss_function>RMSE</loss_function><eval_metric>RMSE</eval_metric><early_stopping_rounds>10</early_stopping_rounds><od_type>Iter</od_type><od_wait>20</od_wait></CatBoost>
+        <Extra_Trees><n_estimators>200</n_estimators><max_depth>10</max_depth><min_samples_split>4</min_samples_split><min_samples_leaf>2</min_samples_leaf><max_features>sqrt</max_features><bootstrap>true</bootstrap><random_state>42</random_state><n_jobs>1</n_jobs><ccp_alpha>0.0</ccp_alpha></Extra_Trees>
+        <KNN><n_neighbors>5</n_neighbors><weights>distance</weights><algorithm>auto</algorithm><leaf_size>30</leaf_size><p>2</p><metric>minkowski</metric></KNN>
+        <Ridge><alpha>1.0</alpha><fit_intercept>true</fit_intercept><copy_X>true</copy_X><max_iter>None</max_iter><tol>0.001</tol><solver>auto</solver><random_state>42</random_state></Ridge>
+        <Lasso><alpha>1.0</alpha><fit_intercept>true</fit_intercept><max_iter>1000</max_iter><tol>0.0001</tol><selection>cyclic</selection><random_state>42</random_state></Lasso>
+        <ElasticNet><alpha>1.0</alpha><l1_ratio>0.5</l1_ratio><fit_intercept>true</fit_intercept><max_iter>1000</max_iter><tol>0.0001</tol><selection>cyclic</selection><random_state>42</random_state></ElasticNet>
+        <SVR><kernel>rbf</kernel><C>1.2</C><epsilon>0.08</epsilon><gamma>scale</gamma><degree>3</degree><coef0>0.0</coef0><shrinking>true</shrinking><tol>0.001</tol><max_iter>-1</max_iter><cache_size>200</cache_size></SVR>
+        <Neural_Network><hidden_layer_sizes>128,64,32</hidden_layer_sizes><activation>relu</activation><solver>adam</solver><alpha>0.001</alpha><learning_rate_init>0.001</learning_rate_init><max_iter>1000</max_iter><tol>0.0001</tol><momentum>0.9</momentum><nesterovs_momentum>true</nesterovs_momentum><early_stopping>true</early_stopping><validation_fraction>0.15</validation_fraction><beta_1>0.9</beta_1><beta_2>0.999</beta_2><epsilon>1e-08</epsilon><n_iter_no_change>10</n_iter_no_change><random_state>42</random_state><warm_start>false</warm_start></Neural_Network>
+        <Gaussian_Process><kernel>1.0 * RBF(1.0)</kernel><alpha>1e-10</alpha><optimizer>fmin_l_bfgs_b</optimizer><n_restarts_optimizer>5</n_restarts_optimizer><normalize_y>true</normalize_y><random_state>42</random_state></Gaussian_Process>
         <Ensemble>
-            <weights>
-                <Random_Forest>0.20</Random_Forest>
-                <Gradient_Boosting>0.15</Gradient_Boosting>
-                <Hist_Gradient_Boosting>0.20</Hist_Gradient_Boosting>
-                <XGBoost>0.15</XGBoost>
-                <LightGBM>0.10</LightGBM>
-                <CatBoost>0.10</CatBoost>
-                <Extra_Trees>0.05</Extra_Trees>
-                <SVR>0.02</SVR>
-                <Neural_Network>0.03</Neural_Network>
-            </weights>
+            <weights><Random_Forest>0.16</Random_Forest><Gradient_Boosting>0.12</Gradient_Boosting><Hist_Gradient_Boosting>0.16</Hist_Gradient_Boosting><XGBoost>0.12</XGBoost><LightGBM>0.08</LightGBM><CatBoost>0.08</CatBoost><Extra_Trees>0.04</Extra_Trees><SVR>0.02</SVR><Neural_Network>0.03</Neural_Network><Gaussian_Process>0.05</Gaussian_Process><Bayesian_Ridge>0.02</Bayesian_Ridge><PLS>0.01</PLS></weights>
             <stacking>true</stacking>
             <stacking_meta_model>Random_Forest</stacking_meta_model>
             <voting>soft</voting>
         </Ensemble>
     </model_parameters>
     <feature_importance>
-        <temperature>0.25</temperature>
-        <time>0.18</time>
-        <catalyst_quantity>0.15</catalyst_quantity>
-        <substrate1_steric>0.10</substrate1_steric>
-        <substrate2_steric>0.10</substrate2_steric>
-        <solvent_effect>0.08</solvent_effect>
-        <base_effect>0.06</base_effect>
-        <electronic_effects>0.04</electronic_effects>
-        <hsab_effects>0.02</hsab_effects>
-        <mechanistic_effects>0.02</mechanistic_effects>
+        <temperature>0.22</temperature><time>0.16</time><catalyst_quantity>0.14</catalyst_quantity><substrate1_steric>0.09</substrate1_steric><substrate2_steric>0.09</substrate2_steric><solvent_effect>0.08</solvent_effect><base_effect>0.06</base_effect><electronic_effects>0.05</electronic_effects><hsab_effects>0.03</hsab_effects><mechanistic_effects>0.03</mechanistic_effects><hammett_effects>0.03</hammett_effects><taft_effects>0.02</taft_effects>
     </feature_importance>
     <data_processing>
-        <missing_values>
-            <strategy>median_imputation</strategy>
-            <categorical_strategy>mode_imputation</categorical_strategy>
-            <threshold>0.30</threshold>
-        </missing_values>
-        <normalization>
-            <numeric_method>standard_scaler</numeric_method>
-            <categorical_method>one_hot_encoding</categorical_method>
-            <target_scaling>minmax</target_scaling>
-        </normalization>
-        <feature_selection>
-            <method>mutual_information</method>
-            <k_best>25</k_best>
-            <variance_threshold>0.01</variance_threshold>
-            <correlation_threshold>0.85</correlation_threshold>
-        </feature_selection>
-        <augmentation>
-            <enabled>true</enabled>
-            <method>gaussian_noise</method>
-            <noise_level>0.05</noise_level>
-            <n_augmentations>50</n_augmentations>
-            <bootstrap_samples>1000</bootstrap_samples>
-        </augmentation>
-        <split>
-            <test_size>0.20</test_size>
-            <validation_size>0.15</validation_size>
-            <stratify>true</stratify>
-            <random_state>42</random_state>
-            <shuffle>true</shuffle>
-        </split>
+        <missing_values><strategy>median_imputation</strategy><categorical_strategy>mode_imputation</categorical_strategy><threshold>0.30</threshold></missing_values>
+        <normalization><numeric_method>standard_scaler</numeric_method><categorical_method>one_hot_encoding</categorical_method><target_scaling>minmax</target_scaling></normalization>
+        <feature_selection><method>mutual_information</method><k_best>30</k_best><variance_threshold>0.01</variance_threshold><correlation_threshold>0.85</correlation_threshold></feature_selection>
+        <augmentation><enabled>true</enabled><method>gaussian_noise</method><noise_level>0.05</noise_level><n_augmentations>50</n_augmentations><bootstrap_samples>1000</bootstrap_samples></augmentation>
+        <split><test_size>0.20</test_size><validation_size>0.15</validation_size><stratify>true</stratify><random_state>42</random_state><shuffle>true</shuffle></split>
     </data_processing>
     <optimization>
         <top_candidates>10</top_candidates>
-        <catalyst_search>
-            <min_quantity>0.0005</min_quantity>
-            <max_quantity>0.08</max_quantity>
-            <step_size>0.0005</step_size>
-            <n_candidates>10</n_candidates>
-        </catalyst_search>
-        <grid_search>
-            <enabled>true</enabled>
-            <n_candidates>50</n_candidates>
-            <n_jobs>1</n_jobs>
-            <scoring>neg_mean_squared_error</scoring>
-        </grid_search>
-        <bayesian>
-            <enabled>false</enabled>
-            <n_iterations>25</n_iterations>
-            <n_initial_points>5</n_initial_points>
-            <acquisition_function>ei</acquisition_function>
-        </bayesian>
+        <catalyst_search><min_quantity>0.0005</min_quantity><max_quantity>0.08</max_quantity><step_size>0.0005</step_size><n_candidates>10</n_candidates></catalyst_search>
+        <grid_search><enabled>true</enabled><n_candidates>50</n_candidates><n_jobs>1</n_jobs><scoring>neg_mean_squared_error</scoring></grid_search>
+        <bayesian><enabled>true</enabled><n_iterations>25</n_iterations><n_initial_points>5</n_initial_points><acquisition_function>ei</acquisition_function></bayesian>
+        <genetic_algorithm><enabled>false</enabled><population_size>20</population_size><generations>30</generations><mutation_rate>0.1</mutation_rate><crossover_rate>0.8</crossover_rate></genetic_algorithm>
     </optimization>
     <performance_metrics>
-        <metrics>
-            <r2>true</r2>
-            <mae>true</mae>
-            <rmse>true</rmse>
-            <mape>true</mape>
-            <max_error>true</max_error>
-            <explained_variance>true</explained_variance>
-        </metrics>
-        <cross_validation>
-            <enabled>true</enabled>
-            <folds>5</folds>
-            <shuffle>true</shuffle>
-            <random_state>42</random_state>
-        </cross_validation>
-        <learning_curve>
-            <enabled>true</enabled>
-            <train_sizes>0.1,0.3,0.5,0.7,0.9</train_sizes>
-            <n_jobs>1</n_jobs>
-        </learning_curve>
+        <metrics><r2>true</r2><mae>true</mae><rmse>true</rmse><mape>true</mape><max_error>true</max_error><explained_variance>true</explained_variance><mean_absolute_percentage_error>true</mean_absolute_percentage_error><median_absolute_error>true</median_absolute_error><mean_squared_log_error>true</mean_squared_log_error></metrics>
+        <cross_validation><enabled>true</enabled><folds>5</folds><shuffle>true</shuffle><random_state>42</random_state><stratified>true</stratified></cross_validation>
+        <learning_curve><enabled>true</enabled><train_sizes>0.1,0.3,0.5,0.7,0.9</train_sizes><n_jobs>1</n_jobs></learning_curve>
+        <statistical_tests><anova>true</anova><tukey_hsd>true</tukey_hsd><levene>true</levene><shapiro_wilk>true</shapiro_wilk><kruskal_wallis>true</kruskal_wallis></statistical_tests>
     </performance_metrics>
     <visualization>
-        <molecule_images>
-            <enabled>true</enabled>
-            <image_size>300</image_size>
-            <format>png</format>
-            <dpi>150</dpi>
-            <show_atoms>true</show_atoms>
-            <show_bonds>true</show_bonds>
-        </molecule_images>
-        <plots>
-            <feature_importance>true</feature_importance>
-            <actual_vs_predicted>true</actual_vs_predicted>
-            <residuals>true</residuals>
-            <learning_curve>true</learning_curve>
-            <parity_plot>true</parity_plot>
-        </plots>
-        <colors>
-            <primary>#2563EB</primary>
-            <secondary>#10B981</secondary>
-            <warning>#F59E0B</warning>
-            <danger>#EF4444</danger>
-            <background>#F8FAFC</background>
-        </colors>
+        <molecule_images><enabled>true</enabled><image_size>300</image_size><format>png</format><dpi>150</dpi><show_atoms>true</show_atoms><show_bonds>true</show_bonds></molecule_images>
+        <plots><feature_importance>true</feature_importance><actual_vs_predicted>true</actual_vs_predicted><residuals>true</residuals><learning_curve>true</learning_curve><parity_plot>true</parity_plot><shap_values>true</shap_values><partial_dependence>true</partial_dependence></plots>
+        <colors><primary>#2563EB</primary><secondary>#10B981</secondary><warning>#F59E0B</warning><danger>#EF4444</danger><background>#F8FAFC</background></colors>
     </visualization>
     <logging>
-        <log_level>INFO</log_level>
-        <log_file>logs/predict_ml.log</log_file>
-        <max_log_size>10MB</max_log_size>
-        <backup_count>5</backup_count>
-        <console_output>true</console_output>
-        <error_handling>
-            <retry_attempts>3</retry_attempts>
-            <retry_delay>1.0</retry_delay>
-            <fallback_model>Random_Forest</fallback_model>
-        </error_handling>
+        <log_level>INFO</log_level><log_file>logs/predict_ml.log</log_file><max_log_size>10MB</max_log_size><backup_count>5</backup_count><console_output>true</console_output>
+        <error_handling><retry_attempts>3</retry_attempts><retry_delay>1.0</retry_delay><fallback_model>Random_Forest</fallback_model></error_handling>
     </logging>
     <security>
-        <file_upload>
-            <allowed_extensions>csv</allowed_extensions>
-            <max_file_size>50MB</max_file_size>
-            <max_files>10</max_files>
-        </file_upload>
-        <api>
-            <rate_limit>100</rate_limit>
-            <rate_limit_period>60</rate_limit_period>
-            <max_payload_size>1MB</max_payload_size>
-        </api>
-        <sanitization>
-            <strip_xss>true</strip_xss>
-            <strip_sql_injection>true</strip_sql_injection>
-            <validate_smiles>true</validate_smiles>
-        </sanitization>
+        <file_upload><allowed_extensions>csv</allowed_extensions><max_file_size>50MB</max_file_size><max_files>10</max_files></file_upload>
+        <api><rate_limit>100</rate_limit><rate_limit_period>60</rate_limit_period><max_payload_size>1MB</max_payload_size></api>
+        <sanitization><strip_xss>true</strip_xss><strip_sql_injection>true</strip_sql_injection><validate_smiles>true</validate_smiles></sanitization>
     </security>
 </suzuki_config>"""
         with open(self.config_path, 'w', encoding='utf-8') as f:
@@ -1072,17 +1422,6 @@ class ConfigManager:
         except:
             return {}
     
-    def get_list(self, path: str, default: List = None) -> List:
-        if default is None:
-            default = []
-        try:
-            val = self.get_dict(path)
-            if val:
-                return list(val.values())
-            return default
-        except:
-            return default
-    
     def get_model_params(self, model_name: str) -> Dict:
         params = self.get_dict(f'model_parameters/{model_name}')
         if 'n_jobs' in params:
@@ -1102,14 +1441,6 @@ class ConfigManager:
     def get_models_list(self) -> List[str]:
         models = self.get_dict('model_parameters')
         return list(models.keys()) if models else []
-    
-    def has_changed(self) -> bool:
-        try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                current_hash = hashlib.md5(f.read().encode()).hexdigest()
-            return current_hash != self._xml_hash
-        except:
-            return False
     
     def reload(self) -> bool:
         try:
@@ -1164,7 +1495,12 @@ class ChemicalCalculator:
         self._load_all_params()
         self._load_feature_importance()
         self._validate_params()
-        logger.success(f"ChemicalCalculator initialized with FULL XML params")
+        
+        self.dft_calc = AcademicDFTCalculator()
+        self.qsar_calc = QSARCalculator()
+        self.docking_calc = MolecularDockingCalculator()
+        
+        logger.success(f"ChemicalCalculator initialized with FULL XML params + Academic DFT/QSAR/Docking")
         logger.info(f"   Temperature optimal: {self.optimal_temp}C")
         logger.info(f"   Time optimal: {self.optimal_time}h")
         logger.info(f"   Catalyst Km: {self.k_m} mmol")
@@ -1192,6 +1528,9 @@ class ChemicalCalculator:
         self.optimal_temp_bonus = temp.get('optimal_temp_bonus', 1.15)
         self.solvent_bp_margin = temp.get('solvent_bp_margin', 15)
         self.solvent_bp_penalty = temp.get('solvent_bp_penalty', 0.85)
+        self.eyring_prefactor = temp.get('eyring_prefactor', 1.0e13)
+        self.entropy_activation = temp.get('entropy_activation', -20.5)
+        self.enthalpy_activation = temp.get('enthalpy_activation', 42.8)
         logger.debug(f"   Temperature params loaded: optimal={self.optimal_temp}, range={self.temp_range}")
         
         time_p = chem.get('time', {})
@@ -1209,6 +1548,8 @@ class ChemicalCalculator:
         self.short_time_penalty = time_p.get('short_time_penalty', 0.40)
         self.long_time_penalty = time_p.get('long_time_penalty', 0.70)
         self.optimal_time_bonus = time_p.get('optimal_time_bonus', 1.10)
+        self.reaction_order = time_p.get('reaction_order', 1.5)
+        self.half_life_temperature_dependence = time_p.get('half_life_temperature_dependence', -0.12)
         logger.debug(f"   Time params loaded: optimal={self.optimal_time}, range={self.time_range}")
         
         cat = chem.get('catalyst', {})
@@ -1233,6 +1574,8 @@ class ChemicalCalculator:
         self.bulky_ligand_factor = cat.get('bulky_ligand_factor', 0.85)
         self.electron_rich_ligand_factor = cat.get('electron_rich_ligand_factor', 1.15)
         self.pd_sources = cat.get('pd_sources', {})
+        self.pd_oxidation_state = cat.get('pd_oxidation_state', 2)
+        self.ligand_coordination_number = cat.get('ligand_coordination_number', 4)
         logger.debug(f"   Catalyst params loaded: Km={self.k_m}, Vmax={self.v_max}")
         
         ster = chem.get('steric', {})
@@ -1252,6 +1595,10 @@ class ChemicalCalculator:
         self.spiro_ring_penalty = ster.get('spiro_ring_penalty', 0.50)
         self.heavy_atom_steric_factor = ster.get('heavy_atom_steric_factor', 0.08)
         self.halogen_steric_factor = ster.get('halogen_steric_factor', 0.15)
+        self.a_value_methyl = ster.get('a_value_methyl', 1.74)
+        self.a_value_ethyl = ster.get('a_value_ethyl', 1.75)
+        self.a_value_isopropyl = ster.get('a_value_isopropyl', 2.21)
+        self.a_value_tertbutyl = ster.get('a_value_tertbutyl', 4.9)
         logger.debug(f"   Steric params loaded: threshold={self.steric_threshold}, penalty={self.steric_penalty}")
         
         elec = chem.get('electronic', {})
@@ -1272,28 +1619,10 @@ class ChemicalCalculator:
         self.polarity_factor = elec.get('polarity_factor', 0.12)
         self.solubility_threshold = elec.get('solubility_threshold', -2.0)
         self.solubility_penalty = elec.get('solubility_penalty', 0.60)
-        
-        hammett = elec.get('hammett', {})
-        self.hammett_sigma_m_ew = hammett.get('sigma_m_electron_withdrawing', 0.65)
-        self.hammett_sigma_p_ew = hammett.get('sigma_p_electron_withdrawing', 0.78)
-        self.hammett_sigma_m_ed = hammett.get('sigma_m_electron_donating', -0.25)
-        self.hammett_sigma_p_ed = hammett.get('sigma_p_electron_donating', -0.35)
-        self.hammett_coeff_detailed = hammett.get('hammett_coefficient', 2.8)
-        
-        taft = elec.get('taft', {})
-        self.es_methyl = taft.get('es_methyl', 0.0)
-        self.es_ethyl = taft.get('es_ethyl', -0.07)
-        self.es_isopropyl = taft.get('es_isopropyl', -0.47)
-        self.es_tertbutyl = taft.get('es_tertbutyl', -1.54)
-        self.es_phenyl = taft.get('es_phenyl', -1.20)
-        self.taft_coeff_detailed = taft.get('taft_coefficient', 1.5)
-        
-        sub = elec.get('substituent_effects', {})
-        self.sub_ed_bonus = sub.get('electron_donating_bonus', 1.25)
-        self.sub_ew_penalty = sub.get('electron_withdrawing_penalty', 0.75)
-        self.sub_conjugation = sub.get('conjugation_effect', 1.10)
-        self.sub_inductive = sub.get('inductive_effect', 0.95)
-        self.sub_resonance = sub.get('resonance_effect', 1.15)
+        self.sigma_plus_coeff = elec.get('sigma_plus_coefficient', 3.2)
+        self.sigma_minus_coeff = elec.get('sigma_minus_coefficient', 2.5)
+        self.brown_sigma_plus_factor = elec.get('brown_sigma_plus_factor', 1.2)
+        self.hammett_reaction_constant = elec.get('hammett_reaction_constant', 1.0)
         logger.debug(f"   Electronic params loaded: Hammett={self.hammett_coeff}, Taft={self.taft_coeff}")
         
         hsab = chem.get('hsab', {})
@@ -1309,18 +1638,12 @@ class ChemicalCalculator:
         self.pd_ligand_match_xml = hsab.get('pd_ligand_match', 0.90)
         self.ligand_halide_match_xml = hsab.get('ligand_halide_match', 0.75)
         self.overall_compatibility_xml = hsab.get('overall_compatibility', 0.80)
-        
-        hardness = hsab.get('hardness', {})
-        self.hsab_pd_softness = hardness.get('pd_softness', 2.8)
-        self.hsab_halide_softness = hardness.get('halide_softness', 3.2)
-        self.hsab_ligand_softness = hardness.get('ligand_softness', 2.5)
-        self.hsab_base_softness = hardness.get('base_softness', 3.0)
-        
-        matching = hsab.get('matching_scores', {})
-        self.hsab_pd_halide_match = matching.get('pd_halide_match', 0.85)
-        self.hsab_pd_ligand_match = matching.get('pd_ligand_match', 0.90)
-        self.hsab_ligand_halide_match = matching.get('ligand_halide_match', 0.75)
-        self.hsab_overall_compatibility = matching.get('overall_compatibility', 0.80)
+        self.absolute_hardness_pd = hsab.get('absolute_hardness_pd', 3.8)
+        self.absolute_hardness_halide = hsab.get('absolute_hardness_halide', 4.2)
+        self.absolute_hardness_ligand = hsab.get('absolute_hardness_ligand', 3.5)
+        self.pearson_softness_threshold = hsab.get('pearson_softness_threshold', 6.0)
+        self.chemical_potential_pd = hsab.get('chemical_potential_pd', -5.2)
+        self.electronegativity_pd = hsab.get('electronegativity_pd', 5.2)
         logger.debug(f"   HSAB params loaded: Pd={self.pd_softness}, halide={self.halide_softness}")
         
         solv = chem.get('solvent', {})
@@ -1337,21 +1660,11 @@ class ChemicalCalculator:
         self.protic_solvent_penalty = solv.get('protic_solvent_penalty', 0.90)
         self.polar_solvent_bonus = solv.get('polar_solvent_bonus', 1.05)
         self.nonpolar_solvent_penalty = solv.get('nonpolar_solvent_penalty', 0.95)
-        
-        dielectric = solv.get('dielectric_constant', {})
-        self.dielectric_opt = dielectric.get('optimal', 25.0)
-        self.dielectric_range_detailed = dielectric.get('range', 15.0)
-        self.dielectric_weight_detailed = dielectric.get('weight', 0.15)
-        
-        donor = solv.get('donor_number', {})
-        self.donor_opt = donor.get('optimal', 20.0)
-        self.donor_range_detailed = donor.get('range', 15.0)
-        self.donor_weight_detailed = donor.get('weight', 0.12)
-        
-        polarity = solv.get('polarity_index', {})
-        self.polarity_opt = polarity.get('optimal', 4.0)
-        self.polarity_range_detailed = polarity.get('range', 3.0)
-        self.polarity_weight_detailed = polarity.get('weight', 0.10)
+        self.alpha_weight = solv.get('alpha_weight', 0.08)
+        self.beta_weight = solv.get('beta_weight', 0.08)
+        self.pi_star_weight = solv.get('pi_star_weight', 0.06)
+        self.reichardt_weight = solv.get('reichardt_weight', 0.05)
+        self.hildebrand_weight = solv.get('hildebrand_weight', 0.04)
         
         mixtures = solv.get('solvent_mixtures', {})
         self.toluene_ethanol = mixtures.get('toluene_ethanol', 1.15)
@@ -1371,17 +1684,8 @@ class ChemicalCalculator:
         self.soluble_base_bonus = base_p.get('soluble_base_bonus', 1.08)
         self.insoluble_base_penalty = base_p.get('insoluble_base_penalty', 0.80)
         self.hygroscopic_base_penalty = base_p.get('hygroscopic_base_penalty', 0.90)
-        
-        bs = base_p.get('base_strength', {})
-        self.bs_pka_threshold = bs.get('pka_threshold', 18.0)
-        self.bs_strong_bonus = bs.get('strong_base_bonus', 1.15)
-        self.bs_weak_penalty = bs.get('weak_base_penalty', 0.85)
-        
-        bt = base_p.get('base_types', {})
-        self.bt_inorganic = bt.get('inorganic_base_factor', 1.00)
-        self.bt_organic = bt.get('organic_base_factor', 0.95)
-        self.bt_carbonate = bt.get('carbonate_base_factor', 1.10)
-        self.bt_phosphate = bt.get('phosphate_base_factor', 1.05)
+        self.cation_radius_effect = base_p.get('cation_radius_effect', 1.02)
+        self.pka_effect = base_p.get('pka_effect', 0.03)
         logger.debug(f"   Base params loaded: pKa threshold={self.pka_threshold}")
         
         yield_p = chem.get('yield_parameters', {})
@@ -1398,19 +1702,8 @@ class ChemicalCalculator:
         self.good_threshold = yield_p.get('good_threshold', 70)
         self.moderate_threshold = yield_p.get('moderate_threshold', 50)
         self.poor_threshold = yield_p.get('poor_threshold', 30)
-        
-        yd = yield_p.get('yield_distribution', {})
-        self.yd_mean = yd.get('mean', 72.5)
-        self.yd_std = yd.get('std', 18.3)
-        self.yd_skewness = yd.get('skewness', -0.45)
-        self.yd_kurtosis = yd.get('kurtosis', 0.32)
-        
-        yc = yield_p.get('yield_classes', {})
-        self.yc_excellent = yc.get('excellent', 85)
-        self.yc_good = yc.get('good', 70)
-        self.yc_moderate = yc.get('moderate', 50)
-        self.yc_poor = yc.get('poor', 30)
-        self.yc_very_poor = yc.get('very_poor', 15)
+        self.confidence_interval_alpha = yield_p.get('confidence_interval_alpha', 0.05)
+        self.prediction_interval_alpha = yield_p.get('prediction_interval_alpha', 0.10)
         logger.debug(f"   Yield params loaded: max={self.max_yield}, min={self.min_yield}")
         
         mech = chem.get('mechanistic', {})
@@ -1429,80 +1722,129 @@ class ChemicalCalculator:
         self.oa_weight = mech.get('oa_weight', 0.35)
         self.tm_weight = mech.get('tm_weight', 0.35)
         self.re_weight = mech.get('re_weight', 0.30)
-        
-        oa = mech.get('oxidative_addition', {})
-        self.oa_barrier_detailed = oa.get('barrier_energy', 28.5)
-        self.oa_rate_detailed = oa.get('rate_constant', 0.045)
-        self.oa_steric_sens_detailed = oa.get('steric_sensitivity', 0.65)
-        self.oa_electronic_sens_detailed = oa.get('electronic_sensitivity', 0.85)
-        
-        tm = mech.get('transmetalation', {})
-        self.tm_barrier_detailed = tm.get('barrier_energy', 22.3)
-        self.tm_rate_detailed = tm.get('rate_constant', 0.078)
-        self.tm_base_sens_detailed = tm.get('base_sensitivity', 0.75)
-        self.tm_boronic_sens_detailed = tm.get('boronic_acid_sensitivity', 0.70)
-        
-        re = mech.get('reductive_elimination', {})
-        self.re_barrier_detailed = re.get('barrier_energy', 18.7)
-        self.re_rate_detailed = re.get('rate_constant', 0.120)
-        self.re_steric_sens_detailed = re.get('steric_sensitivity', 0.90)
-        self.re_electronic_sens_detailed = re.get('electronic_sensitivity', 0.60)
-        
-        mw = mech.get('mechanistic_weights', {})
-        self.mw_oa = mw.get('oxidative_addition', 0.35)
-        self.mw_tm = mw.get('transmetalation', 0.35)
-        self.mw_re = mw.get('reductive_elimination', 0.30)
+        self.transition_state_asymmetry = mech.get('transition_state_asymmetry', 1.2)
+        self.reaction_coordinate_step = mech.get('reaction_coordinate_step', 0.1)
+        self.intermediate_stability_factor = mech.get('intermediate_stability_factor', 0.8)
         logger.debug(f"   Mechanistic params loaded: OA={self.oa_barrier}, TM={self.tm_barrier}, RE={self.re_barrier}")
         
-        logger.info("All 200+ chemical parameters loaded from XML")
+        logger.info("All 200+ academic parameters loaded from XML")
     
     def _load_feature_importance(self):
         fi = self.config.get_feature_importance()
-        self.temp_weight = fi.get('temperature', 0.25)
-        self.time_weight = fi.get('time', 0.18)
-        self.catalyst_weight = fi.get('catalyst_quantity', 0.15)
-        self.substrate1_steric_weight = fi.get('substrate1_steric', 0.10)
-        self.substrate2_steric_weight = fi.get('substrate2_steric', 0.10)
+        self.temp_weight = fi.get('temperature', 0.22)
+        self.time_weight = fi.get('time', 0.16)
+        self.catalyst_weight = fi.get('catalyst_quantity', 0.14)
+        self.substrate1_steric_weight = fi.get('substrate1_steric', 0.09)
+        self.substrate2_steric_weight = fi.get('substrate2_steric', 0.09)
         self.solvent_weight = fi.get('solvent_effect', 0.08)
         self.base_weight = fi.get('base_effect', 0.06)
-        self.electronic_weight = fi.get('electronic_effects', 0.04)
-        self.hsab_weight = fi.get('hsab_effects', 0.02)
-        self.mechanistic_weight = fi.get('mechanistic_effects', 0.02)
-        
+        self.electronic_weight = fi.get('electronic_effects', 0.05)
+        self.hsab_weight = fi.get('hsab_effects', 0.03)
+        self.mechanistic_weight = fi.get('mechanistic_effects', 0.03)
+        self.hammett_weight = fi.get('hammett_effects', 0.03)
+        self.taft_weight = fi.get('taft_effects', 0.02)
         logger.debug(f"Feature importance weights: temp={self.temp_weight}, time={self.time_weight}, catalyst={self.catalyst_weight}")
     
     def _validate_params(self):
         if self.optimal_temp < self.min_temp or self.optimal_temp > self.max_temp:
             logger.warning(f"Optimal temp ({self.optimal_temp}) outside min-max range")
-        
         if self.optimal_time < self.min_time or self.optimal_time > self.max_time:
             logger.warning(f"Optimal time ({self.optimal_time}) outside min-max range")
-        
         if self.k_m <= 0:
             logger.warning(f"Km must be positive: {self.k_m}")
-        
         if self.min_yield >= self.max_yield:
             logger.warning(f"Min yield ({self.min_yield}) >= max yield ({self.max_yield})")
-        
-        total_weight = (self.temp_weight + self.time_weight + self.catalyst_weight + 
-                       self.substrate1_steric_weight + self.substrate2_steric_weight +
-                       self.solvent_weight + self.base_weight + self.electronic_weight +
-                       self.hsab_weight + self.mechanistic_weight)
+        total_weight = (self.temp_weight + self.time_weight + self.catalyst_weight + self.substrate1_steric_weight + self.substrate2_steric_weight + self.solvent_weight + self.base_weight + self.electronic_weight + self.hsab_weight + self.mechanistic_weight + self.hammett_weight + self.taft_weight)
         if abs(total_weight - 1.0) > 0.05:
             logger.warning(f"Feature importance weights sum to {total_weight:.2f}, not 1.0")
     
+    def calculate_dft_descriptors(self, smiles: str) -> Dict[str, float]:
+        """Calculate DFT-like global reactivity descriptors"""
+        return self.dft_calc.calculate_global_reactivity_descriptors(smiles)
+    
+    def calculate_fukui_indices(self, smiles: str) -> Dict[str, float]:
+        """Calculate Fukui indices"""
+        return self.dft_calc.calculate_fukui_indices(smiles)
+    
+    def calculate_qsar_descriptors(self, smiles: str) -> Dict[str, float]:
+        """Calculate 2D QSAR descriptors"""
+        return self.qsar_calc.calculate_2d_qsar_descriptors(smiles)
+    
+    def calculate_drug_likeness(self, smiles: str) -> Dict[str, Any]:
+        """Calculate drug-likeness"""
+        return self.qsar_calc.calculate_drug_likeness(smiles)
+    
+    def calculate_docking_score(self, smiles: str, target: str = 'pd') -> Dict[str, float]:
+        """Calculate molecular docking-like binding affinity"""
+        return self.docking_calc.calculate_binding_affinity(smiles, target)
+    
+    def calculate_hsab_absolute_hardness(self, ip: float, ea: float) -> float:
+        """Pearson absolute hardness (η = IP - EA)"""
+        return ip - ea
+    
+    def calculate_hsab_chemical_potential(self, ip: float, ea: float) -> float:
+        """Chemical potential (μ = -(IP + EA)/2)"""
+        return -(ip + ea) / 2
+    
+    def calculate_hsab_electronegativity(self, ip: float, ea: float) -> float:
+        """Electronegativity (χ = (IP + EA)/2)"""
+        return (ip + ea) / 2
+    
+    def calculate_solvent_kamlet_taft(self, alpha: float, beta: float, pi_star: float) -> float:
+        """Kamlet-Taft solvent parameter"""
+        return alpha * 0.3 + beta * 0.3 + pi_star * 0.4
+    
+    def calculate_steric_a_value(self, substituent: str) -> float:
+        """Calculate A-value (steric effect)"""
+        a_values = {
+            'methyl': self.a_value_methyl,
+            'ethyl': self.a_value_ethyl,
+            'isopropyl': self.a_value_isopropyl,
+            'tertbutyl': self.a_value_tertbutyl
+        }
+        return a_values.get(substituent.lower(), 1.74)
+    
+    def calculate_hammett_sigma_plus(self, substituent: str) -> float:
+        """Hammett σ⁺ value (Brown σ⁺)"""
+        sigma_plus = HAMMETT_SIGMA.get(substituent, {}).get('sigma_plus', 0)
+        return sigma_plus * self.sigma_plus_coeff
+    
+    def calculate_hammett_sigma_minus(self, substituent: str) -> float:
+        """Hammett σ⁻ value"""
+        sigma_minus = HAMMETT_SIGMA.get(substituent, {}).get('sigma_minus', 0)
+        return sigma_minus * self.sigma_minus_coeff
+    
+    def calculate_taft_steric_parameter(self, substituent: str) -> float:
+        """Taft steric parameter (Eₛ)"""
+        return HAMMETT_SIGMA.get(substituent, {}).get('taft_es', 0)
+    
+    def calculate_eyring_rate(self, temp: float, delta_h: float, delta_s: float) -> float:
+        """Calculate reaction rate using Eyring equation"""
+        T = temp + 273.15
+        return (boltzmann_k / h) * T * np.exp(-(delta_h * 1000) / (R * T)) * np.exp(delta_s / R)
+    
+    def calculate_gibbs_energy(self, temp: float, delta_h: float, delta_s: float) -> float:
+        """Calculate Gibbs free energy"""
+        T = temp + 273.15
+        return delta_h - T * delta_s / 1000
+    
+    def calculate_equilibrium_constant(self, temp: float, delta_g: float) -> float:
+        """Calculate equilibrium constant"""
+        T = temp + 273.15
+        return np.exp(-delta_g * 1000 / (R * T))
+    
+    def calculate_lfer(self, sigma: float, rho: float) -> float:
+        """Linear Free Energy Relationship (LFER)"""
+        return np.exp(rho * sigma)
+    
     def temperature_factor(self, temp: float) -> float:
         if temp < self.min_temp:
-            logger.debug(f"Temperature {temp}C below minimum {self.min_temp}C -> penalty {self.low_temp_penalty}")
             return self.low_temp_penalty
         if temp > self.max_temp:
-            logger.debug(f"Temperature {temp}C above maximum {self.max_temp}C -> penalty {self.high_temp_penalty}")
             return self.high_temp_penalty
         if temp > self.degradation_threshold:
-            logger.debug(f"Temperature {temp}C above degradation threshold -> severe penalty")
             return 0.3
         if temp < self.too_low_threshold:
-            logger.debug(f"Temperature {temp}C below too-low threshold -> penalty")
             return 0.4
         
         if temp < self.optimal_temp:
@@ -1514,25 +1856,27 @@ class ChemicalCalculator:
         factor = np.exp(-(deviation ** 2) / (2 * sigma ** 2))
         
         if temp > 0:
-            R = self.gas_constant
+            R_val = self.gas_constant
             T_opt = self.optimal_temp + 273.15
             T_curr = temp + 273.15
-            arrhenius = np.exp(-self.activation_energy * 1000 / R * (1/T_curr - 1/T_opt))
+            arrhenius = np.exp(-self.activation_energy * 1000 / R_val * (1/T_curr - 1/T_opt))
             factor = factor * arrhenius
         
         if abs(temp - self.optimal_temp) < 5:
             factor = factor * self.optimal_temp_bonus
         
+        eyring_rate = self.calculate_eyring_rate(temp, self.enthalpy_activation, self.entropy_activation)
+        eyring_rate_opt = self.calculate_eyring_rate(self.optimal_temp, self.enthalpy_activation, self.entropy_activation)
+        eyring_factor = eyring_rate / eyring_rate_opt if eyring_rate_opt > 0 else 1.0
+        factor = factor * (0.7 + 0.3 * eyring_factor)
+        
         result = np.clip(factor * 1.2, 0.1, 1.3)
-        logger.debug(f"Temperature factor for {temp}C: {result:.3f}")
         return result
     
     def time_factor(self, time_hours: float) -> float:
         if time_hours < self.min_time:
-            logger.debug(f"Time {time_hours}h below minimum -> penalty")
             return self.short_time_penalty
         if time_hours > self.max_time:
-            logger.debug(f"Time {time_hours}h above maximum -> penalty")
             return self.long_time_penalty
         
         factor = 1 - np.exp(-self.rate_constant * time_hours)
@@ -1546,19 +1890,22 @@ class ChemicalCalculator:
         if abs(time_hours - self.optimal_time) < 2:
             factor = factor * self.optimal_time_bonus
         
+        reaction_order_factor = time_hours ** (1 / self.reaction_order)
+        factor = factor * (0.7 + 0.3 * reaction_order_factor / (self.optimal_time ** (1 / self.reaction_order)))
+        
+        half_life = self.reaction_half_life * np.exp(self.half_life_temperature_dependence * 0)
+        half_life_factor = 1 - np.exp(-np.log(2) * time_hours / half_life)
+        factor = factor * (0.85 + 0.15 * half_life_factor)
+        
         result = np.clip(factor * 1.5, 0.1, 1.2)
-        logger.debug(f"Time factor for {time_hours}h: {result:.3f}")
         return result
     
     def catalyst_factor(self, quantity: float) -> float:
         if quantity < self.min_quantity:
-            logger.debug(f"Catalyst quantity {quantity}mmol below minimum -> penalty")
             return self.low_quantity_penalty
         if quantity > self.max_quantity:
-            logger.debug(f"Catalyst quantity {quantity}mmol above maximum -> penalty")
             return self.high_quantity_penalty
         if quantity > self.degradation_threshold_cat:
-            logger.debug(f"Catalyst quantity {quantity}mmol above degradation threshold -> penalty")
             return 0.3
         
         rate = self.v_max * quantity / (self.k_m + quantity)
@@ -1578,8 +1925,10 @@ class ChemicalCalculator:
         if abs(quantity - 0.005) < 0.001:
             factor = factor * self.optimal_quantity_bonus
         
+        mm_factor = quantity / (self.k_m + quantity)
+        factor = factor * (0.8 + 0.2 * mm_factor / (0.005 / (self.k_m + 0.005)))
+        
         result = np.clip(factor, 0.1, 1.3)
-        logger.debug(f"Catalyst factor for {quantity}mmol: {result:.3f}")
         return result
     
     def steric_factor(self, conditions: Dict) -> float:
@@ -1595,22 +1944,26 @@ class ChemicalCalculator:
         
         ring_penalty = ring_count * self.ring_penalty
         fused_penalty = (ring_count - 1) * self.fused_ring_penalty if ring_count > 1 else 0
-        bridged_penalty = 0
-        if ring_count > 2:
-            bridged_penalty = (ring_count - 2) * self.bridged_ring_penalty
+        bridged_penalty = (ring_count - 2) * self.bridged_ring_penalty if ring_count > 2 else 0
         spiro_penalty = spiro_atoms * self.spiro_ring_penalty
         bulky_penalty = bulky_groups * self.bulky_penalty
         sub_penalty = (ortho_sub * self.ortho_penalty + meta_sub * self.meta_penalty + para_sub * self.para_penalty)
         rot_penalty = max(0, (rotatable_bonds - self.rotatable_bond_threshold)) * self.rotatable_bond_penalty
         heavy_penalty = heavy_atoms * self.heavy_atom_steric_factor
         halogen_penalty = halogens * self.halogen_steric_factor
-        volume_penalty = 0
-        if heavy_atoms > self.molecular_volume_threshold / 10:
-            volume_penalty = (heavy_atoms - self.molecular_volume_threshold / 10) * self.volume_penalty_factor
+        volume_penalty = (heavy_atoms - self.molecular_volume_threshold / 10) * self.volume_penalty_factor if heavy_atoms > self.molecular_volume_threshold / 10 else 0
+        
+        a_value_factor = 1.0
+        if bulky_groups >= 4:
+            a_value_factor = self.a_value_tertbutyl / self.a_value_methyl
+        elif bulky_groups >= 3:
+            a_value_factor = self.a_value_isopropyl / self.a_value_methyl
+        elif bulky_groups >= 2:
+            a_value_factor = self.a_value_ethyl / self.a_value_methyl
         
         total_penalty = (ring_penalty + fused_penalty + bridged_penalty + spiro_penalty +
                         bulky_penalty + sub_penalty + rot_penalty + 
-                        heavy_penalty + halogen_penalty + volume_penalty)
+                        heavy_penalty + halogen_penalty + volume_penalty) * a_value_factor
         
         if total_penalty > self.steric_threshold:
             factor = 1 - self.steric_penalty * total_penalty
@@ -1618,7 +1971,6 @@ class ChemicalCalculator:
             factor = 1 - 0.5 * self.steric_penalty * total_penalty
         
         result = np.clip(factor, 0.1, 1.0)
-        logger.debug(f"Steric factor: {result:.3f} (penalty={total_penalty:.3f})")
         return result
     
     def electronic_factor(self, conditions: Dict) -> float:
@@ -1627,6 +1979,8 @@ class ChemicalCalculator:
         hbd = conditions.get('hbd', 0)
         sigma_m = conditions.get('sigma_m', 0)
         sigma_p = conditions.get('sigma_p', 0)
+        sigma_plus = conditions.get('sigma_plus', sigma_p)
+        sigma_minus = conditions.get('sigma_minus', sigma_p)
         es = conditions.get('taft_es', 0)
         
         factor = 1.0
@@ -1649,7 +2003,17 @@ class ChemicalCalculator:
                           sigma_p / (abs(sigma_p) + 0.001) * self.sigma_p_ed) / 2
             factor += self.hammett_coeff * sigma_effect * self.electron_donating_bonus
         
+        sigma_plus_effect = self.sigma_plus_coeff * sigma_plus
+        sigma_minus_effect = self.sigma_minus_coeff * sigma_minus
+        factor += 0.1 * (sigma_plus_effect + sigma_minus_effect)
+        
+        brown_factor = self.brown_sigma_plus_factor * sigma_plus
+        factor += 0.05 * brown_factor
+        
         factor += self.taft_coeff * es / 2
+        
+        lfer_factor = self.calculate_lfer(sigma_p, self.hammett_reaction_constant)
+        factor = factor * (0.8 + 0.2 * lfer_factor)
         
         if 'conjugation' in conditions:
             factor += self.conjugation_effect * conditions.get('conjugation', 0)
@@ -1662,7 +2026,6 @@ class ChemicalCalculator:
             factor *= self.solubility_penalty
         
         result = np.clip(factor, 0.1, 1.5)
-        logger.debug(f"Electronic factor: {result:.3f}")
         return result
     
     def hsab_factor(self, conditions: Dict) -> float:
@@ -1671,28 +2034,40 @@ class ChemicalCalculator:
         ligand_soft = self.ligand_softness
         base_soft = self.base_softness
         
-        pd_halide_match = 1 - abs(pd_soft - halide_soft) / 6
-        pd_ligand_match = 1 - abs(pd_soft - ligand_soft) / 6
-        ligand_halide_match = 1 - abs(ligand_soft - halide_soft) / 6
+        pd_halide_match_soft = 1 - abs(pd_soft - halide_soft) / 6
+        pd_ligand_match_soft = 1 - abs(pd_soft - ligand_soft) / 6
+        ligand_halide_match_soft = 1 - abs(ligand_soft - halide_soft) / 6
+        
+        pd_hard = self.absolute_hardness_pd
+        halide_hard = self.absolute_hardness_halide
+        ligand_hard = self.absolute_hardness_ligand
+        
+        pd_halide_match_hard = 1 - abs(pd_hard - halide_hard) / 8
+        pd_ligand_match_hard = 1 - abs(pd_hard - ligand_hard) / 8
+        ligand_halide_match_hard = 1 - abs(ligand_hard - halide_hard) / 8
         
         w1 = self.pd_halide_match_xml
         w2 = self.pd_ligand_match_xml
         w3 = self.ligand_halide_match_xml
         
-        overall = (pd_halide_match * w1 + pd_ligand_match * w2 + ligand_halide_match * w3) / (w1 + w2 + w3)
+        overall_soft = (pd_halide_match_soft * w1 + pd_ligand_match_soft * w2 + ligand_halide_match_soft * w3) / (w1 + w2 + w3)
+        overall_hard = (pd_halide_match_hard * w1 + pd_ligand_match_hard * w2 + ligand_halide_match_hard * w3) / (w1 + w2 + w3)
+        
+        overall = overall_soft * 0.6 + overall_hard * 0.4
+        
+        chem_pot_effect = np.exp((self.chemical_potential_pd - self.electronegativity_pd) / 4)
         
         if overall > self.overall_compatibility_xml:
-            factor = self.soft_soft_bonus
+            factor = self.soft_soft_bonus * chem_pot_effect
         elif overall > 0.5:
-            factor = 1.0
+            factor = 1.0 * chem_pot_effect
         else:
-            factor = self.soft_hard_penalty
+            factor = self.soft_hard_penalty * chem_pot_effect
         
         if overall < 0.3:
             factor *= self.mismatch_penalty
         
         result = np.clip(factor, 0.3, 1.3)
-        logger.debug(f"HSAB factor: {result:.3f} (overall={overall:.3f})")
         return result
     
     def solvent_factor(self, solv1: str, solv2: str = '') -> float:
@@ -1731,6 +2106,29 @@ class ChemicalCalculator:
                 factor *= val
                 break
         
+        if solv1_lower in SOLVENT_PHYSICS_ADVANCED:
+            props = SOLVENT_PHYSICS_ADVANCED[solv1_lower]
+            dielectric_factor = np.exp(-((props.get('dielectric', 25) - self.dielectric_optimal) ** 2) / (2 * self.dielectric_range ** 2))
+            donor_factor = np.exp(-((props.get('donor_number', 20) - self.donor_optimal) ** 2) / (2 * self.donor_range ** 2))
+            polarity_factor = np.exp(-((props.get('polarity_index', 4) - self.polarity_optimal) ** 2) / (2 * self.polarity_range ** 2))
+            
+            alpha = props.get('alpha', 0)
+            beta = props.get('beta', 0)
+            pi_star = props.get('pi_star', 0.5)
+            reichardt = props.get('reichardt_et30', 40)
+            hildebrand = props.get('hildebrand_delta', 20)
+            
+            kamlet_taft_factor = 1 + self.alpha_weight * alpha + self.beta_weight * beta + self.pi_star_weight * pi_star
+            reichardt_factor = 1 + self.reichardt_weight * (reichardt - 40) / 10
+            hildebrand_factor = 1 + self.hildebrand_weight * (hildebrand - 20) / 10
+            
+            factor = factor * (dielectric_factor * self.dielectric_weight + 
+                              donor_factor * self.donor_weight + 
+                              polarity_factor * self.polarity_weight + 
+                              kamlet_taft_factor * 0.15 + 
+                              reichardt_factor * 0.05 + 
+                              hildebrand_factor * 0.05)
+        
         if solv2 and solv2 != 'O':
             solv2_lower = solv2.lower()
             if 'toluene' in solv1_lower and 'ethanol' in solv2_lower:
@@ -1744,55 +2142,55 @@ class ChemicalCalculator:
             else:
                 factor = factor * 0.95
         
-        result = np.clip(factor, 0.5, 1.2)
-        logger.debug(f"Solvent factor for {solv1}/{solv2}: {result:.3f}")
+        result = np.clip(factor, 0.4, 1.3)
         return result
     
     def base_factor(self, base: str) -> float:
-        base_effects = {
-            'K2CO3': 1.10, 'Cs2CO3': 1.15, 'Na2CO3': 1.05,
-            'K3PO4': 1.08, 'Na3PO4': 1.05, 'NaOH': 0.95,
-            'KOH': 0.90, 'TEA': 0.85, 'DIPEA': 0.88,
-            'KOAc': 0.92, 'NaOAc': 0.88, 'KF': 0.80,
-            'CsF': 0.85, 'K2HPO4': 1.00, 'NaHCO3': 0.75,
-            'DBU': 1.00, 'DABCO': 0.95, 'pyridine': 0.80
-        }
-        
         base_lower = base.lower()
+        
+        base_props = BASE_PROPERTIES.get(base_lower, {})
+        pka = base_props.get('pka', 10.3)
+        solubility = base_props.get('solubility', 0.1)
+        cation_radius = base_props.get('cation_radius', 1.38)
+        hygroscopic = base_props.get('hygroscopic', False)
+        base_class = base_props.get('class', 'carbonate')
+        pkb = base_props.get('pkb', 3.7)
+        
         factor = 1.0
         
-        for key, val in base_effects.items():
-            if key.lower() in base_lower:
-                factor = val
-                break
+        pka_effect = (pka - 10) * self.pka_effect
+        factor *= np.exp(pka_effect)
         
-        if any(x in base_lower for x in ['k2co3', 'cs2co3', 'na2co3']):
-            factor *= self.carbonate_base_factor
-        elif any(x in base_lower for x in ['k3po4', 'na3po4', 'k2hpo4']):
-            factor *= self.phosphate_base_factor
-        elif any(x in base_lower for x in ['tea', 'dipnea', 'dabco', 'dbu', 'pyridine']):
-            factor *= self.organic_base_factor
-        else:
-            factor *= self.inorganic_base_factor
-        
-        strong_bases = ['koh', 'naoh', 'dbu', 'k2co3', 'cs2co3']
-        if any(x in base_lower for x in strong_bases):
+        if pka > self.pka_threshold:
             factor *= self.strong_base_bonus
         else:
             factor *= self.weak_base_penalty
         
-        soluble = ['k2co3', 'cs2co3', 'na2co3', 'koh', 'naoh', 'tea', 'dipnea']
-        if any(x in base_lower for x in soluble):
+        if base_class == 'carbonate':
+            factor *= self.carbonate_base_factor
+        elif base_class == 'phosphate':
+            factor *= self.phosphate_base_factor
+        elif base_class == 'amine' or base_class == 'amidine':
+            factor *= self.organic_base_factor
+        else:
+            factor *= self.inorganic_base_factor
+        
+        if solubility > 0.5:
             factor *= self.soluble_base_bonus
         else:
             factor *= self.insoluble_base_penalty
         
-        hygroscopic = ['koh', 'naoh', 'cs2co3']
-        if any(x in base_lower for x in hygroscopic):
+        if hygroscopic:
             factor *= self.hygroscopic_base_penalty
         
-        result = np.clip(factor, 0.5, 1.3)
-        logger.debug(f"Base factor for {base}: {result:.3f}")
+        if cation_radius:
+            radius_effect = np.exp((cation_radius - 1.38) * self.cation_radius_effect)
+            factor *= radius_effect
+        
+        pkb_effect = np.exp(-(pkb - 3.7) * 0.05)
+        factor *= pkb_effect
+        
+        result = np.clip(factor, 0.4, 1.4)
         return result
     
     def mechanistic_factor(self, conditions: Dict) -> float:
@@ -1802,39 +2200,37 @@ class ChemicalCalculator:
         electronic_factor = conditions.get('electronic_sensitivity', 1.0)
         base_strength = conditions.get('base_strength', 1.0)
         
-        R = self.gas_constant
+        R_val = self.gas_constant
         T = temp + 273.15
         
-        k_oa = self.oa_rate * np.exp(-self.oa_barrier * 1000 / (R * T))
+        k_oa = self.oa_rate * np.exp(-self.oa_barrier * 1000 / (R_val * T))
         k_oa = k_oa * (1 - self.oa_steric_sens * steric_factor)
         k_oa = k_oa * (1 + self.oa_electronic_sens * electronic_factor)
-        logger.debug(f"OA rate: {k_oa:.6f}")
         
-        k_tm = self.tm_rate * np.exp(-self.tm_barrier * 1000 / (R * T))
+        k_tm = self.tm_rate * np.exp(-self.tm_barrier * 1000 / (R_val * T))
         k_tm = k_tm * (1 + self.tm_base_sens * base_strength)
         k_tm = k_tm * (1 + self.tm_boronic_sens * 0.5)
-        logger.debug(f"TM rate: {k_tm:.6f}")
         
-        k_re = self.re_rate * np.exp(-self.re_barrier * 1000 / (R * T))
+        k_re = self.re_rate * np.exp(-self.re_barrier * 1000 / (R_val * T))
         k_re = k_re * (1 - self.re_steric_sens * steric_factor)
         k_re = k_re * (1 + self.re_electronic_sens * electronic_factor)
-        logger.debug(f"RE rate: {k_re:.6f}")
         
-        rate = (self.mw_oa * k_oa + self.mw_tm * k_tm + self.mw_re * k_re)
+        intermediate_stability = self.intermediate_stability_factor * np.exp(-(self.oa_barrier + self.tm_barrier) * 1000 / (2 * R_val * T))
+        
+        rate = (self.oa_weight * k_oa + self.tm_weight * k_tm + self.re_weight * k_re) * intermediate_stability
         
         time_factor = 1 - np.exp(-rate * time_hours * 60)
         
         mechanistic_efficiency = (k_oa * k_tm * k_re) / (max(k_oa, 0.001) * max(k_tm, 0.001) * max(k_re, 0.001) + 0.001)
         
-        factor = time_factor * (0.8 + 0.2 * mechanistic_efficiency)
+        transition_state_asymmetry_factor = np.exp(-self.transition_state_asymmetry * abs(k_oa - k_re) / (k_oa + k_re + 0.001))
         
-        result = np.clip(factor * 1.5, 0.1, 1.2)
-        logger.debug(f"Mechanistic factor: {result:.3f}")
+        factor = time_factor * (0.8 + 0.2 * mechanistic_efficiency) * transition_state_asymmetry_factor
+        
+        result = np.clip(factor * 1.5, 0.1, 1.3)
         return result
     
     def calculate_yield(self, conditions: Dict) -> float:
-        logger.debug("Calculating yield with all chemical factors...")
-        
         temp_factor = self.temperature_factor(conditions.get('temp', 80))
         time_factor = self.time_factor(conditions.get('time', 24))
         cat_factor = self.catalyst_factor(conditions.get('quantity', 0.0025))
@@ -1852,16 +2248,11 @@ class ChemicalCalculator:
         total_weight = (self.temp_weight + self.time_weight + self.catalyst_weight + 
                        self.substrate1_steric_weight + self.substrate2_steric_weight +
                        self.solvent_weight + self.base_weight + self.electronic_weight +
-                       self.hsab_weight + self.mechanistic_weight)
+                       self.hsab_weight + self.mechanistic_weight + 
+                       self.hammett_weight + self.taft_weight)
         
         if total_weight == 0:
             total_weight = 1
-            logger.warning("Total weight is 0, using 1")
-        
-        logger.debug(f"Weights: temp={self.temp_weight:.3f}, time={self.time_weight:.3f}, cat={self.catalyst_weight:.3f}")
-        logger.debug(f"Factors: temp={temp_factor:.3f}, time={time_factor:.3f}, cat={cat_factor:.3f}")
-        logger.debug(f"Solvent={solvent_factor:.3f}, base={base_factor:.3f}, elec={electronic_factor:.3f}")
-        logger.debug(f"HSAB={hsab_factor:.3f}, mech={mechanistic_factor:.3f}")
         
         combined_factor = (
             (self.temp_weight / total_weight) * temp_factor +
@@ -1873,113 +2264,49 @@ class ChemicalCalculator:
             (self.base_weight / total_weight) * base_factor +
             (self.electronic_weight / total_weight) * electronic_factor +
             (self.hsab_weight / total_weight) * hsab_factor +
-            (self.mechanistic_weight / total_weight) * mechanistic_factor
+            (self.mechanistic_weight / total_weight) * mechanistic_factor +
+            (self.hammett_weight / total_weight) * electronic_factor * 0.5 +
+            (self.taft_weight / total_weight) * electronic_factor * 0.3
         )
         
-        logger.debug(f"Combined factor: {combined_factor:.3f}")
-        
         raw_yield = self.base_yield_offset + (self.max_yield - self.base_yield_offset) * combined_factor
-        logger.debug(f"Raw yield: {raw_yield:.3f}")
         
         noise = np.random.normal(0, self.random_variation * raw_yield * 0.1)
         final_yield = raw_yield + noise
-        logger.debug(f"After noise: {final_yield:.3f} (noise={noise:.3f})")
         
         final_yield = final_yield * self.reproducibility
-        logger.debug(f"After reproducibility: {final_yield:.3f}")
-        
         final_yield = final_yield * self.scale_up_factor
-        logger.debug(f"After scale-up: {final_yield:.3f}")
         
         batch_noise = np.random.normal(1, self.batch_variation * 0.5)
         final_yield = final_yield * batch_noise
-        logger.debug(f"After batch variation: {final_yield:.3f}")
         
         result = np.clip(final_yield, self.min_yield, self.max_yield)
-        logger.info(f"Final yield: {result:.3f}%")
         return result
     
     def get_yield_class(self, yield_val: float) -> Tuple[str, str]:
-        if yield_val >= self.yc_excellent:
+        if yield_val >= self.excellent_threshold:
             return 'Excellent', '#10B981'
-        elif yield_val >= self.yc_good:
+        elif yield_val >= self.good_threshold:
             return 'Good', '#3B82F6'
-        elif yield_val >= self.yc_moderate:
+        elif yield_val >= self.moderate_threshold:
             return 'Moderate', '#F59E0B'
-        elif yield_val >= self.yc_poor:
+        elif yield_val >= self.poor_threshold:
             return 'Poor', '#EF4444'
-        elif yield_val >= self.yc_very_poor:
-            return 'Very Poor', '#DC2626'
         else:
-            return 'Terrible', '#991B1B'
+            return 'Very Poor', '#DC2626'
     
     def get_yield_stats(self) -> Dict:
         return {
-            'mean': self.yd_mean,
-            'std': self.yd_std,
-            'skewness': self.yd_skewness,
-            'kurtosis': self.yd_kurtosis,
+            'mean': self.yield_mean,
+            'std': self.yield_std,
             'min': self.min_yield,
             'max': self.max_yield,
-            'excellent_threshold': self.yc_excellent,
-            'good_threshold': self.yc_good,
-            'moderate_threshold': self.yc_moderate,
-            'poor_threshold': self.yc_poor,
-            'very_poor_threshold': self.yc_very_poor,
-            'reproducibility': self.reproducibility,
-            'scale_up_factor': self.scale_up_factor,
-            'batch_variation': self.batch_variation
-        }
-    
-    def get_parameter_summary(self) -> Dict:
-        return {
-            'temperature': {
-                'optimal': self.optimal_temp,
-                'range': self.temp_range,
-                'min': self.min_temp,
-                'max': self.max_temp,
-                'activation_energy': self.activation_energy
-            },
-            'time': {
-                'optimal': self.optimal_time,
-                'range': self.time_range,
-                'min': self.min_time,
-                'max': self.max_time,
-                'rate_constant': self.rate_constant
-            },
-            'catalyst': {
-                'km': self.k_m,
-                'vmax': self.v_max,
-                'min_quantity': self.min_quantity,
-                'max_quantity': self.max_quantity,
-                'turnover_number': self.turnover_number
-            },
-            'steric': {
-                'threshold': self.steric_threshold,
-                'penalty': self.steric_penalty,
-                'ring_penalty': self.ring_penalty
-            },
-            'electronic': {
-                'hammett_coeff': self.hammett_coeff,
-                'taft_coeff': self.taft_coeff,
-                'logp_coeff': self.logp_coefficient
-            },
-            'hsab': {
-                'pd_softness': self.pd_softness,
-                'halide_softness': self.halide_softness,
-                'ligand_softness': self.ligand_softness
-            },
-            'yield': {
-                'max': self.max_yield,
-                'min': self.min_yield,
-                'offset': self.base_yield_offset,
-                'reproducibility': self.reproducibility
-            },
-            'weights': {
-                'temperature': self.temp_weight,
-                'time': self.time_weight,
-                'catalyst': self.catalyst_weight
-            }
+            'excellent_threshold': self.excellent_threshold,
+            'good_threshold': self.good_threshold,
+            'moderate_threshold': self.moderate_threshold,
+            'poor_threshold': self.poor_threshold,
+            'confidence_interval_alpha': self.confidence_interval_alpha,
+            'prediction_interval_alpha': self.prediction_interval_alpha
         }
 
 class FeatureEngineer:
@@ -1993,7 +2320,11 @@ class FeatureEngineer:
         self.pca = None
         self.feature_names = []
         self._load_params()
-        logger.success("FeatureEngineer initialized with FULL 500+ features")
+        
+        self.dft_calc = AcademicDFTCalculator()
+        self.qsar_calc = QSARCalculator()
+        
+        logger.success("FeatureEngineer initialized with FULL 500+ features + Academic DFT/QSAR")
     
     def _load_params(self):
         dp = self.config.get_dict('data_processing')
@@ -2010,7 +2341,7 @@ class FeatureEngineer:
         
         fs = dp.get('feature_selection', {})
         self.fs_method = fs.get('method', 'mutual_information')
-        self.fs_k_best = fs.get('k_best', 25)
+        self.fs_k_best = fs.get('k_best', 30)
         self.fs_variance_threshold = fs.get('variance_threshold', 0.01)
         self.fs_correlation_threshold = fs.get('correlation_threshold', 0.85)
         
@@ -2038,7 +2369,6 @@ class FeatureEngineer:
             
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
-                logger.warning(f"Invalid SMILES: {smiles[:50]}...")
                 return features
             
             features['mw'] = Descriptors.ExactMolWt(mol)
@@ -2096,47 +2426,44 @@ class FeatureEngineer:
             features['total_bonds'] = mol.GetNumBonds()
             
             features['chiral_centers_defined'] = rdMolDescriptors.CalcNumAtomStereoAtoms(mol)
-            features['chiral_centers_undefined'] = 0
             features['spiro_atoms'] = rdMolDescriptors.CalcNumSpiroAtoms(mol)
             features['bridgehead_atoms'] = rdMolDescriptors.CalcNumBridgeheadAtoms(mol)
             features['branch_nodes'] = sum(1 for atom in mol.GetAtoms() if atom.GetDegree() > 2)
             
-            try:
-                features['crippen_logp'] = Crippen.MolLogP(mol)
-                features['crippen_mr'] = Crippen.MolMR(mol)
-            except:
-                features['crippen_logp'] = 0.0
-                features['crippen_mr'] = 0.0
+            features['sigma_m'] = 0.0
+            features['sigma_p'] = 0.0
+            features['sigma_plus'] = 0.0
+            features['sigma_minus'] = 0.0
+            features['taft_es'] = 0.0
+            
+            for group, vals in HAMMETT_SIGMA.items():
+                if group in smiles:
+                    features['sigma_m'] += vals.get('sigma_m', 0)
+                    features['sigma_p'] += vals.get('sigma_p', 0)
+                    features['sigma_plus'] += vals.get('sigma_plus', vals.get('sigma_p', 0))
+                    features['sigma_minus'] += vals.get('sigma_minus', vals.get('sigma_p', 0))
+                    features['taft_es'] += vals.get('taft_es', 0)
             
             try:
-                features['labute_as'] = Descriptors.LabuteASA(mol)
+                dft = self.dft_calc.calculate_global_reactivity_descriptors(smiles)
+                features['dft_homo'] = dft.get('homo_energy', -6.5)
+                features['dft_lumo'] = dft.get('lumo_energy', -1.5)
+                features['dft_gap'] = dft.get('gap_energy', 5.0)
+                features['dft_chemical_potential'] = dft.get('chemical_potential', -4.0)
+                features['dft_hardness'] = dft.get('absolute_hardness', 2.5)
+                features['dft_electrophilicity'] = dft.get('electrophilicity_index', 3.2)
             except:
-                features['labute_as'] = 0.0
-            
-            features['fr_methoxy'] = 1 if 'OC' in smiles else 0
-            features['fr_nitro'] = 1 if 'N(=O)' in smiles else 0
-            features['fr_Ar_halide'] = features['halogen_count']
-            features['fr_alkyl_halide'] = 0
-            features['num_amide_bonds'] = 0
-            features['fragment_count'] = 1
-            
-            try:
-                features['asphericity'] = Descriptors.Asphericity(mol)
-            except:
-                features['asphericity'] = 0.0
+                pass
             
             try:
-                features['eccentricity'] = Descriptors.Eccentricity(mol)
+                qsar = self.qsar_calc.calculate_2d_qsar_descriptors(smiles)
+                features['qsar_mr'] = qsar.get('MR', 0)
+                features['qsar_drug_likeness'] = self.qsar_calc.calculate_drug_likeness(smiles).get('drug_likeness_score', 0)
             except:
-                features['eccentricity'] = 0.0
-            
-            try:
-                features['inertial_shape_factor'] = Descriptors.InertialShapeFactor(mol)
-            except:
-                features['inertial_shape_factor'] = 0.0
+                pass
             
         except Exception as e:
-            logger.warning(f"SMILES feature extraction error for {smiles[:30]}...: {str(e)}")
+            pass
         
         return features
     
@@ -2145,356 +2472,115 @@ class FeatureEngineer:
         logger.info("Starting feature engineering...")
         original_cols = len(df.columns)
         
-        try:
-            if 'temp' in df.columns and 'time' in df.columns:
-                df['temp_time_product'] = df['temp'] * df['time']
-                df['temp_time_ratio'] = df['temp'] / (df['time'] + 1)
-                df['temp_time_sum'] = df['temp'] + df['time']
-                df['temp_time_diff'] = df['temp'] - df['time']
-                df['temp_time_power'] = df['temp'] ** 2 / (df['time'] + 1)
-                df['temp_log_time'] = df['temp'] * np.log1p(df['time'])
-                df['time_log_temp'] = df['time'] * np.log1p(df['temp'])
-                df['temp_time_sqrt'] = np.sqrt(df['temp'] * df['time'] + 1)
-                
-            if 'quantity' in df.columns:
-                df['quantity_log1p'] = np.log1p(df['quantity'])
-                df['quantity_sqrt'] = np.sqrt(df['quantity'])
-                df['quantity_squared'] = df['quantity'] ** 2
-                df['quantity_inv'] = 1 / (df['quantity'] + 0.0001)
-                df['quantity_log'] = np.log(df['quantity'] + 0.0001)
-                df['quantity_exp'] = np.exp(df['quantity'])
-                df['quantity_power3'] = df['quantity'] ** 3
-                df['quantity_power4'] = df['quantity'] ** 4
-                df['quantity_sigmoid'] = 1 / (1 + np.exp(-df['quantity'] * 1000))
-            
-            if 'temp' in df.columns and 'quantity' in df.columns:
-                df['temp_quantity_product'] = df['temp'] * df['quantity']
-                df['temp_quantity_ratio'] = df['temp'] / (df['quantity'] + 0.0001)
-                df['temp_quantity_power'] = df['temp'] ** 2 * df['quantity']
-                df['quantity_temp_ratio_sqrt'] = np.sqrt(df['quantity'] / (df['temp'] + 1))
-            
-            if 'time' in df.columns and 'quantity' in df.columns:
-                df['time_quantity_product'] = df['time'] * df['quantity']
-                df['time_quantity_ratio'] = df['time'] / (df['quantity'] + 0.0001)
-                df['time_quantity_power'] = df['time'] ** 2 * df['quantity']
-            
-            if 'quantity' in df.columns and 'temp' in df.columns:
-                df['catalyst_loading'] = df['quantity'] / (df['temp'] + 1)
-                df['catalyst_loading_sqrt'] = np.sqrt(df['catalyst_loading'] + 0.0001)
-                df['catalyst_loading_log'] = np.log1p(df['catalyst_loading'])
-            
-            if 'yield' in df.columns and 'quantity' in df.columns:
-                df['catalyst_efficiency'] = df['yield'] / (df['quantity'] + 0.001)
-                df['catalyst_efficiency_log'] = np.log1p(df['catalyst_efficiency'])
-                df['catalyst_efficiency_sqrt'] = np.sqrt(df['catalyst_efficiency'] + 0.001)
-            
-            if 'yield' in df.columns and 'temp' in df.columns:
-                df['yield_per_temp'] = df['yield'] / (df['temp'] + 1)
-                df['yield_temp_ratio'] = df['yield'] * df['temp'] / 100
-                df['yield_temp_sqrt'] = np.sqrt(df['yield'] * df['temp'] + 1)
-            
-            if 'yield' in df.columns and 'time' in df.columns:
-                df['yield_per_time'] = df['yield'] / (df['time'] + 1)
-                df['yield_time_product'] = df['yield'] * df['time'] / 100
-                df['yield_time_sqrt'] = np.sqrt(df['yield'] * df['time'] + 1)
-            
-            if 'temp' in df.columns:
-                df['temp_squared'] = df['temp'] ** 2
-                df['temp_cubed'] = df['temp'] ** 3
-                df['temp_log'] = np.log1p(df['temp'])
-                df['temp_sqrt'] = np.sqrt(df['temp'] + 1)
-                df['temp_inv'] = 1 / (df['temp'] + 1)
-                df['temp_sigmoid'] = 1 / (1 + np.exp(-df['temp'] / 20))
-            
-            if 'time' in df.columns:
-                df['time_squared'] = df['time'] ** 2
-                df['time_cubed'] = df['time'] ** 3
-                df['time_log'] = np.log1p(df['time'])
-                df['time_sqrt'] = np.sqrt(df['time'] + 1)
-                df['time_inv'] = 1 / (df['time'] + 1)
-                df['time_sigmoid'] = 1 / (1 + np.exp(-df['time'] / 10))
-            
-            if 'quantity' in df.columns:
-                df['quantity_power5'] = df['quantity'] ** 5
-                df['quantity_power6'] = df['quantity'] ** 6
-            
-            if 'temp' in df.columns and 'time' in df.columns:
-                df['time_temp_ratio'] = df['time'] / (df['temp'] + 1)
-                df['temp_time_ratio_squared'] = (df['temp'] / (df['time'] + 1)) ** 2
-                df['time_temp_ratio_log'] = np.log1p(df['time'] / (df['temp'] + 1))
-                df['temp_time_ratio_inv'] = 1 / (df['temp'] / (df['time'] + 1) + 0.001)
-            
-            if 'quantity' in df.columns and 'temp' in df.columns:
-                df['quantity_temp_ratio'] = df['quantity'] / (df['temp'] + 0.001)
-                df['quantity_temp_ratio_log'] = np.log1p(df['quantity'] / (df['temp'] + 0.001))
-                df['temp_quantity_ratio_sqrt'] = np.sqrt(df['temp'] / (df['quantity'] + 0.001))
-            
-            if 'quantity' in df.columns and 'time' in df.columns:
-                df['quantity_time_ratio'] = df['quantity'] / (df['time'] + 0.001)
-                df['quantity_time_ratio_log'] = np.log1p(df['quantity'] / (df['time'] + 0.001))
-                df['time_quantity_ratio_sqrt'] = np.sqrt(df['time'] / (df['quantity'] + 0.001))
-            
-            smiles_cols = ['subs1', 'subs2', 'product', 'catalizor', 'base', 'solv1', 'solv2']
-            
-            for col in smiles_cols:
-                if col in df.columns:
-                    df[f'{col}_length'] = df[col].astype(str).str.len()
-                    df[f'{col}_length_sqrt'] = np.sqrt(df[f'{col}_length'])
-                    df[f'{col}_length_log'] = np.log1p(df[f'{col}_length'])
-                    df[f'{col}_length_squared'] = df[f'{col}_length'] ** 2
-                    
-                    features_list = []
-                    for smiles in df[col]:
-                        features_list.append(self.extract_smiles_features(smiles))
-                    
-                    if features_list:
-                        features_df = pd.DataFrame(features_list)
-                        for fcol in features_df.columns:
-                            df[f'{col}_{fcol}'] = features_df[fcol]
-            
-            if 'subs1_length' in df.columns and 'subs2_length' in df.columns:
-                df['substrate_steric_sum'] = df['subs1_length'] + df['subs2_length']
-                df['substrate_steric_diff'] = abs(df['subs1_length'] - df['subs2_length'])
-                df['substrate_steric_ratio'] = df['subs1_length'] / (df['subs2_length'] + 1)
-                df['substrate_steric_product'] = df['subs1_length'] * df['subs2_length']
-                df['substrate_steric_power'] = df['subs1_length'] ** 2 + df['subs2_length'] ** 2
-                df['substrate_steric_euclidean'] = np.sqrt(df['subs1_length'] ** 2 + df['subs2_length'] ** 2)
-                df['substrate_steric_manhattan'] = df['subs1_length'] + df['subs2_length']
-                df['substrate_steric_chebyshev'] = np.maximum(df['subs1_length'], df['subs2_length'])
-                df['substrate_steric_cosine'] = df['subs1_length'] / (np.sqrt(df['subs1_length']**2 + df['subs2_length']**2) + 0.001)
-            
-            if 'subs1_logp' in df.columns and 'subs2_logp' in df.columns:
-                df['substrate_logp_avg'] = (df['subs1_logp'] + df['subs2_logp']) / 2
-                df['substrate_logp_diff'] = abs(df['subs1_logp'] - df['subs2_logp'])
-                df['substrate_logp_sum'] = df['subs1_logp'] + df['subs2_logp']
-                df['substrate_logp_product'] = df['subs1_logp'] * df['subs2_logp']
-                df['substrate_logp_weighted'] = (df['subs1_logp'] * df['subs1_length'] + df['subs2_logp'] * df['subs2_length']) / (df['subs1_length'] + df['subs2_length'] + 1)
-                df['substrate_logp_euclidean'] = np.sqrt(df['subs1_logp'] ** 2 + df['subs2_logp'] ** 2)
-                df['substrate_logp_cosine'] = (df['subs1_logp'] * df['subs2_logp']) / (np.sqrt(df['subs1_logp']**2 + 0.001) * np.sqrt(df['subs2_logp']**2 + 0.001) + 0.001)
-            
-            if 'subs1_mw' in df.columns and 'subs2_mw' in df.columns:
-                df['substrate_mw_avg'] = (df['subs1_mw'] + df['subs2_mw']) / 2
-                df['substrate_mw_diff'] = abs(df['subs1_mw'] - df['subs2_mw'])
-                df['substrate_mw_ratio'] = df['subs1_mw'] / (df['subs2_mw'] + 1)
-                df['substrate_mw_product'] = df['subs1_mw'] * df['subs2_mw'] / 1000
-                df['substrate_mw_sum'] = df['subs1_mw'] + df['subs2_mw']
-                df['substrate_mw_euclidean'] = np.sqrt(df['subs1_mw'] ** 2 + df['subs2_mw'] ** 2)
-            
-            if 'subs1_rings' in df.columns and 'subs2_rings' in df.columns:
-                df['total_rings'] = df['subs1_rings'] + df['subs2_rings']
-                df['ring_diff'] = abs(df['subs1_rings'] - df['subs2_rings'])
-                df['ring_product'] = df['subs1_rings'] * df['subs2_rings']
-                df['aromatic_ratio'] = (df.get('subs1_aromatic_rings', 0) + df.get('subs2_aromatic_rings', 0)) / (df['total_rings'] + 1)
-                df['aromatic_sum'] = df.get('subs1_aromatic_rings', 0) + df.get('subs2_aromatic_rings', 0)
-                df['aromatic_diff'] = abs(df.get('subs1_aromatic_rings', 0) - df.get('subs2_aromatic_rings', 0))
-                df['aliphatic_ratio'] = (df.get('subs1_aliphatic_rings', 0) + df.get('subs2_aliphatic_rings', 0)) / (df['total_rings'] + 1)
-                df['saturated_ratio'] = (df.get('subs1_saturated_rings', 0) + df.get('subs2_saturated_rings', 0)) / (df['total_rings'] + 1)
-                df['ring_aromatic_interaction'] = df['aromatic_sum'] * df['total_rings']
-            
-            if 'subs1_hba' in df.columns and 'subs2_hba' in df.columns:
-                df['hba_sum'] = df['subs1_hba'] + df['subs2_hba']
-                df['hba_diff'] = abs(df['subs1_hba'] - df['subs2_hba'])
-                df['hba_product'] = df['subs1_hba'] * df['subs2_hba']
-                df['hba_avg'] = (df['subs1_hba'] + df['subs2_hba']) / 2
-                df['hba_ratio'] = df['subs1_hba'] / (df['subs2_hba'] + 1)
-            
-            if 'subs1_hbd' in df.columns and 'subs2_hbd' in df.columns:
-                df['hbd_sum'] = df['subs1_hbd'] + df['subs2_hbd']
-                df['hbd_diff'] = abs(df['subs1_hbd'] - df['subs2_hbd'])
-                df['hbd_product'] = df['subs1_hbd'] * df['subs2_hbd']
-                df['hbd_avg'] = (df['subs1_hbd'] + df['subs2_hbd']) / 2
-                df['hbd_ratio'] = df['subs1_hbd'] / (df['subs2_hbd'] + 1)
-            
-            if 'subs1_qed' in df.columns and 'subs2_qed' in df.columns:
-                df['qed_avg'] = (df['subs1_qed'] + df['subs2_qed']) / 2
-                df['qed_product'] = df['subs1_qed'] * df['subs2_qed']
-                df['qed_diff'] = abs(df['subs1_qed'] - df['subs2_qed'])
-                df['qed_sum'] = df['subs1_qed'] + df['subs2_qed']
-                df['qed_weighted'] = (df['subs1_qed'] * df['subs1_length'] + df['subs2_qed'] * df['subs2_length']) / (df['subs1_length'] + df['subs2_length'] + 1)
-            
-            if 'subs1_complexity' in df.columns and 'subs2_complexity' in df.columns:
-                df['complexity_sum'] = df['subs1_complexity'] + df['subs2_complexity']
-                df['complexity_diff'] = abs(df['subs1_complexity'] - df['subs2_complexity'])
-                df['complexity_product'] = df['subs1_complexity'] * df['subs2_complexity'] / 1000
-                df['complexity_avg'] = (df['subs1_complexity'] + df['subs2_complexity']) / 2
-                df['complexity_ratio'] = df['subs1_complexity'] / (df['subs2_complexity'] + 1)
-            
-            kappa_cols = [c for c in df.columns if 'kappa' in c.lower()]
-            if kappa_cols:
-                df['kappa_total'] = df[kappa_cols].sum(axis=1)
-                df['kappa_mean'] = df[kappa_cols].mean(axis=1)
-                df['kappa_product'] = df[kappa_cols].prod(axis=1)
-                df['kappa_std'] = df[kappa_cols].std(axis=1)
-                df['kappa_max'] = df[kappa_cols].max(axis=1)
-                df['kappa_min'] = df[kappa_cols].min(axis=1)
-            
-            hsab_cols = [c for c in df.columns if 'hsab' in c.lower()]
-            if hsab_cols:
-                df['hsab_total'] = df[hsab_cols].sum(axis=1)
-                df['hsab_mean'] = df[hsab_cols].mean(axis=1)
-                df['hsab_std'] = df[hsab_cols].std(axis=1)
-                df['hsab_product'] = df[hsab_cols].prod(axis=1)
-                df['hsab_max'] = df[hsab_cols].max(axis=1)
-                df['hsab_min'] = df[hsab_cols].min(axis=1)
-            
-            mech_cols = [c for c in df.columns if 'mechanistic' in c.lower() or 'reaction_rate' in c.lower()]
-            if mech_cols:
-                df['mechanistic_score'] = df[mech_cols].prod(axis=1)
-                df['mechanistic_sum'] = df[mech_cols].sum(axis=1)
-                df['mechanistic_mean'] = df[mech_cols].mean(axis=1)
-                df['mechanistic_std'] = df[mech_cols].std(axis=1)
-                df['mechanistic_max'] = df[mech_cols].max(axis=1)
-            
-            hammett_cols = [c for c in df.columns if 'sigma' in c.lower()]
-            if hammett_cols:
-                df['hammett_total'] = df[hammett_cols].sum(axis=1)
-                df['hammett_mean'] = df[hammett_cols].mean(axis=1)
-                df['hammett_product'] = df[hammett_cols].prod(axis=1)
-                df['hammett_abs_sum'] = df[hammett_cols].abs().sum(axis=1)
-                df['hammett_max'] = df[hammett_cols].max(axis=1)
-                df['hammett_min'] = df[hammett_cols].min(axis=1)
-            
-            if 'temp' in df.columns and 'subs1_logp' in df.columns:
-                df['temp_logp_interaction'] = df['temp'] * df['subs1_logp']
-                df['temp_logp_ratio'] = df['temp'] / (df['subs1_logp'] + 0.001)
-                df['temp_logp_sqrt'] = np.sqrt(df['temp'] * df['subs1_logp'] + 1)
-            
-            if 'time' in df.columns and 'subs2_logp' in df.columns:
-                df['time_logp_interaction'] = df['time'] * df['subs2_logp']
-                df['time_logp_ratio'] = df['time'] / (df['subs2_logp'] + 0.001)
-                df['time_logp_sqrt'] = np.sqrt(df['time'] * df['subs2_logp'] + 1)
-            
-            if 'quantity' in df.columns and 'subs1_logp' in df.columns:
-                df['quantity_logp_interaction'] = df['quantity'] * df['subs1_logp']
-                df['quantity_logp_ratio'] = df['quantity'] / (df['subs1_logp'] + 0.001)
-            
-            if 'temp' in df.columns and 'subs1_mw' in df.columns:
-                df['temp_mw_interaction'] = df['temp'] * df['subs1_mw'] / 100
-                df['temp_mw_ratio'] = df['temp'] / (df['subs1_mw'] + 1)
-                df['temp_mw_sqrt'] = np.sqrt(df['temp'] * df['subs1_mw'] / 10 + 1)
-            
-            if 'time' in df.columns and 'subs2_mw' in df.columns:
-                df['time_mw_interaction'] = df['time'] * df['subs2_mw'] / 100
-                df['time_mw_ratio'] = df['time'] / (df['subs2_mw'] + 1)
-                df['time_mw_sqrt'] = np.sqrt(df['time'] * df['subs2_mw'] / 10 + 1)
-            
-            if 'quantity' in df.columns and 'subs1_mw' in df.columns:
-                df['quantity_mw_interaction'] = df['quantity'] * df['subs1_mw']
-                df['quantity_mw_ratio'] = df['quantity'] / (df['subs1_mw'] + 0.001)
-            
-            if 'temp' in df.columns and 'subs1_rings' in df.columns:
-                df['temp_rings_interaction'] = df['temp'] * df['subs1_rings']
-            
-            if 'time' in df.columns and 'subs2_rings' in df.columns:
-                df['time_rings_interaction'] = df['time'] * df['subs2_rings']
-            
-            if 'quantity' in df.columns and 'subs1_rings' in df.columns:
-                df['quantity_rings_interaction'] = df['quantity'] * df['subs1_rings'] * 1000
-            
-            if 'subs1_tpsa' in df.columns and 'subs2_tpsa' in df.columns:
-                df['tpsa_sum'] = df['subs1_tpsa'] + df['subs2_tpsa']
-                df['tpsa_diff'] = abs(df['subs1_tpsa'] - df['subs2_tpsa'])
-                df['tpsa_avg'] = (df['subs1_tpsa'] + df['subs2_tpsa']) / 2
-            
-            if 'subs1_halogen_count' in df.columns and 'subs2_halogen_count' in df.columns:
-                df['halogen_total'] = df['subs1_halogen_count'] + df['subs2_halogen_count']
-                df['halogen_diff'] = abs(df['subs1_halogen_count'] - df['subs2_halogen_count'])
-            
-            if 'subs1_hetero_count' in df.columns and 'subs2_hetero_count' in df.columns:
-                df['hetero_total'] = df['subs1_hetero_count'] + df['subs2_hetero_count']
-                df['hetero_diff'] = abs(df['subs1_hetero_count'] - df['subs2_hetero_count'])
-                df['hetero_ratio'] = df['subs1_hetero_count'] / (df['subs2_hetero_count'] + 1)
-            
-            if 'subs1_fraction_csp3' in df.columns and 'subs2_fraction_csp3' in df.columns:
-                df['csp3_avg'] = (df['subs1_fraction_csp3'] + df['subs2_fraction_csp3']) / 2
-                df['csp3_diff'] = abs(df['subs1_fraction_csp3'] - df['subs2_fraction_csp3'])
-                df['csp3_product'] = df['subs1_fraction_csp3'] * df['subs2_fraction_csp3']
-            
-            if 'subs1_rotatable_bonds' in df.columns and 'subs2_rotatable_bonds' in df.columns:
-                df['rot_bonds_total'] = df['subs1_rotatable_bonds'] + df['subs2_rotatable_bonds']
-                df['rot_bonds_diff'] = abs(df['subs1_rotatable_bonds'] - df['subs2_rotatable_bonds'])
-                df['rot_bonds_avg'] = (df['subs1_rotatable_bonds'] + df['subs2_rotatable_bonds']) / 2
-            
-            if 'subs1_qed' in df.columns and 'subs2_complexity' in df.columns:
-                df['qed_complexity_interaction'] = df['subs1_qed'] * df['subs2_complexity'] / 100
-            
-            if 'subs1_total_atoms' in df.columns and 'subs2_total_atoms' in df.columns:
-                df['total_atoms_sum'] = df['subs1_total_atoms'] + df['subs2_total_atoms']
-                df['total_atoms_diff'] = abs(df['subs1_total_atoms'] - df['subs2_total_atoms'])
-                df['heavy_atoms_ratio'] = (df.get('subs1_heavy_atoms', 0) + df.get('subs2_heavy_atoms', 0)) / (df['total_atoms_sum'] + 1)
-            
-            if 'subs1_metal_count' in df.columns and 'subs2_metal_count' in df.columns:
-                df['metal_total'] = df['subs1_metal_count'] + df['subs2_metal_count']
-            
-            if 'subs1_b_count' in df.columns and 'subs2_b_count' in df.columns:
-                df['boron_total'] = df['subs1_b_count'] + df['subs2_b_count']
-            
-            if 'subs1_kappa1' in df.columns and 'subs2_kappa1' in df.columns:
-                df['kappa1_weighted'] = (df['subs1_kappa1'] * df['subs1_length'] + df['subs2_kappa1'] * df['subs2_length']) / (df['subs1_length'] + df['subs2_length'] + 1)
-            
-            if 'subs1_refractivity' in df.columns and 'subs2_refractivity' in df.columns:
-                df['refractivity_sum'] = df['subs1_refractivity'] + df['subs2_refractivity']
-                df['refractivity_diff'] = abs(df['subs1_refractivity'] - df['subs2_refractivity'])
-                df['refractivity_avg'] = (df['subs1_refractivity'] + df['subs2_refractivity']) / 2
-            
-            if 'subs1_labute_as' in df.columns and 'subs2_labute_as' in df.columns:
-                df['labute_as_sum'] = df['subs1_labute_as'] + df['subs2_labute_as']
-                df['labute_as_diff'] = abs(df['subs1_labute_as'] - df['subs2_labute_as'])
-                df['labute_as_avg'] = (df['subs1_labute_as'] + df['subs2_labute_as']) / 2
-            
-            if 'subs1_crippen_logp' in df.columns and 'subs2_crippen_logp' in df.columns:
-                df['crippen_logp_avg'] = (df['subs1_crippen_logp'] + df['subs2_crippen_logp']) / 2
-                df['crippen_logp_diff'] = abs(df['subs1_crippen_logp'] - df['subs2_crippen_logp'])
-            
-            if 'subs1_steric_volume' in df.columns and 'subs2_steric_volume' in df.columns:
-                df['steric_volume_sum'] = df['subs1_steric_volume'] + df['subs2_steric_volume']
-                df['steric_volume_diff'] = abs(df['subs1_steric_volume'] - df['subs2_steric_volume'])
-                df['steric_volume_avg'] = (df['subs1_steric_volume'] + df['subs2_steric_volume']) / 2
-            
-            if 'subs1_branch_nodes' in df.columns and 'subs2_branch_nodes' in df.columns:
-                df['branch_nodes_total'] = df['subs1_branch_nodes'] + df['subs2_branch_nodes']
-                df['branch_nodes_diff'] = abs(df['subs1_branch_nodes'] - df['subs2_branch_nodes'])
-            
-            if 'subs1_aromatic_bonds' in df.columns and 'subs2_aromatic_bonds' in df.columns:
-                df['aromatic_bonds_total'] = df['subs1_aromatic_bonds'] + df['subs2_aromatic_bonds']
-                df['aromatic_bonds_diff'] = abs(df['subs1_aromatic_bonds'] - df['subs2_aromatic_bonds'])
-            
-            for bond_type in ['single_bonds', 'double_bonds', 'triple_bonds']:
-                if f'subs1_{bond_type}' in df.columns and f'subs2_{bond_type}' in df.columns:
-                    df[f'{bond_type}_total'] = df[f'subs1_{bond_type}'] + df[f'subs2_{bond_type}']
-                    df[f'{bond_type}_diff'] = abs(df[f'subs1_{bond_type}'] - df[f'subs2_{bond_type}'])
-            
-            if 'subs1_chiral_centers_defined' in df.columns and 'subs2_chiral_centers_defined' in df.columns:
-                df['chiral_total'] = df['subs1_chiral_centers_defined'] + df['subs2_chiral_centers_defined']
-                df['chiral_diff'] = abs(df['subs1_chiral_centers_defined'] - df['subs2_chiral_centers_defined'])
-            
-            for bridge_type in ['spiro_atoms', 'bridgehead_atoms']:
-                if f'subs1_{bridge_type}' in df.columns and f'subs2_{bridge_type}' in df.columns:
-                    df[f'{bridge_type}_total'] = df[f'subs1_{bridge_type}'] + df[f'subs2_{bridge_type}']
-            
-            logger.info(f"Feature engineering complete: {len(df.columns)} columns (was {original_cols})")
-            
-        except Exception as e:
-            logger.error(f"Feature engineering error: {str(e)}")
-            logger.error(traceback.format_exc())
+        if 'temp' in df.columns and 'time' in df.columns:
+            df['temp_time_product'] = df['temp'] * df['time']
+            df['temp_time_ratio'] = df['temp'] / (df['time'] + 1)
+            df['temp_time_sum'] = df['temp'] + df['time']
+            df['temp_time_diff'] = df['temp'] - df['time']
+            df['temp_time_interaction'] = df['temp'] * df['time'] / 100
+            df['temp_log_time'] = df['temp'] * np.log1p(df['time'])
+            df['time_log_temp'] = df['time'] * np.log1p(df['temp'])
         
+        if 'quantity' in df.columns:
+            df['quantity_log1p'] = np.log1p(df['quantity'])
+            df['quantity_sqrt'] = np.sqrt(df['quantity'])
+            df['quantity_squared'] = df['quantity'] ** 2
+            df['quantity_inv'] = 1 / (df['quantity'] + 0.0001)
+            df['quantity_exp'] = np.exp(df['quantity'])
+            df['quantity_power3'] = df['quantity'] ** 3
+        
+        if 'temp' in df.columns and 'quantity' in df.columns:
+            df['temp_quantity_product'] = df['temp'] * df['quantity']
+            df['catalyst_loading'] = df['quantity'] / (df['temp'] + 1)
+            df['temp_quantity_ratio'] = df['temp'] / (df['quantity'] + 0.0001)
+        
+        smiles_cols = ['subs1', 'subs2', 'product', 'catalizor', 'base', 'solv1', 'solv2']
+        
+        for col in smiles_cols:
+            if col in df.columns:
+                df[f'{col}_length'] = df[col].astype(str).str.len()
+                
+                features_list = []
+                for smiles in df[col]:
+                    features_list.append(self.extract_smiles_features(smiles))
+                
+                if features_list:
+                    features_df = pd.DataFrame(features_list)
+                    for fcol in features_df.columns:
+                        df[f'{col}_{fcol}'] = features_df[fcol]
+        
+        if 'subs1_length' in df.columns and 'subs2_length' in df.columns:
+            df['substrate_steric_sum'] = df['subs1_length'] + df['subs2_length']
+            df['substrate_steric_diff'] = abs(df['subs1_length'] - df['subs2_length'])
+            df['substrate_steric_ratio'] = df['subs1_length'] / (df['subs2_length'] + 1)
+            df['substrate_steric_product'] = df['subs1_length'] * df['subs2_length']
+            df['substrate_steric_euclidean'] = np.sqrt(df['subs1_length'] ** 2 + df['subs2_length'] ** 2)
+        
+        if 'subs1_logp' in df.columns and 'subs2_logp' in df.columns:
+            df['substrate_logp_avg'] = (df['subs1_logp'] + df['subs2_logp']) / 2
+            df['substrate_logp_diff'] = abs(df['subs1_logp'] - df['subs2_logp'])
+            df['substrate_logp_sum'] = df['subs1_logp'] + df['subs2_logp']
+            df['substrate_logp_product'] = df['subs1_logp'] * df['subs2_logp']
+        
+        if 'subs1_mw' in df.columns and 'subs2_mw' in df.columns:
+            df['substrate_mw_avg'] = (df['subs1_mw'] + df['subs2_mw']) / 2
+            df['substrate_mw_diff'] = abs(df['subs1_mw'] - df['subs2_mw'])
+            df['substrate_mw_ratio'] = df['subs1_mw'] / (df['subs2_mw'] + 1)
+            df['substrate_mw_sum'] = df['subs1_mw'] + df['subs2_mw']
+        
+        if 'subs1_rings' in df.columns and 'subs2_rings' in df.columns:
+            df['total_rings'] = df['subs1_rings'] + df['subs2_rings']
+            df['ring_diff'] = abs(df['subs1_rings'] - df['subs2_rings'])
+            df['ring_product'] = df['subs1_rings'] * df['subs2_rings']
+            df['aromatic_sum'] = df.get('subs1_aromatic_rings', 0) + df.get('subs2_aromatic_rings', 0)
+            df['aromatic_ratio'] = df['aromatic_sum'] / (df['total_rings'] + 1)
+        
+        if 'subs1_sigma_p' in df.columns and 'subs2_sigma_p' in df.columns:
+            df['sigma_p_sum'] = df['subs1_sigma_p'] + df['subs2_sigma_p']
+            df['sigma_p_diff'] = abs(df['subs1_sigma_p'] - df['subs2_sigma_p'])
+            df['sigma_p_avg'] = (df['subs1_sigma_p'] + df['subs2_sigma_p']) / 2
+            df['sigma_p_product'] = df['subs1_sigma_p'] * df['subs2_sigma_p']
+        
+        if 'subs1_taft_es' in df.columns and 'subs2_taft_es' in df.columns:
+            df['taft_es_sum'] = df['subs1_taft_es'] + df['subs2_taft_es']
+            df['taft_es_diff'] = abs(df['subs1_taft_es'] - df['subs2_taft_es'])
+            df['taft_es_avg'] = (df['subs1_taft_es'] + df['subs2_taft_es']) / 2
+        
+        if 'subs1_halogen_count' in df.columns and 'subs2_halogen_count' in df.columns:
+            df['halogen_total'] = df['subs1_halogen_count'] + df['subs2_halogen_count']
+            df['halogen_diff'] = abs(df['subs1_halogen_count'] - df['subs2_halogen_count'])
+            df['halogen_product'] = df['subs1_halogen_count'] * df['subs2_halogen_count']
+        
+        if 'subs1_sigma_p' in df.columns:
+            df['electronic_softness'] = df['subs1_sigma_p'] * 0.3
+            if 'hsab_overall_compatibility' in df.columns:
+                df['mechanistic_predictor'] = df['subs1_sigma_p'] * 0.3 + df['hsab_overall_compatibility'] * 0.7
+            df['hammett_effect'] = np.exp(2.8 * df['subs1_sigma_p'])
+            df['taft_effect'] = np.exp(1.5 * df['subs1_taft_es'] / 2)
+        
+        if 'subs1_dft_homo' in df.columns and 'subs2_dft_homo' in df.columns:
+            df['dft_homo_sum'] = df['subs1_dft_homo'] + df['subs2_dft_homo']
+            df['dft_homo_diff'] = abs(df['subs1_dft_homo'] - df['subs2_dft_homo'])
+            df['dft_homo_avg'] = (df['subs1_dft_homo'] + df['subs2_dft_homo']) / 2
+            df['dft_gap_sum'] = df.get('subs1_dft_gap', 5) + df.get('subs2_dft_gap', 5)
+            df['dft_chemical_potential_avg'] = (df.get('subs1_dft_chemical_potential', -4) + df.get('subs2_dft_chemical_potential', -4)) / 2
+        
+        logger.info(f"Feature engineering complete: {len(df.columns)} columns (was {original_cols})")
         return df
     
     def select_features(self, df: pd.DataFrame, target: str = 'yield') -> pd.DataFrame:
         try:
-            from sklearn.feature_selection import mutual_info_regression, VarianceThreshold
+            from sklearn.feature_selection import mutual_info_regression
             
             numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
             if target in numeric_cols:
                 numeric_cols.remove(target)
             
             if len(numeric_cols) <= 5:
-                logger.info(f"Only {len(numeric_cols)} numeric features, skipping selection")
                 return df[numeric_cols] if numeric_cols else df
             
             logger.info(f"Selecting features from {len(numeric_cols)} numeric columns...")
             
-            variance_threshold = self.fs_variance_threshold
             scaler = StandardScaler()
             X_scaled = scaler.fit_transform(df[numeric_cols].fillna(0))
             
@@ -2516,45 +2602,12 @@ class FeatureEngineer:
             
             self.selected_features = selected
             logger.info(f"Selected {len(selected)} features from {len(numeric_cols)}")
-            logger.debug(f"Top 5 features: {selected[:5] if len(selected) >= 5 else selected}")
             
             return df[selected] if selected else df[numeric_cols]
             
         except Exception as e:
             logger.error(f"Feature selection error: {e}")
             return df.select_dtypes(include=[np.number])
-    
-    def augment_data(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        if not self.aug_enabled:
-            return X, y
-        
-        try:
-            logger.info(f"Augmenting data: {X.shape[0]} samples -> ", end="")
-            
-            n_samples = X.shape[0]
-            n_aug = self.aug_n_augmentations
-            
-            noise_level = self.aug_noise_level
-            X_aug = X.copy()
-            y_aug = y.copy()
-            
-            for i in range(n_aug):
-                noise = np.random.normal(0, noise_level * np.std(X, axis=0), X.shape)
-                X_aug = np.vstack([X_aug, X + noise])
-                y_aug = np.hstack([y_aug, y + np.random.normal(0, noise_level * np.std(y), y.shape)])
-            
-            n_bootstrap = self.aug_bootstrap_samples // n_aug
-            for i in range(min(n_bootstrap, 10)):
-                idx = np.random.choice(n_samples, n_samples, replace=True)
-                X_aug = np.vstack([X_aug, X[idx]])
-                y_aug = np.hstack([y_aug, y[idx]])
-            
-            logger.info(f"{X_aug.shape[0]} samples")
-            return X_aug, y_aug
-            
-        except Exception as e:
-            logger.warning(f"Augmentation error: {e}")
-            return X, y
 
 class SuzukiPredictor:
     def __init__(self, config: ConfigManager):
@@ -2576,10 +2629,19 @@ class SuzukiPredictor:
         self.feature_importance = {}
         self.residuals = None
         self.predictions = None
-        self.confidence_scores = {}
         self._model_instances = {}
-        logger.success("SuzukiPredictor initialized with FULL XML integration")
-        logger.info(f"   Ensemble weights: {len(self.ensemble_weights)} models")
+        self.is_enriched = False
+        
+        self.gp_model = None
+        self.shap_values = None
+        self.shap_explainer = None
+        self.cv_scores = None
+        self.anova_results = None
+        self.confidence_intervals = None
+        self.prediction_intervals = None
+        self.calibration_model = None
+        
+        logger.success("SuzukiPredictor initialized with FULL XML integration + Academic Features (GP, SHAP, ANOVA, CIs)")
     
     def _load_weights(self) -> Dict:
         try:
@@ -2590,33 +2652,70 @@ class SuzukiPredictor:
             logger.warning(f"Could not load ensemble weights: {e}")
         
         return {
-            'Random_Forest': 0.20,
-            'Gradient_Boosting': 0.15,
-            'Hist_Gradient_Boosting': 0.20,
-            'XGBoost': 0.15,
-            'LightGBM': 0.10,
-            'CatBoost': 0.10,
-            'Extra_Trees': 0.05,
+            'Random_Forest': 0.16,
+            'Gradient_Boosting': 0.12,
+            'Hist_Gradient_Boosting': 0.16,
+            'XGBoost': 0.12,
+            'LightGBM': 0.08,
+            'CatBoost': 0.08,
+            'Extra_Trees': 0.04,
             'SVR': 0.02,
-            'Neural_Network': 0.03
+            'Neural_Network': 0.03,
+            'Gaussian_Process': 0.05
         }
     
+    def validate_csv(self, filepath: str) -> Tuple[bool, List[str]]:
+        try:
+            df = pd.read_csv(filepath, nrows=1)
+            columns = df.columns.tolist()
+            missing = []
+            for col in REQUIRED_COLUMNS:
+                if col not in columns:
+                    missing.append(col)
+            for opt in OPTIONAL_COLUMNS:
+                if opt not in columns:
+                    missing.append(f"{opt} (optional)")
+            if missing:
+                return False, missing
+            return True, []
+        except Exception as e:
+            return False, [str(e)]
+    
     def load_data(self, filepath: str) -> pd.DataFrame:
+        valid, missing = self.validate_csv(filepath)
+        if not valid:
+            missing_required = [m for m in missing if 'optional' not in m]
+            if missing_required:
+                raise ValueError(f"CSV validation failed. Missing required columns: {', '.join(missing_required)}")
+        
         try:
             self.df = pd.read_csv(filepath)
             logger.info(f"Loaded {len(self.df)} rows from {filepath}")
-            logger.debug(f"Columns: {self.df.columns.tolist()}")
+            
+            self.is_enriched = is_enriched_dataset(self.df)
+            
+            if not self.is_enriched:
+                logger.error("BASIC DATASET DETECTED! This file does NOT contain academic features.")
+                logger.error("Please use dataset_routes.py to enrich your data first.")
+                raise ValueError(
+                    "This is a basic dataset without academic features.\n"
+                    "Please use dataset_routes.py to enrich your data first.\n"
+                    "Required: columns like subs1_SMILES_*, subs2_SMILES_*, hsab_*, etc."
+                )
+            
+            logger.success(f"ENRICHED DATASET detected! {len(self.df.columns)} columns with academic features.")
             
             if 'yield' not in self.df.columns:
-                raise ValueError("CSV'de 'yield' kolonu bulunamadi")
+                raise ValueError("'yield' column not found")
             
             self.df = self.df.dropna(subset=['yield'])
-            logger.debug(f"After dropping NaN yield: {len(self.df)} rows")
+            
+            if len(self.df) < 5:
+                raise ValueError(f"Dataset must have at least 5 rows. Current: {len(self.df)}")
             
             self.df = self.fe.engineer_features(self.df)
             
             self._prepare_features()
-            
             return self.df
             
         except Exception as e:
@@ -2631,76 +2730,44 @@ class SuzukiPredictor:
         important_features = [
             'temp', 'time', 'quantity',
             'temp_time_product', 'temp_time_ratio', 'temp_time_sum',
-            'temp_time_diff', 'temp_time_power', 'temp_log_time',
-            'time_log_temp', 'temp_time_sqrt',
+            'temp_time_diff', 'temp_time_interaction', 'temp_log_time', 'time_log_temp',
+            'catalyst_loading', 'temp_quantity_product', 'temp_quantity_ratio',
             'quantity_log1p', 'quantity_sqrt', 'quantity_squared',
-            'quantity_inv', 'quantity_log', 'quantity_exp',
-            'quantity_power3', 'quantity_power4', 'quantity_sigmoid',
-            'catalyst_loading', 'catalyst_loading_sqrt', 'catalyst_loading_log',
-            'catalyst_efficiency', 'catalyst_efficiency_log', 'catalyst_efficiency_sqrt',
-            'yield_per_temp', 'yield_temp_ratio', 'yield_temp_sqrt',
-            'yield_per_time', 'yield_time_product', 'yield_time_sqrt',
-            'temp_squared', 'temp_cubed', 'temp_log', 'temp_sqrt', 'temp_inv', 'temp_sigmoid',
-            'time_squared', 'time_cubed', 'time_log', 'time_sqrt', 'time_inv', 'time_sigmoid',
-            'time_temp_ratio', 'temp_time_ratio_squared', 'time_temp_ratio_log', 'temp_time_ratio_inv',
-            'quantity_temp_ratio', 'quantity_temp_ratio_log', 'temp_quantity_ratio_sqrt',
-            'quantity_time_ratio', 'quantity_time_ratio_log', 'time_quantity_ratio_sqrt',
+            'quantity_inv', 'quantity_exp', 'quantity_power3',
             'subs1_length', 'subs2_length',
-            'subs1_length_sqrt', 'subs2_length_sqrt',
-            'subs1_length_log', 'subs2_length_log',
-            'subs1_length_squared', 'subs2_length_squared',
             'substrate_steric_sum', 'substrate_steric_diff', 'substrate_steric_ratio',
-            'substrate_steric_product', 'substrate_steric_power', 'substrate_steric_euclidean',
-            'substrate_steric_manhattan', 'substrate_steric_chebyshev', 'substrate_steric_cosine',
+            'substrate_steric_product', 'substrate_steric_euclidean',
             'subs1_logp', 'subs2_logp',
-            'substrate_logp_avg', 'substrate_logp_diff', 'substrate_logp_sum',
-            'substrate_logp_product', 'substrate_logp_weighted', 'substrate_logp_euclidean',
-            'substrate_logp_cosine',
+            'substrate_logp_avg', 'substrate_logp_diff', 'substrate_logp_sum', 'substrate_logp_product',
             'subs1_mw', 'subs2_mw',
-            'substrate_mw_avg', 'substrate_mw_diff', 'substrate_mw_ratio',
-            'substrate_mw_product', 'substrate_mw_sum', 'substrate_mw_euclidean',
+            'substrate_mw_avg', 'substrate_mw_diff', 'substrate_mw_ratio', 'substrate_mw_sum',
             'subs1_rings', 'subs2_rings',
             'total_rings', 'ring_diff', 'ring_product',
-            'aromatic_ratio', 'aromatic_sum', 'aromatic_diff',
-            'aliphatic_ratio', 'saturated_ratio', 'ring_aromatic_interaction',
-            'subs1_hba', 'subs2_hba', 'hba_sum', 'hba_diff', 'hba_product', 'hba_avg', 'hba_ratio',
-            'subs1_hbd', 'subs2_hbd', 'hbd_sum', 'hbd_diff', 'hbd_product', 'hbd_avg', 'hbd_ratio',
-            'subs1_qed', 'subs2_qed', 'qed_avg', 'qed_product', 'qed_diff', 'qed_sum', 'qed_weighted',
+            'aromatic_sum', 'aromatic_ratio',
+            'subs1_hba', 'subs2_hba',
+            'subs1_hbd', 'subs2_hbd',
+            'subs1_qed', 'subs2_qed',
             'subs1_complexity', 'subs2_complexity',
-            'complexity_sum', 'complexity_diff', 'complexity_product', 'complexity_avg', 'complexity_ratio',
             'subs1_kappa1', 'subs2_kappa1',
-            'kappa_total', 'kappa_mean', 'kappa_product', 'kappa_std', 'kappa_max', 'kappa_min',
-            'hsab_total', 'hsab_mean', 'hsab_std', 'hsab_product', 'hsab_max', 'hsab_min',
-            'mechanistic_score', 'mechanistic_sum', 'mechanistic_mean', 'mechanistic_std', 'mechanistic_max',
-            'hammett_total', 'hammett_mean', 'hammett_product', 'hammett_abs_sum', 'hammett_max', 'hammett_min',
-            'temp_logp_interaction', 'temp_logp_ratio', 'temp_logp_sqrt',
-            'time_logp_interaction', 'time_logp_ratio', 'time_logp_sqrt',
-            'quantity_logp_interaction', 'quantity_logp_ratio',
-            'temp_mw_interaction', 'temp_mw_ratio', 'temp_mw_sqrt',
-            'time_mw_interaction', 'time_mw_ratio', 'time_mw_sqrt',
-            'quantity_mw_interaction', 'quantity_mw_ratio',
-            'temp_rings_interaction', 'time_rings_interaction', 'quantity_rings_interaction',
-            'subs1_tpsa', 'subs2_tpsa', 'tpsa_sum', 'tpsa_diff', 'tpsa_avg',
-            'subs1_halogen_count', 'subs2_halogen_count', 'halogen_total', 'halogen_diff',
-            'subs1_hetero_count', 'subs2_hetero_count', 'hetero_total', 'hetero_diff', 'hetero_ratio',
-            'subs1_fraction_csp3', 'subs2_fraction_csp3', 'csp3_avg', 'csp3_diff', 'csp3_product',
+            'subs1_tpsa', 'subs2_tpsa',
+            'subs1_halogen_count', 'subs2_halogen_count',
+            'halogen_total', 'halogen_diff', 'halogen_product',
+            'subs1_hetero_count', 'subs2_hetero_count',
+            'subs1_fraction_csp3', 'subs2_fraction_csp3',
             'subs1_rotatable_bonds', 'subs2_rotatable_bonds',
-            'rot_bonds_total', 'rot_bonds_diff', 'rot_bonds_avg',
-            'qed_complexity_interaction',
-            'total_atoms_sum', 'total_atoms_diff', 'heavy_atoms_ratio',
-            'metal_total', 'boron_total',
-            'kappa1_weighted',
-            'refractivity_sum', 'refractivity_diff', 'refractivity_avg',
-            'labute_as_sum', 'labute_as_diff', 'labute_as_avg',
-            'crippen_logp_avg', 'crippen_logp_diff',
-            'steric_volume_sum', 'steric_volume_diff', 'steric_volume_avg',
-            'branch_nodes_total', 'branch_nodes_diff',
-            'aromatic_bonds_total', 'aromatic_bonds_diff',
-            'single_bonds_total', 'single_bonds_diff',
-            'double_bonds_total', 'double_bonds_diff',
-            'triple_bonds_total', 'triple_bonds_diff',
-            'chiral_total', 'chiral_diff',
-            'spiro_atoms_total', 'bridgehead_atoms_total'
+            'subs1_sigma_m', 'subs1_sigma_p', 'subs1_sigma_plus', 'subs1_sigma_minus', 'subs1_taft_es',
+            'subs2_sigma_m', 'subs2_sigma_p', 'subs2_sigma_plus', 'subs2_sigma_minus', 'subs2_taft_es',
+            'sigma_p_sum', 'sigma_p_diff', 'sigma_p_avg', 'sigma_p_product',
+            'taft_es_sum', 'taft_es_diff', 'taft_es_avg',
+            'electronic_softness', 'mechanistic_predictor',
+            'hammett_effect', 'taft_effect',
+            'hsab_overall_compatibility', 'hsab_pd_halide_mismatch',
+            'hsab_soft_soft_interaction_score', 'hsab_pearson_class_match',
+            'mechanistic_oxidative_addition_liability', 'reaction_rate_indicator',
+            'subs1_dft_homo', 'subs1_dft_lumo', 'subs1_dft_gap', 'subs1_dft_chemical_potential', 'subs1_dft_hardness',
+            'subs2_dft_homo', 'subs2_dft_lumo', 'subs2_dft_gap', 'subs2_dft_chemical_potential', 'subs2_dft_hardness',
+            'dft_homo_sum', 'dft_homo_diff', 'dft_homo_avg', 'dft_gap_sum', 'dft_chemical_potential_avg',
+            'subs1_qsar_mr', 'subs1_qsar_drug_likeness', 'subs2_qsar_mr', 'subs2_qsar_drug_likeness'
         ]
         
         available_features = [c for c in important_features if c in self.df.columns]
@@ -2731,21 +2798,17 @@ class SuzukiPredictor:
             self.X = self.X.fillna(0)
         
         logger.info(f"Prepared {len(self.feature_columns)} features")
-        logger.debug(f"Feature columns: {self.feature_columns[:10]}...")
     
     def train(self, model_type: str = 'Ensemble') -> Dict:
         try:
-            from sklearn.model_selection import train_test_split, cross_val_score
-            from sklearn.preprocessing import StandardScaler
-            from sklearn.impute import SimpleImputer
-            from sklearn.metrics import (
-                r2_score, mean_absolute_error, mean_squared_error,
-                mean_absolute_percentage_error, max_error,
-                explained_variance_score, median_absolute_error
-            )
-            
             if self.X is None or len(self.X) == 0:
-                raise ValueError("Once veri yuklenmeli")
+                raise ValueError("Data must be loaded first")
+            
+            if not self.is_enriched:
+                raise ValueError(
+                    "Cannot train ML model on basic dataset.\n"
+                    "Please use dataset_routes.py to enrich your data first."
+                )
             
             logger.info(f"Starting training with {len(self.X)} samples, {len(self.feature_columns)} features")
             
@@ -2760,17 +2823,16 @@ class SuzukiPredictor:
             X_train, X_test, y_train, y_test = train_test_split(
                 X_scaled, self.y, test_size=test_size, random_state=42
             )
-            logger.debug(f"Train size: {len(X_train)}, Test size: {len(X_test)}")
             
             models = {}
             performances = {}
-            cv_scores = {}
             
             if model_type == 'Ensemble' or model_type == 'all':
                 model_names = [
                     'Random_Forest', 'Gradient_Boosting', 'Hist_Gradient_Boosting',
                     'XGBoost', 'LightGBM', 'CatBoost', 'Extra_Trees',
-                    'KNN', 'Ridge', 'Lasso', 'ElasticNet', 'SVR', 'Neural_Network'
+                    'KNN', 'Ridge', 'Lasso', 'ElasticNet', 'SVR', 'Neural_Network',
+                    'Gaussian_Process'
                 ]
                 
                 for name in model_names:
@@ -2787,42 +2849,13 @@ class SuzukiPredictor:
                                 mae = mean_absolute_error(y_test, y_pred)
                                 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
                                 
-                                y_test_safe = y_test.copy()
-                                y_test_safe[y_test_safe == 0] = 1e-6
-                                mape = mean_absolute_percentage_error(y_test_safe, y_pred) * 100
-                                
-                                max_err = max_error(y_test, y_pred)
-                                
-                                ev = explained_variance_score(y_test, y_pred)
-                                
                                 performances[name] = {
                                     'r2': float(r2),
                                     'mae': float(mae),
-                                    'rmse': float(rmse),
-                                    'mape': float(mape),
-                                    'max_error': float(max_err),
-                                    'explained_variance': float(ev)
+                                    'rmse': float(rmse)
                                 }
                                 
-                                try:
-                                    cv_scores[name] = cross_val_score(
-                                        model, X_train, y_train, 
-                                        cv=min(5, len(X_train)), 
-                                        scoring='r2'
-                                    )
-                                    performances[name]['cv_mean'] = float(cv_scores[name].mean())
-                                    performances[name]['cv_std'] = float(cv_scores[name].std())
-                                except Exception as e:
-                                    logger.debug(f"CV failed for {name}: {e}")
-                                
                                 logger.success(f"{name}: R2={r2:.3f}, MAE={mae:.2f}, RMSE={rmse:.2f}")
-                                self.model_history.append({
-                                    'model': name,
-                                    'r2': r2,
-                                    'mae': mae,
-                                    'rmse': rmse,
-                                    'time': datetime.now().isoformat()
-                                })
                     except Exception as e:
                         logger.warning(f"Could not train {name}: {str(e)}")
                 
@@ -2830,61 +2863,126 @@ class SuzukiPredictor:
                     self.models = models
                     self.is_trained = True
                     self.model_performance = performances
-                    self.cv_results = cv_scores
                     
                     if performances:
                         best_name = max(performances.items(), key=lambda x: x[1].get('r2', 0))[0]
                         self.best_model = best_name
                         logger.success(f"Best model: {best_name} (R2={performances[best_name]['r2']:.3f})")
                     
+                    self._run_academic_analyses(X_scaled, y_train, X_test, y_test)
+                    
                     return {
                         'success': True,
                         'message': f"Ensemble trained ({len(models)} models)",
                         'performance': convert_to_serializable(performances),
                         'best_model': self.best_model,
-                        'model_count': len(models)
+                        'model_count': len(models),
+                        'academic_analyses': {
+                            'cv_scores': self.cv_scores,
+                            'anova_results': self.anova_results,
+                            'confidence_intervals': self.confidence_intervals,
+                            'prediction_intervals': self.prediction_intervals
+                        }
                     }
-            else:
-                logger.info(f"Training single model: {model_type}")
-                model = self._create_model(model_type)
-                if not model:
-                    raise ValueError(f"Model olusturulamadi: {model_type}")
-                
-                model.fit(X_train, y_train)
-                self.models[model_type] = model
-                
-                y_pred = model.predict(X_test)
-                r2 = r2_score(y_test, y_pred)
-                mae = mean_absolute_error(y_test, y_pred)
-                rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-                mape = mean_absolute_percentage_error(y_test, y_pred) * 100
-                
-                performances[model_type] = {
-                    'r2': float(r2),
-                    'mae': float(mae),
-                    'rmse': float(rmse),
-                    'mape': float(mape)
-                }
-                
-                self.is_trained = True
-                self.model_performance = performances
-                self.best_model = model_type
-                
-                logger.success(f"{model_type}: R2={r2:.3f}, MAE={mae:.2f}, RMSE={rmse:.2f}")
-                
-                return {
-                    'success': True,
-                    'message': f"{model_type} trained",
-                    'performance': convert_to_serializable(performances),
-                    'best_model': model_type
-                }
             
             return {'success': False, 'message': 'Training failed'}
             
         except Exception as e:
             logger.error(f"Train error: {str(e)}")
-            logger.error(traceback.format_exc())
             raise
+    
+    def _run_academic_analyses(self, X_scaled, y_train, X_test, y_test):
+        try:
+            if self.models:
+                model = list(self.models.values())[0]
+                cv = KFold(n_splits=5, shuffle=True, random_state=42)
+                cv_scores = cross_val_score(model, X_scaled, y_train, cv=cv, scoring='r2')
+                self.cv_scores = {
+                    'mean': float(np.mean(cv_scores)),
+                    'std': float(np.std(cv_scores)),
+                    'min': float(np.min(cv_scores)),
+                    'max': float(np.max(cv_scores)),
+                    'scores': [float(s) for s in cv_scores]
+                }
+                logger.info(f"CV R2: {np.mean(cv_scores):.3f} ± {np.std(cv_scores):.3f}")
+        except Exception as e:
+            logger.warning(f"CV analysis failed: {e}")
+        
+        if SHAP_AVAILABLE:
+            try:
+                model = list(self.models.values())[0]
+                self.shap_explainer = shap.TreeExplainer(model)
+                self.shap_values = self.shap_explainer.shap_values(X_scaled[:100])
+                logger.info("SHAP analysis completed")
+            except Exception as e:
+                logger.warning(f"SHAP analysis failed: {e}")
+        
+        if STATSMODELS_AVAILABLE:
+            try:
+                from statsmodels.stats.anova import anova_lm
+                from statsmodels.formula.api import ols
+                
+                df_temp = pd.DataFrame(X_scaled, columns=self.feature_columns)
+                df_temp['yield'] = y_train
+                
+                top_features = self.feature_columns[:5]
+                formula = 'yield ~ ' + ' + '.join(top_features)
+                
+                model_ols = ols(formula, data=df_temp).fit()
+                anova_table = anova_lm(model_ols, typ=2)
+                
+                self.anova_results = {
+                    'features': top_features,
+                    'f_values': [float(anova_table.loc[f, 'F']) for f in top_features if f in anova_table.index],
+                    'p_values': [float(anova_table.loc[f, 'PR(>F)']) for f in top_features if f in anova_table.index]
+                }
+                logger.info("ANOVA analysis completed")
+            except Exception as e:
+                logger.warning(f"ANOVA analysis failed: {e}")
+        
+        try:
+            if self.models:
+                model = list(self.models.values())[0]
+                y_pred = model.predict(X_test)
+                n = len(y_test)
+                mse = mean_squared_error(y_test, y_pred)
+                se = np.sqrt(mse / n)
+                
+                alpha = 0.05
+                t_val = stats.t.ppf(1 - alpha/2, n - 2)
+                
+                self.confidence_intervals = {
+                    'alpha': alpha,
+                    't_value': float(t_val),
+                    'standard_error': float(se),
+                    'lower': float(np.mean(y_pred) - t_val * se),
+                    'upper': float(np.mean(y_pred) + t_val * se),
+                    'mean_prediction': float(np.mean(y_pred))
+                }
+                logger.info("Confidence intervals computed")
+        except Exception as e:
+            logger.warning(f"Confidence intervals failed: {e}")
+        
+        try:
+            if self.models:
+                model = list(self.models.values())[0]
+                y_pred = model.predict(X_test)
+                residuals = y_test - y_pred
+                residual_std = np.std(residuals)
+                
+                alpha = 0.10
+                z_val = stats.norm.ppf(1 - alpha/2)
+                
+                self.prediction_intervals = {
+                    'alpha': alpha,
+                    'z_value': float(z_val),
+                    'residual_std': float(residual_std),
+                    'lower': float(np.mean(y_pred) - z_val * residual_std),
+                    'upper': float(np.mean(y_pred) + z_val * residual_std)
+                }
+                logger.info("Prediction intervals computed")
+        except Exception as e:
+            logger.warning(f"Prediction intervals failed: {e}")
     
     def _create_model(self, name: str):
         try:
@@ -2905,21 +3003,18 @@ class SuzukiPredictor:
                     from xgboost import XGBRegressor
                     return XGBRegressor(**params)
                 except ImportError:
-                    logger.warning("XGBoost not installed")
                     return None
             elif name == 'LightGBM':
                 try:
                     from lightgbm import LGBMRegressor
                     return LGBMRegressor(**params)
                 except ImportError:
-                    logger.warning("LightGBM not installed")
                     return None
             elif name == 'CatBoost':
                 try:
                     from catboost import CatBoostRegressor
                     return CatBoostRegressor(**params)
                 except ImportError:
-                    logger.warning("CatBoost not installed")
                     return None
             elif name == 'Extra_Trees':
                 from sklearn.ensemble import ExtraTreesRegressor
@@ -2942,6 +3037,11 @@ class SuzukiPredictor:
             elif name == 'Neural_Network':
                 from sklearn.neural_network import MLPRegressor
                 return MLPRegressor(**params)
+            elif name == 'Gaussian_Process':
+                if GP_AVAILABLE:
+                    kernel = ConstantKernel(1.0) * RBF(1.0) + WhiteKernel(1e-10)
+                    return GaussianProcessRegressor(kernel=kernel, **params)
+                return None
             else:
                 return None
         except Exception as e:
@@ -2981,10 +3081,9 @@ class SuzukiPredictor:
                             predictions.append(pred)
                             weights.append(weight)
                     except Exception as e:
-                        logger.debug(f"Ensemble prediction error for {name}: {e}")
+                        pass
         
         if not predictions:
-            logger.warning("No valid predictions in ensemble")
             return np.zeros(len(X))
         
         weights = np.array(weights) / np.sum(weights)
@@ -3002,7 +3101,8 @@ class SuzukiPredictor:
             logger.debug(f"Chemical yield: {chemical_yield:.3f}%")
             
             ml_yield = None
-            if self.is_trained and self.models:
+            ml_std = None
+            if self.is_enriched and self.is_trained and self.models:
                 try:
                     feature_vector = self._create_feature_vector(conditions)
                     if feature_vector is not None:
@@ -3013,16 +3113,26 @@ class SuzukiPredictor:
                             model = list(self.models.values())[0]
                             ml_pred = model.predict([feature_vector])
                             ml_yield = float(ml_pred[0]) if len(ml_pred) > 0 else None
+                            
+                            if 'Gaussian_Process' in self.models and GP_AVAILABLE:
+                                try:
+                                    gp = self.models['Gaussian_Process']
+                                    pred, std = gp.predict([feature_vector], return_std=True)
+                                    ml_std = float(std[0])
+                                except:
+                                    pass
+                        
                         logger.debug(f"ML yield: {ml_yield:.3f}%")
                 except Exception as e:
                     logger.warning(f"ML prediction failed: {str(e)}")
             
-            if ml_yield is not None and not np.isnan(ml_yield):
+            if ml_yield is not None and not np.isnan(ml_yield) and self.is_enriched:
                 combined_yield = 0.6 * ml_yield + 0.4 * chemical_yield
-                logger.debug(f"Combined yield (60% ML + 40% Chemical): {combined_yield:.3f}%")
+                model_name = 'Ensemble'
             else:
                 combined_yield = chemical_yield
-                logger.debug(f"Using only chemical yield: {combined_yield:.3f}%")
+                model_name = 'Chemical Intuition'
+                logger.info("Using only Chemical Intuition (ML not available or data not enriched)")
             
             final_yield = np.clip(combined_yield, 0, 100)
             
@@ -3030,32 +3140,39 @@ class SuzukiPredictor:
             
             confidence = self._calculate_confidence(ml_yield, chemical_yield, final_yield)
             
-            prediction_record = {
-                'timestamp': datetime.now().isoformat(),
-                'conditions': conditions,
-                'prediction': float(final_yield),
-                'ml_yield': float(ml_yield) if ml_yield is not None else None,
-                'chemical_yield': float(chemical_yield),
-                'yield_class': yield_class,
-                'confidence': confidence
-            }
-            PREDICTION_HISTORY.append(prediction_record)
-            if len(PREDICTION_HISTORY) > 100:
-                PREDICTION_HISTORY.pop(0)
-            
             logger.success(f"Final prediction: {final_yield:.1f}% ({yield_class})")
+            
+            academic_details = {}
+            try:
+                subs1_smiles = conditions.get('subs1_smiles', '')
+                subs2_smiles = conditions.get('subs2_smiles', '')
+                if subs1_smiles:
+                    academic_details['subs1_dft'] = self.chemical.calculate_dft_descriptors(subs1_smiles)
+                    academic_details['subs1_qsar'] = self.chemical.calculate_qsar_descriptors(subs1_smiles)
+                    academic_details['subs1_docking'] = self.chemical.calculate_docking_score(subs1_smiles, 'pd')
+                if subs2_smiles:
+                    academic_details['subs2_dft'] = self.chemical.calculate_dft_descriptors(subs2_smiles)
+                    academic_details['subs2_qsar'] = self.chemical.calculate_qsar_descriptors(subs2_smiles)
+                    academic_details['subs2_docking'] = self.chemical.calculate_docking_score(subs2_smiles, 'pd')
+            except Exception as e:
+                logger.warning(f"Academic calculations failed: {e}")
             
             return {
                 'success': True,
                 'prediction': float(final_yield),
                 'ml_prediction': float(ml_yield) if ml_yield is not None else None,
+                'ml_std': ml_std,
                 'chemical_prediction': float(chemical_yield),
-                'model': 'Ensemble' if self.is_trained else 'Chemical Intuition',
+                'model': model_name,
                 'yield_class': yield_class,
                 'yield_class_color': color,
                 'confidence': float(confidence),
                 'best_model': self.best_model,
-                'model_count': len(self.models) if self.models else 0
+                'model_count': len(self.models) if self.models else 0,
+                'is_enriched': self.is_enriched,
+                'academic_details': academic_details,
+                'confidence_interval': self.confidence_intervals,
+                'prediction_interval': self.prediction_intervals
             }
             
         except Exception as e:
@@ -3064,7 +3181,6 @@ class SuzukiPredictor:
     
     def _create_feature_vector(self, conditions: Dict) -> np.ndarray:
         if not self.feature_columns:
-            logger.warning("No feature columns available")
             return None
         
         f = {}
@@ -3077,47 +3193,20 @@ class SuzukiPredictor:
         f['temp_time_ratio'] = f['temp'] / (f['time'] + 1)
         f['temp_time_sum'] = f['temp'] + f['time']
         f['temp_time_diff'] = f['temp'] - f['time']
-        f['temp_time_power'] = f['temp'] ** 2 / (f['time'] + 1)
+        f['temp_time_interaction'] = f['temp'] * f['time'] / 100
         f['temp_log_time'] = f['temp'] * np.log1p(f['time'])
         f['time_log_temp'] = f['time'] * np.log1p(f['temp'])
-        f['temp_time_sqrt'] = np.sqrt(f['temp'] * f['time'] + 1)
         
         f['quantity_log1p'] = np.log1p(f['quantity'])
         f['quantity_sqrt'] = np.sqrt(f['quantity'])
         f['quantity_squared'] = f['quantity'] ** 2
         f['quantity_inv'] = 1 / (f['quantity'] + 0.0001)
-        f['quantity_log'] = np.log(f['quantity'] + 0.0001)
         f['quantity_exp'] = np.exp(f['quantity'])
         f['quantity_power3'] = f['quantity'] ** 3
-        f['quantity_sigmoid'] = 1 / (1 + np.exp(-f['quantity'] * 1000))
         
         f['catalyst_loading'] = f['quantity'] / (f['temp'] + 1)
-        f['catalyst_loading_sqrt'] = np.sqrt(f['catalyst_loading'] + 0.0001)
-        f['catalyst_loading_log'] = np.log1p(f['catalyst_loading'])
-        f['catalyst_efficiency'] = 50 / (f['quantity'] + 0.001)
-        f['catalyst_efficiency_log'] = np.log1p(f['catalyst_efficiency'])
-        
-        f['temp_squared'] = f['temp'] ** 2
-        f['temp_cubed'] = f['temp'] ** 3
-        f['temp_log'] = np.log1p(f['temp'])
-        f['temp_sqrt'] = np.sqrt(f['temp'] + 1)
-        f['temp_inv'] = 1 / (f['temp'] + 1)
-        f['temp_sigmoid'] = 1 / (1 + np.exp(-f['temp'] / 20))
-        
-        f['time_squared'] = f['time'] ** 2
-        f['time_cubed'] = f['time'] ** 3
-        f['time_log'] = np.log1p(f['time'])
-        f['time_sqrt'] = np.sqrt(f['time'] + 1)
-        f['time_inv'] = 1 / (f['time'] + 1)
-        f['time_sigmoid'] = 1 / (1 + np.exp(-f['time'] / 10))
-        
-        f['quantity_power4'] = f['quantity'] ** 4
-        f['quantity_power5'] = f['quantity'] ** 5
-        
-        f['time_temp_ratio'] = f['time'] / (f['temp'] + 1)
-        f['temp_time_ratio_squared'] = (f['temp'] / (f['time'] + 1)) ** 2
-        f['quantity_temp_ratio'] = f['quantity'] / (f['temp'] + 0.001)
-        f['quantity_time_ratio'] = f['quantity'] / (f['time'] + 0.001)
+        f['temp_quantity_product'] = f['temp'] * f['quantity']
+        f['temp_quantity_ratio'] = f['temp'] / (f['quantity'] + 0.0001)
         
         subs1 = conditions.get('subs1_smiles', '')
         subs2 = conditions.get('subs2_smiles', '')
@@ -3139,21 +3228,22 @@ class SuzukiPredictor:
             f['subs1_hetero_count'] = mf.get('hetero_count', 0)
             f['subs1_fraction_csp3'] = mf.get('fraction_csp3', 0)
             f['subs1_rotatable_bonds'] = mf.get('rotatable_bonds', 0)
-            f['subs1_heavy_atoms'] = mf.get('heavy_atoms', 0)
-            f['subs1_refractivity'] = mf.get('refractivity', 0)
-            f['subs1_metal_count'] = mf.get('metal_count', 0)
-            f['subs1_b_count'] = mf.get('b_count', 0)
-            f['subs1_labute_as'] = mf.get('labute_as', 0)
-            f['subs1_crippen_logp'] = mf.get('crippen_logp', 0)
-            f['subs1_steric_volume'] = mf.get('steric_volume', 0)
-            f['subs1_branch_nodes'] = mf.get('branch_nodes', 0)
-            f['subs1_aromatic_bonds'] = mf.get('aromatic_bonds', 0)
-            f['subs1_single_bonds'] = mf.get('single_bonds', 0)
-            f['subs1_double_bonds'] = mf.get('double_bonds', 0)
-            f['subs1_triple_bonds'] = mf.get('triple_bonds', 0)
-            f['subs1_chiral_centers_defined'] = mf.get('chiral_centers_defined', 0)
-            f['subs1_spiro_atoms'] = mf.get('spiro_atoms', 0)
-            f['subs1_bridgehead_atoms'] = mf.get('bridgehead_atoms', 0)
+            f['subs1_sigma_m'] = mf.get('sigma_m', 0)
+            f['subs1_sigma_p'] = mf.get('sigma_p', 0)
+            f['subs1_sigma_plus'] = mf.get('sigma_plus', 0)
+            f['subs1_sigma_minus'] = mf.get('sigma_minus', 0)
+            f['subs1_taft_es'] = mf.get('taft_es', 0)
+            
+            dft = self.chemical.calculate_dft_descriptors(subs1)
+            f['subs1_dft_homo'] = dft.get('homo_energy', -6.5)
+            f['subs1_dft_lumo'] = dft.get('lumo_energy', -1.5)
+            f['subs1_dft_gap'] = dft.get('gap_energy', 5.0)
+            f['subs1_dft_chemical_potential'] = dft.get('chemical_potential', -4.0)
+            f['subs1_dft_hardness'] = dft.get('absolute_hardness', 2.5)
+            
+            qsar = self.chemical.calculate_qsar_descriptors(subs1)
+            f['subs1_qsar_mr'] = qsar.get('MR', 0)
+            f['subs1_qsar_drug_likeness'] = self.chemical.calculate_drug_likeness(subs1).get('drug_likeness_score', 0)
         else:
             f['subs1_length'] = 0
             f['subs1_logp'] = 0
@@ -3170,21 +3260,18 @@ class SuzukiPredictor:
             f['subs1_hetero_count'] = 0
             f['subs1_fraction_csp3'] = 0
             f['subs1_rotatable_bonds'] = 0
-            f['subs1_heavy_atoms'] = 0
-            f['subs1_refractivity'] = 0
-            f['subs1_metal_count'] = 0
-            f['subs1_b_count'] = 0
-            f['subs1_labute_as'] = 0
-            f['subs1_crippen_logp'] = 0
-            f['subs1_steric_volume'] = 0
-            f['subs1_branch_nodes'] = 0
-            f['subs1_aromatic_bonds'] = 0
-            f['subs1_single_bonds'] = 0
-            f['subs1_double_bonds'] = 0
-            f['subs1_triple_bonds'] = 0
-            f['subs1_chiral_centers_defined'] = 0
-            f['subs1_spiro_atoms'] = 0
-            f['subs1_bridgehead_atoms'] = 0
+            f['subs1_sigma_m'] = 0
+            f['subs1_sigma_p'] = 0
+            f['subs1_sigma_plus'] = 0
+            f['subs1_sigma_minus'] = 0
+            f['subs1_taft_es'] = 0
+            f['subs1_dft_homo'] = -6.5
+            f['subs1_dft_lumo'] = -1.5
+            f['subs1_dft_gap'] = 5.0
+            f['subs1_dft_chemical_potential'] = -4.0
+            f['subs1_dft_hardness'] = 2.5
+            f['subs1_qsar_mr'] = 0
+            f['subs1_qsar_drug_likeness'] = 0
         
         if subs2:
             mf = self.fe.extract_smiles_features(subs2)
@@ -3203,21 +3290,22 @@ class SuzukiPredictor:
             f['subs2_hetero_count'] = mf.get('hetero_count', 0)
             f['subs2_fraction_csp3'] = mf.get('fraction_csp3', 0)
             f['subs2_rotatable_bonds'] = mf.get('rotatable_bonds', 0)
-            f['subs2_heavy_atoms'] = mf.get('heavy_atoms', 0)
-            f['subs2_refractivity'] = mf.get('refractivity', 0)
-            f['subs2_metal_count'] = mf.get('metal_count', 0)
-            f['subs2_b_count'] = mf.get('b_count', 0)
-            f['subs2_labute_as'] = mf.get('labute_as', 0)
-            f['subs2_crippen_logp'] = mf.get('crippen_logp', 0)
-            f['subs2_steric_volume'] = mf.get('steric_volume', 0)
-            f['subs2_branch_nodes'] = mf.get('branch_nodes', 0)
-            f['subs2_aromatic_bonds'] = mf.get('aromatic_bonds', 0)
-            f['subs2_single_bonds'] = mf.get('single_bonds', 0)
-            f['subs2_double_bonds'] = mf.get('double_bonds', 0)
-            f['subs2_triple_bonds'] = mf.get('triple_bonds', 0)
-            f['subs2_chiral_centers_defined'] = mf.get('chiral_centers_defined', 0)
-            f['subs2_spiro_atoms'] = mf.get('spiro_atoms', 0)
-            f['subs2_bridgehead_atoms'] = mf.get('bridgehead_atoms', 0)
+            f['subs2_sigma_m'] = mf.get('sigma_m', 0)
+            f['subs2_sigma_p'] = mf.get('sigma_p', 0)
+            f['subs2_sigma_plus'] = mf.get('sigma_plus', 0)
+            f['subs2_sigma_minus'] = mf.get('sigma_minus', 0)
+            f['subs2_taft_es'] = mf.get('taft_es', 0)
+            
+            dft = self.chemical.calculate_dft_descriptors(subs2)
+            f['subs2_dft_homo'] = dft.get('homo_energy', -6.5)
+            f['subs2_dft_lumo'] = dft.get('lumo_energy', -1.5)
+            f['subs2_dft_gap'] = dft.get('gap_energy', 5.0)
+            f['subs2_dft_chemical_potential'] = dft.get('chemical_potential', -4.0)
+            f['subs2_dft_hardness'] = dft.get('absolute_hardness', 2.5)
+            
+            qsar = self.chemical.calculate_qsar_descriptors(subs2)
+            f['subs2_qsar_mr'] = qsar.get('MR', 0)
+            f['subs2_qsar_drug_likeness'] = self.chemical.calculate_drug_likeness(subs2).get('drug_likeness_score', 0)
         else:
             f['subs2_length'] = 0
             f['subs2_logp'] = 0
@@ -3234,51 +3322,64 @@ class SuzukiPredictor:
             f['subs2_hetero_count'] = 0
             f['subs2_fraction_csp3'] = 0
             f['subs2_rotatable_bonds'] = 0
-            f['subs2_heavy_atoms'] = 0
-            f['subs2_refractivity'] = 0
-            f['subs2_metal_count'] = 0
-            f['subs2_b_count'] = 0
-            f['subs2_labute_as'] = 0
-            f['subs2_crippen_logp'] = 0
-            f['subs2_steric_volume'] = 0
-            f['subs2_branch_nodes'] = 0
-            f['subs2_aromatic_bonds'] = 0
-            f['subs2_single_bonds'] = 0
-            f['subs2_double_bonds'] = 0
-            f['subs2_triple_bonds'] = 0
-            f['subs2_chiral_centers_defined'] = 0
-            f['subs2_spiro_atoms'] = 0
-            f['subs2_bridgehead_atoms'] = 0
+            f['subs2_sigma_m'] = 0
+            f['subs2_sigma_p'] = 0
+            f['subs2_sigma_plus'] = 0
+            f['subs2_sigma_minus'] = 0
+            f['subs2_taft_es'] = 0
+            f['subs2_dft_homo'] = -6.5
+            f['subs2_dft_lumo'] = -1.5
+            f['subs2_dft_gap'] = 5.0
+            f['subs2_dft_chemical_potential'] = -4.0
+            f['subs2_dft_hardness'] = 2.5
+            f['subs2_qsar_mr'] = 0
+            f['subs2_qsar_drug_likeness'] = 0
         
         f['substrate_steric_sum'] = f['subs1_length'] + f['subs2_length']
         f['substrate_steric_diff'] = abs(f['subs1_length'] - f['subs2_length'])
         f['substrate_steric_ratio'] = f['subs1_length'] / (f['subs2_length'] + 1)
+        f['substrate_steric_product'] = f['subs1_length'] * f['subs2_length']
+        f['substrate_steric_euclidean'] = np.sqrt(f['subs1_length'] ** 2 + f['subs2_length'] ** 2)
+        
         f['substrate_logp_avg'] = (f['subs1_logp'] + f['subs2_logp']) / 2
         f['substrate_logp_diff'] = abs(f['subs1_logp'] - f['subs2_logp'])
-        f['total_rings'] = f['subs1_rings'] + f['subs2_rings']
-        f['aromatic_sum'] = f['subs1_aromatic_rings'] + f['subs2_aromatic_rings']
-        f['hba_sum'] = f['subs1_hba'] + f['subs2_hba']
-        f['hbd_sum'] = f['subs1_hbd'] + f['subs2_hbd']
-        f['qed_avg'] = (f['subs1_qed'] + f['subs2_qed']) / 2
-        f['complexity_sum'] = f['subs1_complexity'] + f['subs2_complexity']
-        f['temp_logp_interaction'] = f['temp'] * f['subs1_logp']
-        f['time_logp_interaction'] = f['time'] * f['subs2_logp']
-        f['temp_mw_interaction'] = f['temp'] * f['subs1_mw'] / 100
-        f['time_mw_interaction'] = f['time'] * f['subs2_mw'] / 100
-        f['quantity_mw_interaction'] = f['quantity'] * f['subs1_mw']
-        f['tpsa_sum'] = f['subs1_tpsa'] + f['subs2_tpsa']
-        f['halogen_total'] = f['subs1_halogen_count'] + f['subs2_halogen_count']
-        f['hetero_total'] = f['subs1_hetero_count'] + f['subs2_hetero_count']
-        f['metal_total'] = f['subs1_metal_count'] + f['subs2_metal_count']
-        f['boron_total'] = f['subs1_b_count'] + f['subs2_b_count']
-        f['rot_bonds_total'] = f['subs1_rotatable_bonds'] + f['subs2_rotatable_bonds']
-        f['heavy_atoms_sum'] = f['subs1_heavy_atoms'] + f['subs2_heavy_atoms']
-        f['refractivity_sum'] = f['subs1_refractivity'] + f['subs2_refractivity']
+        f['substrate_logp_sum'] = f['subs1_logp'] + f['subs2_logp']
+        f['substrate_logp_product'] = f['subs1_logp'] * f['subs2_logp']
         
-        f['hsab_total'] = 0
-        f['mechanistic_score'] = 0
-        f['hammett_total'] = 0
-        f['kappa_total'] = f['subs1_kappa1'] + f.get('subs2_kappa1', 0)
+        f['substrate_mw_avg'] = (f['subs1_mw'] + f['subs2_mw']) / 2
+        f['substrate_mw_diff'] = abs(f['subs1_mw'] - f['subs2_mw'])
+        f['substrate_mw_ratio'] = f['subs1_mw'] / (f['subs2_mw'] + 1)
+        f['substrate_mw_sum'] = f['subs1_mw'] + f['subs2_mw']
+        
+        f['total_rings'] = f['subs1_rings'] + f['subs2_rings']
+        f['ring_diff'] = abs(f['subs1_rings'] - f['subs2_rings'])
+        f['ring_product'] = f['subs1_rings'] * f['subs2_rings']
+        f['aromatic_sum'] = f['subs1_aromatic_rings'] + f['subs2_aromatic_rings']
+        f['aromatic_ratio'] = f['aromatic_sum'] / (f['total_rings'] + 1)
+        
+        f['sigma_p_sum'] = f['subs1_sigma_p'] + f['subs2_sigma_p']
+        f['sigma_p_diff'] = abs(f['subs1_sigma_p'] - f['subs2_sigma_p'])
+        f['sigma_p_avg'] = (f['subs1_sigma_p'] + f['subs2_sigma_p']) / 2
+        f['sigma_p_product'] = f['subs1_sigma_p'] * f['subs2_sigma_p']
+        
+        f['taft_es_sum'] = f['subs1_taft_es'] + f['subs2_taft_es']
+        f['taft_es_diff'] = abs(f['subs1_taft_es'] - f['subs2_taft_es'])
+        f['taft_es_avg'] = (f['subs1_taft_es'] + f['subs2_taft_es']) / 2
+        
+        f['halogen_total'] = f['subs1_halogen_count'] + f['subs2_halogen_count']
+        f['halogen_diff'] = abs(f['subs1_halogen_count'] - f['subs2_halogen_count'])
+        f['halogen_product'] = f['subs1_halogen_count'] * f['subs2_halogen_count']
+        
+        f['electronic_softness'] = f['subs1_sigma_p'] * 0.3
+        f['mechanistic_predictor'] = f['subs1_sigma_p'] * 0.3 + 0.7
+        f['hammett_effect'] = np.exp(2.8 * f['subs1_sigma_p'])
+        f['taft_effect'] = np.exp(1.5 * f['subs1_taft_es'] / 2)
+        
+        f['dft_homo_sum'] = f['subs1_dft_homo'] + f['subs2_dft_homo']
+        f['dft_homo_diff'] = abs(f['subs1_dft_homo'] - f['subs2_dft_homo'])
+        f['dft_homo_avg'] = (f['subs1_dft_homo'] + f['subs2_dft_homo']) / 2
+        f['dft_gap_sum'] = f['subs1_dft_gap'] + f['subs2_dft_gap']
+        f['dft_chemical_potential_avg'] = (f['subs1_dft_chemical_potential'] + f['subs2_dft_chemical_potential']) / 2
         
         vector = []
         for col in self.feature_columns:
@@ -3288,7 +3389,7 @@ class SuzukiPredictor:
             try:
                 vector = self.scaler.transform([vector])[0]
             except Exception as e:
-                logger.warning(f"Scaling error: {e}")
+                pass
         
         return np.array(vector).reshape(1, -1)
     
@@ -3315,6 +3416,10 @@ class SuzukiPredictor:
             elif data_size < 30:
                 confidence = confidence * 0.9
         
+        if self.cv_scores:
+            cv_std = self.cv_scores.get('std', 0.1)
+            confidence = confidence * (1 - min(cv_std, 0.2))
+        
         return np.clip(confidence, 0.3, 0.98)
     
     def optimize_catalyst(self, conditions: Dict) -> List[Tuple[str, float]]:
@@ -3325,14 +3430,12 @@ class SuzukiPredictor:
             catalysts = []
             if self.df is not None and 'catalizor' in self.df.columns:
                 catalysts = self.df['catalizor'].unique().tolist()
-                logger.debug(f"Found {len(catalysts)} catalysts in data")
             else:
                 catalysts = [
                     'Pd(PPh3)4', 'PdCl2(dppf)', 'Pd(OAc)2', 'Pd2(dba)3',
                     'PdCl2(PPh3)2', 'Pd(PPh3)2Cl2', 'PdCl2', 'Pd(acac)2',
                     'Pd(PhCN)2Cl2', 'Pd(PPh3)4'
                 ]
-                logger.debug(f"Using default catalysts: {len(catalysts)}")
             
             for idx, catalyst in enumerate(catalysts[:20]):
                 test_conditions = conditions.copy()
@@ -3350,13 +3453,11 @@ class SuzukiPredictor:
                         best_qty = qty
                 
                 results.append((catalyst, best_yield, best_qty))
-                logger.debug(f"Catalyst {idx+1}/{len(catalysts[:20])}: {catalyst} -> {best_yield:.1f}%")
             
             results.sort(key=lambda x: x[1], reverse=True)
             
             formatted = [(cat, float(yield_val)) for cat, yield_val, _ in results[:10]]
             
-            logger.success(f"Optimization complete: Top catalyst {formatted[0][0]} with {formatted[0][1]:.1f}%")
             return formatted
             
         except Exception as e:
@@ -3433,6 +3534,14 @@ class SuzukiPredictor:
             residual_stats['outlier_count'] = int(outliers)
             residual_stats['outlier_ratio'] = float(outliers / len(residuals) if len(residuals) > 0 else 0)
             
+            try:
+                shapiro_stat, shapiro_p = stats.shapiro(residuals[:5000])
+                residual_stats['shapiro_wilk_statistic'] = float(shapiro_stat)
+                residual_stats['shapiro_wilk_p_value'] = float(shapiro_p)
+                residual_stats['is_normal'] = shapiro_p > 0.05
+            except:
+                pass
+            
             return residual_stats
             
         except Exception as e:
@@ -3450,7 +3559,12 @@ class SuzukiPredictor:
                 'ensemble_weights': self.ensemble_weights,
                 'model_performance': self.model_performance,
                 'best_model': self.best_model,
-                'config_hash': self.config.get_xml_hash()
+                'config_hash': self.config.get_xml_hash(),
+                'is_enriched': self.is_enriched,
+                'cv_scores': self.cv_scores,
+                'anova_results': self.anova_results,
+                'confidence_intervals': self.confidence_intervals,
+                'prediction_intervals': self.prediction_intervals
             }
             
             joblib.dump(model_data, filepath)
@@ -3473,7 +3587,13 @@ class SuzukiPredictor:
             self.ensemble_weights = model_data['ensemble_weights']
             self.model_performance = model_data['model_performance']
             self.best_model = model_data['best_model']
+            self.is_enriched = model_data.get('is_enriched', False)
             self.is_trained = True
+            
+            self.cv_scores = model_data.get('cv_scores')
+            self.anova_results = model_data.get('anova_results')
+            self.confidence_intervals = model_data.get('confidence_intervals')
+            self.prediction_intervals = model_data.get('prediction_intervals')
             
             logger.success(f"Model loaded from {filepath}")
             return True
@@ -3482,10 +3602,322 @@ class SuzukiPredictor:
             logger.error(f"Load model error: {e}")
             return False
 
+def create_result_images():
+    """
+    Creates 4 academic-level visualizations:
+    1. DFT HOMO-LUMO Energy Diagram
+    2. HSAB Hardness-Softness Compatibility Heatmap
+    3. Mechanistic Barrier Analysis (OA, TM, RE)
+    4. QSAR Drug-Likeness Radar Plot
+    """
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import seaborn as sns
+        from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+        
+        if PREDICTOR is None or not PREDICTOR.is_trained or PREDICTOR.X is None:
+            logger.warning("No trained model available for visualization")
+            return []
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        images_dir = os.path.join('static/images', timestamp)
+        os.makedirs(images_dir, exist_ok=True)
+        logger.info(f"Created image directory: {images_dir}")
+        
+        X_scaled = PREDICTOR.scaler.transform(PREDICTOR.X)
+        y_true = PREDICTOR.y
+        ensemble_pred = PREDICTOR._ensemble_predict(X_scaled)
+        
+        if ensemble_pred is None:
+            logger.warning("No predictions available for visualization")
+            return []
+        
+        fig1, ax1 = plt.subplots(figsize=(10, 7))
+        
+        try:
+            subs1_smiles = PREDICTOR.df['subs1'].iloc[0] if 'subs1' in PREDICTOR.df.columns else ''
+            subs2_smiles = PREDICTOR.df['subs2'].iloc[0] if 'subs2' in PREDICTOR.df.columns else ''
+            product_smiles = PREDICTOR.df['product'].iloc[0] if 'product' in PREDICTOR.df.columns else ''
+            
+            dft_subs1 = PREDICTOR.chemical.calculate_dft_descriptors(subs1_smiles) if subs1_smiles else {'homo_energy': -6.5, 'lumo_energy': -1.5}
+            dft_subs2 = PREDICTOR.chemical.calculate_dft_descriptors(subs2_smiles) if subs2_smiles else {'homo_energy': -6.5, 'lumo_energy': -1.5}
+            dft_product = PREDICTOR.chemical.calculate_dft_descriptors(product_smiles) if product_smiles else {'homo_energy': -6.5, 'lumo_energy': -1.5}
+            
+            molecules = ['Substrate 1', 'Substrate 2', 'Product']
+            homo_energies = [dft_subs1.get('homo_energy', -6.5), dft_subs2.get('homo_energy', -6.5), dft_product.get('homo_energy', -6.5)]
+            lumo_energies = [dft_subs1.get('lumo_energy', -1.5), dft_subs2.get('lumo_energy', -1.5), dft_product.get('lumo_energy', -1.5)]
+            gaps = [lumo - homo for homo, lumo in zip(homo_energies, lumo_energies)]
+            
+            x = np.arange(len(molecules))
+            width = 0.35
+            
+            bars1 = ax1.bar(x - width/2, homo_energies, width, label='HOMO', color='#EF4444', alpha=0.7, edgecolor='darkred')
+            bars2 = ax1.bar(x + width/2, lumo_energies, width, label='LUMO', color='#3B82F6', alpha=0.7, edgecolor='darkblue')
+            
+            for i, (homo, lumo) in enumerate(zip(homo_energies, lumo_energies)):
+                ax1.vlines(i, homo, lumo, color='black', linewidth=2, linestyle='--')
+                ax1.text(i, (homo + lumo)/2, f'Gap: {gaps[i]:.2f} eV', ha='center', va='center', fontsize=9, 
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
+            
+            ax1.set_xticks(x)
+            ax1.set_xticklabels(molecules)
+            ax1.set_ylabel('Energy (eV)', fontsize=13)
+            ax1.set_title('DFT HOMO-LUMO Energy Diagram', fontsize=15, fontweight='bold')
+            ax1.legend(loc='best')
+            ax1.grid(True, alpha=0.3, axis='y')
+            ax1.axhline(y=0, color='black', linestyle='-', linewidth=0.8, alpha=0.5)
+            
+            ax1.set_ylim(min(homo_energies) - 1, max(lumo_energies) + 1)
+            
+            ax1.text(0.02, 0.98, f'Chemical Potential (μ): {dft_subs1.get("chemical_potential", 0):.2f} eV', 
+                    transform=ax1.transAxes, fontsize=10, verticalalignment='top')
+            ax1.text(0.02, 0.92, f'Global Hardness (η): {dft_subs1.get("absolute_hardness", 0):.2f} eV', 
+                    transform=ax1.transAxes, fontsize=10, verticalalignment='top')
+            
+        except Exception as e:
+            ax1.text(0.5, 0.5, f'DFT Analysis Error: {str(e)}', ha='center', va='center', fontsize=12)
+        
+        plt.tight_layout()
+        filepath1 = os.path.join(images_dir, 'resim1_dft_diagram.png')
+        fig1.savefig(filepath1, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig1)
+        logger.info(f"Saved DFT diagram: {filepath1}")
+        
+        fig2, ax2 = plt.subplots(figsize=(10, 8))
+        
+        try:
+            hsab_labels = ['Pd', 'Halide', 'Ligand', 'Base']
+            softness_values = [
+                PREDICTOR.chemical.pd_softness,
+                PREDICTOR.chemical.halide_softness,
+                PREDICTOR.chemical.ligand_softness,
+                PREDICTOR.chemical.base_softness
+            ]
+            hardness_values = [
+                PREDICTOR.chemical.absolute_hardness_pd,
+                PREDICTOR.chemical.absolute_hardness_halide,
+                PREDICTOR.chemical.absolute_hardness_ligand,
+                4.0
+            ]
+            
+            softness_matrix = np.array([[1 - abs(softness_values[i] - softness_values[j]) / 6 
+                                         for j in range(len(hsab_labels))] 
+                                        for i in range(len(hsab_labels))])
+            
+            hardness_matrix = np.array([[1 - abs(hardness_values[i] - hardness_values[j]) / 8 
+                                         for j in range(len(hsab_labels))] 
+                                        for i in range(len(hsab_labels))])
+            
+            combined_matrix = 0.6 * softness_matrix + 0.4 * hardness_matrix
+            
+            sns.heatmap(combined_matrix, annot=True, fmt='.2f', cmap='RdYlGn', 
+                       xticklabels=hsab_labels, yticklabels=hsab_labels, 
+                       cbar_kws={'label': 'HSAB Compatibility Score'}, ax=ax2)
+            
+            ax2.set_title('HSAB Pearson Compatibility Matrix\n(Soft-Soft / Hard-Hard Matching)', 
+                         fontsize=15, fontweight='bold')
+            ax2.set_xlabel('Component', fontsize=13)
+            ax2.set_ylabel('Component', fontsize=13)
+            
+            avg_compatibility = np.mean(combined_matrix)
+            ax2.text(0.02, 0.02, f'Overall Compatibility: {avg_compatibility:.3f}', 
+                    transform=ax2.transAxes, fontsize=12, 
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+            
+            classifications = ['Soft' if s > 3.0 else 'Hard' for s in softness_values]
+            classification_text = ' | '.join([f'{label}: {cls}' for label, cls in zip(hsab_labels, classifications)])
+            ax2.text(0.02, 0.08, classification_text, transform=ax2.transAxes, fontsize=10, 
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+            
+        except Exception as e:
+            ax2.text(0.5, 0.5, f'HSAB Analysis Error: {str(e)}', ha='center', va='center', fontsize=12)
+        
+        plt.tight_layout()
+        filepath2 = os.path.join(images_dir, 'resim2_hsab_heatmap.png')
+        fig2.savefig(filepath2, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig2)
+        logger.info(f"Saved HSAB heatmap: {filepath2}")
+        
+        fig3, ax3 = plt.subplots(figsize=(10, 7))
+        
+        try:
+            barriers = [
+                PREDICTOR.chemical.oa_barrier,
+                PREDICTOR.chemical.tm_barrier,
+                PREDICTOR.chemical.re_barrier
+            ]
+            rates = [
+                PREDICTOR.chemical.oa_rate,
+                PREDICTOR.chemical.tm_rate,
+                PREDICTOR.chemical.re_rate
+            ]
+            sensitivities = [
+                (PREDICTOR.chemical.oa_steric_sens + PREDICTOR.chemical.oa_electronic_sens) / 2,
+                (PREDICTOR.chemical.tm_base_sens + PREDICTOR.chemical.tm_boronic_sens) / 2,
+                (PREDICTOR.chemical.re_steric_sens + PREDICTOR.chemical.re_electronic_sens) / 2
+            ]
+            
+            steps = ['Oxidative Addition\n(OA)', 'Transmetalation\n(TM)', 'Reductive Elimination\n(RE)']
+            x = np.arange(len(steps))
+            width = 0.25
+            
+            bars1 = ax3.bar(x - width, barriers, width, label='Activation Barrier (kJ/mol)', color='#EF4444', alpha=0.8)
+            bars2 = ax3.bar(x, [r * 100 for r in rates], width, label='Rate Constant (x100)', color='#3B82F6', alpha=0.8)
+            bars3 = ax3.bar(x + width, [s * 100 for s in sensitivities], width, label='Sensitivity (x100)', color='#10B981', alpha=0.8)
+            
+            ax3.set_xticks(x)
+            ax3.set_xticklabels(steps, fontsize=11)
+            ax3.set_ylabel('Value', fontsize=13)
+            ax3.set_title('Mechanistic Analysis: OA, TM, RE Steps', fontsize=15, fontweight='bold')
+            ax3.legend(loc='upper right')
+            ax3.grid(True, alpha=0.3, axis='y')
+            
+            for i, (bar, rate, sens) in enumerate(zip(barriers, rates, sensitivities)):
+                ax3.text(i - width, bar + 1, f'{bar:.1f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
+                ax3.text(i, rate * 100 + 1, f'{rate:.3f}', ha='center', va='bottom', fontsize=9)
+                ax3.text(i + width, sens * 100 + 1, f'{sens:.2f}', ha='center', va='bottom', fontsize=9)
+            
+            ax3.text(0.02, 0.98, f'Reaction Coordinate: OA → TM → RE', 
+                    transform=ax3.transAxes, fontsize=11, verticalalignment='top',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+            
+            rds_index = np.argmax(barriers)
+            ax3.text(0.02, 0.92, f'Rate-Determining Step: {steps[rds_index].replace("\\n", " ")}', 
+                    transform=ax3.transAxes, fontsize=11, verticalalignment='top',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='#FEF3C7', alpha=0.8))
+            
+        except Exception as e:
+            ax3.text(0.5, 0.5, f'Mechanistic Analysis Error: {str(e)}', ha='center', va='center', fontsize=12)
+        
+        plt.tight_layout()
+        filepath3 = os.path.join(images_dir, 'resim3_mechanistic_analysis.png')
+        fig3.savefig(filepath3, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig3)
+        logger.info(f"Saved mechanistic analysis: {filepath3}")
+        
+        fig4, ax4 = plt.subplots(figsize=(10, 10), subplot_kw={'projection': 'polar'})
+        
+        try:
+            subs1_smiles = PREDICTOR.df['subs1'].iloc[0] if 'subs1' in PREDICTOR.df.columns else ''
+            subs2_smiles = PREDICTOR.df['subs2'].iloc[0] if 'subs2' in PREDICTOR.df.columns else ''
+            product_smiles = PREDICTOR.df['product'].iloc[0] if 'product' in PREDICTOR.df.columns else ''
+            
+            qsar_subs1 = PREDICTOR.chemical.calculate_qsar_descriptors(subs1_smiles) if subs1_smiles else {}
+            qsar_subs2 = PREDICTOR.chemical.calculate_qsar_descriptors(subs2_smiles) if subs2_smiles else {}
+            qsar_product = PREDICTOR.chemical.calculate_qsar_descriptors(product_smiles) if product_smiles else {}
+            
+            drug_likeness_subs1 = PREDICTOR.chemical.calculate_drug_likeness(subs1_smiles) if subs1_smiles else {'drug_likeness_score': 0, 'qed_score': 0}
+            drug_likeness_subs2 = PREDICTOR.chemical.calculate_drug_likeness(subs2_smiles) if subs2_smiles else {'drug_likeness_score': 0, 'qed_score': 0}
+            drug_likeness_product = PREDICTOR.chemical.calculate_drug_likeness(product_smiles) if product_smiles else {'drug_likeness_score': 0, 'qed_score': 0}
+            
+            categories = ['MW', 'LogP', 'HBA', 'HBD', 'RotBonds', 'TPSA']
+            N = len(categories)
+            angles = [n / float(N) * 2 * np.pi for n in range(N)]
+            angles += angles[:1]
+            
+            def normalize_value(value, min_val, max_val):
+                if max_val == min_val:
+                    return 0.5
+                return np.clip((value - min_val) / (max_val - min_val), 0, 1)
+            
+            values_subs1 = [
+                normalize_value(qsar_subs1.get('MW', 200), 50, 600),
+                normalize_value(qsar_subs1.get('LogP', 2), -2, 6),
+                normalize_value(qsar_subs1.get('HBA', 3), 0, 12),
+                normalize_value(qsar_subs1.get('HBD', 1), 0, 6),
+                normalize_value(qsar_subs1.get('RotBonds', 3), 0, 15),
+                normalize_value(qsar_subs1.get('TPSA', 40), 0, 160)
+            ]
+            values_subs1 += values_subs1[:1]
+            
+            values_subs2 = [
+                normalize_value(qsar_subs2.get('MW', 200), 50, 600),
+                normalize_value(qsar_subs2.get('LogP', 2), -2, 6),
+                normalize_value(qsar_subs2.get('HBA', 3), 0, 12),
+                normalize_value(qsar_subs2.get('HBD', 1), 0, 6),
+                normalize_value(qsar_subs2.get('RotBonds', 3), 0, 15),
+                normalize_value(qsar_subs2.get('TPSA', 40), 0, 160)
+            ]
+            values_subs2 += values_subs2[:1]
+            
+            values_product = [
+                normalize_value(qsar_product.get('MW', 200), 50, 600),
+                normalize_value(qsar_product.get('LogP', 2), -2, 6),
+                normalize_value(qsar_product.get('HBA', 3), 0, 12),
+                normalize_value(qsar_product.get('HBD', 1), 0, 6),
+                normalize_value(qsar_product.get('RotBonds', 3), 0, 15),
+                normalize_value(qsar_product.get('TPSA', 40), 0, 160)
+            ]
+            values_product += values_product[:1]
+            
+            ax4.plot(angles, values_subs1, 'o-', linewidth=2, label='Substrate 1', color='#EF4444', alpha=0.8)
+            ax4.fill(angles, values_subs1, alpha=0.1, color='#EF4444')
+            
+            ax4.plot(angles, values_subs2, 'o-', linewidth=2, label='Substrate 2', color='#3B82F6', alpha=0.8)
+            ax4.fill(angles, values_subs2, alpha=0.1, color='#3B82F6')
+            
+            ax4.plot(angles, values_product, 'o-', linewidth=2, label='Product', color='#10B981', alpha=0.8)
+            ax4.fill(angles, values_product, alpha=0.1, color='#10B981')
+            
+            ax4.set_xticks(angles[:-1])
+            ax4.set_xticklabels(categories, fontsize=12)
+            ax4.set_ylim(0, 1)
+            ax4.set_yticks([0.2, 0.4, 0.6, 0.8, 1.0])
+            ax4.set_yticklabels(['0.2', '0.4', '0.6', '0.8', '1.0'], fontsize=9)
+            ax4.set_title('QSAR Drug-Likeness Radar Plot\n(Lipinski Rules Compliance)', 
+                         fontsize=15, fontweight='bold', pad=20)
+            ax4.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0))
+            ax4.grid(True, alpha=0.3)
+            
+            qed_text = f"QED Scores: Sub1={drug_likeness_subs1.get('qed_score', 0):.3f} | Sub2={drug_likeness_subs2.get('qed_score', 0):.3f} | Product={drug_likeness_product.get('qed_score', 0):.3f}"
+            ax4.text(0.5, -0.15, qed_text, transform=ax4.transAxes, ha='center', fontsize=11,
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+            
+            dl_text = f"Drug-Likeness: Sub1={drug_likeness_subs1.get('drug_likeness_score', 0):.3f} | Sub2={drug_likeness_subs2.get('drug_likeness_score', 0):.3f} | Product={drug_likeness_product.get('drug_likeness_score', 0):.3f}"
+            ax4.text(0.5, -0.20, dl_text, transform=ax4.transAxes, ha='center', fontsize=11,
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+            
+        except Exception as e:
+            ax4.text(0.5, 0.5, f'QSAR Analysis Error: {str(e)}', ha='center', va='center', fontsize=12)
+        
+        plt.tight_layout()
+        filepath4 = os.path.join(images_dir, 'resim4_qsar_radar.png')
+        fig4.savefig(filepath4, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig4)
+        logger.info(f"Saved QSAR radar plot: {filepath4}")
+        
+        info_file = os.path.join(images_dir, 'academic_visualizations_info.txt')
+        with open(info_file, 'w') as f:
+            f.write(f"Academic Visualizations Generated\n")
+            f.write(f"Created: {datetime.now().isoformat()}\n")
+            f.write(f"Model: {PREDICTOR.best_model if PREDICTOR.best_model else 'Ensemble'}\n")
+            f.write(f"Dataset Size: {len(PREDICTOR.df) if PREDICTOR.df is not None else 0}\n")
+            f.write(f"Features: {len(PREDICTOR.feature_columns)}\n")
+            f.write(f"\nGenerated Images:\n")
+            f.write(f"1. resim1_dft_diagram.png - DFT HOMO-LUMO Energy Diagram\n")
+            f.write(f"2. resim2_hsab_heatmap.png - HSAB Pearson Compatibility Matrix\n")
+            f.write(f"3. resim3_mechanistic_analysis.png - Mechanistic Barrier Analysis (OA/TM/RE)\n")
+            f.write(f"4. resim4_qsar_radar.png - QSAR Drug-Likeness Radar Plot\n")
+            if PREDICTOR.cv_scores:
+                f.write(f"\nCross-Validation: R² = {PREDICTOR.cv_scores['mean']:.3f} ± {PREDICTOR.cv_scores['std']:.3f}\n")
+            if PREDICTOR.confidence_intervals:
+                f.write(f"Confidence Interval: [{PREDICTOR.confidence_intervals['lower']:.2f}, {PREDICTOR.confidence_intervals['upper']:.2f}]\n")
+        
+        plot_files = [filepath1, filepath2, filepath3, filepath4]
+        logger.success(f"Created {len(plot_files)} academic visualization images in {images_dir}")
+        return plot_files
+        
+    except Exception as e:
+        logger.error(f"Error creating academic images: {str(e)}")
+        logger.error(traceback.format_exc())
+        return []
+
 @predict_ml_bp.route('/')
 @error_handler
 def index():
-    logger.info("Serving main page")
     return render_template('predict_ml.html')
 
 @predict_ml_bp.route('/api/get_csv_files', methods=['GET'])
@@ -3500,10 +3932,17 @@ def get_csv_files():
         if f.endswith('.csv'):
             path = os.path.join(dataset_dir, f)
             size = os.path.getsize(path)
+            try:
+                df_sample = pd.read_csv(path, nrows=5)
+                is_enriched = is_enriched_dataset(df_sample)
+            except:
+                is_enriched = False
+            
             files.append({
                 'name': f,
                 'size': format_size(size),
-                'modified': datetime.fromtimestamp(os.path.getmtime(path)).isoformat()
+                'modified': datetime.fromtimestamp(os.path.getmtime(path)).isoformat(),
+                'is_enriched': is_enriched
             })
     
     files.sort(key=lambda x: x['name'])
@@ -3568,11 +4007,35 @@ def load_data():
     
     logger.info(f"Loading data from: {filename}")
     
-    CONFIG = ConfigManager('config/info.xml')
+    try:
+        test_df = pd.read_csv(filepath, nrows=5)
+        if not is_enriched_dataset(test_df):
+            logger.error(f"{filename} is a BASIC dataset. ML training not allowed.")
+            return jsonify({
+                'success': False,
+                'message': f'{filename} is a basic dataset without academic features.\n'
+                          f'Please use dataset_routes.py to enrich your data first.',
+                'is_enriched': False,
+                'found_academic_features': [c for c in ACADEMIC_FEATURE_COLUMNS if c in test_df.columns]
+            }), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error reading file: {str(e)}'}), 400
     
+    CONFIG = ConfigManager('config/info.xml')
     PREDICTOR = SuzukiPredictor(CONFIG)
     
-    df = PREDICTOR.load_data(filepath)
+    try:
+        df = PREDICTOR.load_data(filepath)
+    except ValueError as e:
+        logger.error(f"Validation error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'required_columns': REQUIRED_COLUMNS,
+            'optional_columns': OPTIONAL_COLUMNS,
+            'academic_features_required': ACADEMIC_FEATURE_COLUMNS[:10]
+        }), 400
+    
     CURRENT_FILE = filename
     
     DATA_INFO = {
@@ -3592,10 +4055,15 @@ def load_data():
             'q3': float(df['yield'].quantile(0.75))
         },
         'feature_count': len(PREDICTOR.feature_columns),
-        'feature_columns': PREDICTOR.feature_columns[:20]
+        'feature_columns': PREDICTOR.feature_columns[:20],
+        'is_enriched': PREDICTOR.is_enriched
     }
     
     result = PREDICTOR.train('Ensemble')
+    
+    images = []
+    if result['success']:
+        images = create_result_images()
     
     if result['success']:
         try:
@@ -3607,22 +4075,55 @@ def load_data():
             residuals = PREDICTOR.analyze_residuals()
         except:
             residuals = {}
-        
-        return jsonify({
+
+        response_data = {
             'success': True,
-            'message': f"Loaded {len(df)} rows, {result.get('model_count', 0)} models trained",
-            'data_info': DATA_INFO,
-            'performance': result.get('performance', {}),
+            'message': f"Loaded {len(df)} enriched rows, {result.get('model_count', 0)} models trained",
+            'data_info': convert_to_serializable(DATA_INFO),
+            'performance': convert_to_serializable(result.get('performance', {})),
             'best_model': result.get('best_model', 'None'),
-            'feature_importance': importance.get('top_10', []),
-            'residual_stats': residuals,
-            'model_history': PREDICTOR.model_history[-10:]
-        })
+            'feature_importance': convert_to_serializable(importance.get('top_10', [])),
+            'residual_stats': convert_to_serializable(residuals),
+            'model_history': convert_to_serializable(PREDICTOR.model_history[-10:]),
+            'visualizations': {
+                'created': len(images) > 0,
+                'image_count': len(images),
+                'directory': os.path.dirname(images[0]) if images else None
+            },
+            'is_enriched': bool(PREDICTOR.is_enriched),
+            'academic_analyses': {
+                'cv_scores': convert_to_serializable(PREDICTOR.cv_scores),
+                'anova_results': convert_to_serializable(PREDICTOR.anova_results),
+                'confidence_intervals': convert_to_serializable(PREDICTOR.confidence_intervals),
+                'prediction_intervals': convert_to_serializable(PREDICTOR.prediction_intervals)
+            }
+        }
+        
+        return jsonify(response_data)
     else:
         return jsonify({
             'success': False,
             'message': result.get('message', 'Training failed')
         })
+
+@predict_ml_bp.route('/api/update_visualizations', methods=['POST'])
+@error_handler
+def update_visualizations():
+    global PREDICTOR
+    
+    if PREDICTOR is None or not PREDICTOR.is_trained:
+        return jsonify({'success': False, 'message': 'Model not trained yet'})
+    
+    try:
+        images = create_result_images()
+        return jsonify({
+            'success': True,
+            'message': f'Created {len(images)} visualizations',
+            'images': [os.path.basename(img) for img in images],
+            'directory': os.path.dirname(images[0]) if images else None
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
 @predict_ml_bp.route('/api/change_model', methods=['POST'])
 @error_handler
@@ -3639,6 +4140,12 @@ def change_model():
     if PREDICTOR is None:
         return jsonify({'success': False, 'message': 'Load data first'})
     
+    if not PREDICTOR.is_enriched:
+        return jsonify({
+            'success': False,
+            'message': 'Cannot change model on basic dataset. Please use enriched data first.'
+        })
+    
     model_map = {
         'Random Forest': 'Random_Forest',
         'Gradient Boosting': 'Gradient_Boosting',
@@ -3651,7 +4158,8 @@ def change_model():
         'Lasso': 'Lasso',
         'ElasticNet': 'ElasticNet',
         'SVR': 'SVR',
-        'Neural Network': 'Neural_Network'
+        'Neural Network': 'Neural_Network',
+        'Gaussian Process': 'Gaussian_Process'
     }
     
     key = model_map.get(model_name, model_name)
@@ -3664,12 +4172,19 @@ def change_model():
         perf = result.get('performance', {})
         stats = list(perf.values())[0] if perf else {}
         
+        images = create_result_images()
+        
         return jsonify({
             'success': True,
             'message': f"Switched to {model_name}",
             'current_model': model_name,
             'stats': stats,
-            'best_model': result.get('best_model')
+            'best_model': result.get('best_model'),
+            'visualizations': {
+                'created': len(images) > 0,
+                'image_count': len(images),
+                'directory': os.path.dirname(images[0]) if images else None
+            }
         })
     else:
         return jsonify({
@@ -3719,10 +4234,18 @@ def load_model():
     
     success = PREDICTOR.load_model(filepath)
     
+    images = create_result_images() if success else []
+    
     return jsonify({
         'success': success,
         'message': f"Model loaded from {filename}" if success else "Failed to load model",
-        'best_model': PREDICTOR.best_model if success else None
+        'best_model': PREDICTOR.best_model if success else None,
+        'is_enriched': PREDICTOR.is_enriched if success else False,
+        'visualizations': {
+            'created': len(images) > 0,
+            'image_count': len(images),
+            'directory': os.path.dirname(images[0]) if images else None
+        } if success else None
     })
 
 @predict_ml_bp.route('/api/list_models', methods=['GET'])
@@ -3775,14 +4298,18 @@ def make_prediction():
         'solv1': data['solv1'],
         'solv2': data.get('solv2', ''),
         'subs1_smiles': data['subs1_smiles'],
-        'subs2_smiles': data['subs2_smiles']
+        'subs2_smiles': data['subs2_smiles'],
+        'sigma_m': float(data.get('sigma_m', 0)),
+        'sigma_p': float(data.get('sigma_p', 0)),
+        'sigma_plus': float(data.get('sigma_plus', 0)),
+        'sigma_minus': float(data.get('sigma_minus', 0)),
+        'taft_es': float(data.get('taft_es', 0))
     })
     
     if not result['success']:
         return jsonify({'success': False, 'message': result.get('message', 'Prediction failed')})
     
     mol_img = None
-    mol_svg = None
     try:
         from rdkit import Chem
         from rdkit.Chem import Draw
@@ -3802,12 +4329,13 @@ def make_prediction():
             img.save(buff, format="PNG")
             mol_img = base64.b64encode(buff.getvalue()).decode()
     except Exception as e:
-        logger.warning(f"Molecule visualization failed: {str(e)}")
+        pass
     
     return jsonify({
         'success': True,
         'prediction': result['prediction'],
         'ml_prediction': result.get('ml_prediction'),
+        'ml_std': result.get('ml_std'),
         'chemical_prediction': result.get('chemical_prediction'),
         'model': result['model'],
         'yield_class': result.get('yield_class', 'Unknown'),
@@ -3815,7 +4343,11 @@ def make_prediction():
         'confidence': result.get('confidence', 0.85),
         'best_model': result.get('best_model', 'None'),
         'model_count': result.get('model_count', 0),
-        'molecule_image': mol_img
+        'is_enriched': result.get('is_enriched', False),
+        'molecule_image': mol_img,
+        'academic_details': result.get('academic_details', {}),
+        'confidence_interval': result.get('confidence_interval'),
+        'prediction_interval': result.get('prediction_interval')
     })
 
 @predict_ml_bp.route('/api/optimize_catalyst', methods=['POST'])
@@ -3848,29 +4380,10 @@ def optimize_catalyst():
     if not results:
         return jsonify({'success': False, 'message': 'Optimization failed'})
     
-    mol_img = None
-    try:
-        from rdkit import Chem
-        from rdkit.Chem import Draw
-        mols = []
-        for s in [data.get('subs1_smiles'), data.get('subs2_smiles')]:
-            if s:
-                m = Chem.MolFromSmiles(s)
-                if m:
-                    mols.append(m)
-        if mols:
-            img = Draw.MolsToGridImage(mols, molsPerRow=min(2, len(mols)), subImgSize=(250, 250))
-            buff = io.BytesIO()
-            img.save(buff, format="PNG")
-            mol_img = base64.b64encode(buff.getvalue()).decode()
-    except:
-        pass
-    
     return jsonify({
         'success': True,
         'results': results,
-        'model': 'Ensemble',
-        'molecule_image': mol_img
+        'model': 'Ensemble'
     })
 
 @predict_ml_bp.route('/api/model_performance', methods=['GET'])
@@ -3896,9 +4409,14 @@ def model_performance():
             'model_count': len(PREDICTOR.models),
             'feature_count': len(PREDICTOR.feature_columns),
             'is_trained': PREDICTOR.is_trained,
+            'is_enriched': PREDICTOR.is_enriched,
             'performances': perf,
             'residuals': residuals,
-            'model_history': PREDICTOR.model_history[-10:] if PREDICTOR.model_history else []
+            'model_history': PREDICTOR.model_history[-10:] if PREDICTOR.model_history else [],
+            'cv_scores': PREDICTOR.cv_scores,
+            'anova_results': PREDICTOR.anova_results,
+            'confidence_intervals': PREDICTOR.confidence_intervals,
+            'prediction_intervals': PREDICTOR.prediction_intervals
         }
     })
 
@@ -4179,132 +4697,20 @@ def health_check():
         'data_loaded': DATA_INFO is not None,
         'models_trained': PREDICTOR.is_trained if PREDICTOR else False,
         'model_count': len(PREDICTOR.models) if PREDICTOR else 0,
+        'is_enriched': PREDICTOR.is_enriched if PREDICTOR else False,
         'cache_size': len(CACHE),
         'cache_hit': CACHE_HIT,
         'cache_miss': CACHE_MISS,
-        'log_count': len(logger.logs)
+        'log_count': len(logger.logs),
+        'academic_features': {
+            'dft_available': GP_AVAILABLE,
+            'shap_available': SHAP_AVAILABLE,
+            'statsmodels_available': STATSMODELS_AVAILABLE,
+            'cv_scores': PREDICTOR.cv_scores if PREDICTOR else None,
+            'confidence_intervals': PREDICTOR.confidence_intervals if PREDICTOR else None,
+            'prediction_intervals': PREDICTOR.prediction_intervals if PREDICTOR else None
+        }
     })
-
-def format_size(bytes):
-    if bytes == 0:
-        return '0 B'
-    k = 1024
-    sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    i = 0
-    while bytes >= k and i < len(sizes) - 1:
-        bytes /= k
-        i += 1
-    return f"{bytes:.1f} {sizes[i]}"
-
-def secure_filename(filename):
-    import re
-    filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
-    return filename
-
-def create_result_images():
-    try:
-        import matplotlib
-        matplotlib.use('Agg')
-        import matplotlib.pyplot as plt
-        import numpy as np
-        
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        images_dir = os.path.join('static/images', timestamp)
-        os.makedirs(images_dir, exist_ok=True)
-        logger.info(f"Created image directory: {images_dir}")
-        
-        fig, axes = plt.subplots(2, 2, figsize=(14, 12))
-        
-        random_data = np.random.normal(0, 1, 100)
-        axes[0, 0].hist(random_data, bins=20, color='#2563EB', edgecolor='white', alpha=0.7)
-        axes[0, 0].set_title('Performance Distribution', fontsize=14, fontweight='bold')
-        axes[0, 0].set_xlabel('Value')
-        axes[0, 0].set_ylabel('Frequency')
-        axes[0, 0].grid(True, alpha=0.3)
-        
-        x = np.linspace(0, 10, 50)
-        y = np.exp(-x/2) + 0.5
-        axes[0, 1].plot(x, y, color='#10B981', linewidth=2.5, marker='o', markersize=4)
-        axes[0, 1].set_title('Learning Curve Analysis', fontsize=14, fontweight='bold')
-        axes[0, 1].set_xlabel('Training Samples')
-        axes[0, 1].set_ylabel('Accuracy')
-        axes[0, 1].grid(True, alpha=0.3)
-        
-        categories = ['Random Forest', 'XGBoost', 'LightGBM', 'CatBoost', 'Ensemble']
-        values = [85, 82, 88, 84, 92]
-        colors_plot = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
-        axes[1, 0].bar(categories, values, color=colors_plot, edgecolor='white', linewidth=1.5)
-        axes[1, 0].set_title('Model Comparison', fontsize=14, fontweight='bold')
-        axes[1, 0].set_ylabel('R² Score (%)')
-        axes[1, 0].set_ylim(0, 100)
-        axes[1, 0].grid(True, alpha=0.3)
-        
-        np.random.seed(42)
-        x_scatter = np.random.uniform(0, 100, 50)
-        y_scatter = x_scatter + np.random.normal(0, 5, 50)
-        axes[1, 1].scatter(x_scatter, y_scatter, color='#2563EB', alpha=0.7, s=60)
-        axes[1, 1].plot([0, 100], [0, 100], color='red', linestyle='--', linewidth=2, label='Perfect Prediction')
-        axes[1, 1].set_title('Prediction vs Actual', fontsize=14, fontweight='bold')
-        axes[1, 1].set_xlabel('Predicted Yield (%)')
-        axes[1, 1].set_ylabel('Actual Yield (%)')
-        axes[1, 1].grid(True, alpha=0.3)
-        axes[1, 1].legend()
-        
-        plt.suptitle('Predict ML - Analysis Results', fontsize=16, fontweight='bold')
-        plt.tight_layout()
-        
-        image_names = ['resim1', 'resim2', 'resim3', 'resim4']
-        image_files = []
-        
-        for i, (ax, name) in enumerate(zip(axes.flat, image_names)):
-            fig2, ax2 = plt.subplots(figsize=(8, 6))
-            
-            for child in ax.get_children():
-                if hasattr(child, 'get_data'):
-                    try:
-                        if isinstance(child, plt.Line2D):
-                            x_data, y_data = child.get_data()
-                            ax2.plot(x_data, y_data, color=child.get_color(), linewidth=2.5)
-                    except:
-                        pass
-                if isinstance(child, plt.Rectangle):
-                    rect = plt.Rectangle(
-                        (child.get_x(), child.get_y()),
-                        child.get_width(), child.get_height(),
-                        facecolor=child.get_facecolor(),
-                        edgecolor='white',
-                        linewidth=1.5
-                    )
-                    ax2.add_patch(rect)
-            
-            ax2.set_title(ax.get_title(), fontsize=14)
-            ax2.set_xlabel(ax.get_xlabel() if ax.get_xlabel() else '')
-            ax2.set_ylabel(ax.get_ylabel() if ax.get_ylabel() else '')
-            ax2.grid(True, alpha=0.3)
-            
-            filepath = os.path.join(images_dir, f'{name}.png')
-            fig2.savefig(filepath, dpi=150, bbox_inches='tight', facecolor='white')
-            plt.close(fig2)
-            image_files.append(filepath)
-            logger.info(f"Saved image: {filepath}")
-        
-        plt.close('all')
-        
-        info_file = os.path.join(images_dir, 'info.txt')
-        with open(info_file, 'w') as f:
-            f.write(f"Images created: {datetime.now().isoformat()}\n")
-            f.write(f"Total images: {len(image_files)}\n")
-            f.write(f"Files:\n")
-            for img in image_files:
-                f.write(f"  - {os.path.basename(img)}\n")
-            f.write(f"Created by: Predict ML Module\n")
-        
-        logger.success(f"Created {len(image_files)} images in {images_dir}")
-        return image_files
-        
-    except Exception as e:
-        logger.warning(f"Could not create images: {str(e)}")
-        return []
 
 def init_app():
     os.makedirs('static/datasets', exist_ok=True)
@@ -4317,67 +4723,6 @@ def init_app():
         ConfigManager('config/info.xml')
         logger.info("Default config created")
     
-    create_result_images()
-    
     logger.success("Application initialized successfully")
 
 init_app()
-
-print("=" * 80)
-print("PREDICT_ML ROUTES - ULTIMATE 8000+ LINES")
-print("=" * 80)
-print("All features loaded:")
-print("")
-print("MODELS:")
-print("   - 15+ ML Modeli (RF, GB, HGB, XGBoost, LightGBM, CatBoost,")
-print("     ExtraTrees, KNN, Ridge, Lasso, ElasticNet, SVR, NN)")
-print("   - Ensemble (Weighted Average + Stacking)")
-print("")
-print("CHEMICAL INTUITION:")
-print("   - Hammett, Taft, HSAB, Arrhenius, Michaelis-Menten")
-print("   - 200+ XML parametresi")
-print("")
-print("FEATURE ENGINEERING:")
-print("   - 500+ ozellik turetme")
-print("   - Otomatik ozellik secimi")
-print("   - Veri artirma")
-print("")
-print("OPTIMIZATION:")
-print("   - Katalizor optimizasyonu")
-print("   - Grid Search, Bayesian")
-print("")
-print("VISUALIZATION:")
-print("   - Molekul gorselleri (RDKit)")
-print("   - Feature importance")
-print("   - Residual analizi")
-print("")
-print("PERFORMANCE:")
-print("   - Cross-validation (k-fold)")
-print("   - Model karsilastirma")
-print("   - Prediction confidence")
-print("")
-print("MANAGEMENT:")
-print("   - XML tam entegrasyon")
-print("   - Model kaydetme/yukleme")
-print("   - Cache ve Loglama")
-print("   - Health check")
-print("")
-print("IMAGES:")
-print("   - static/images/tarih_saat/ klasoru olusturuldu")
-print("   - 4 adet analiz gorseli olusturuldu: resim1.png, resim2.png, resim3.png, resim4.png")
-print("=" * 80)
-print(f"Config: config/info.xml")
-print(f"Dataset: static/datasets/")
-print(f"Models: static/models/")
-print(f"Logs: logs/predict_ml.log")
-print(f"Images: static/images/YYYYMMDD_HHMMSS/")
-print("=" * 80)
-print("READY!")
-print("=" * 80)
-
-logger.success("PREDICT_ML ROUTES - ULTIMATE 8000+ LINES loaded successfully!")
-logger.info(f"   Config: config/info.xml")
-logger.info(f"   Dataset: static/datasets/")
-logger.info(f"   Models: static/models/")
-logger.info(f"   Images: static/images/YYYYMMDD_HHMMSS/")
-logger.info(f"   Cache: {len(CACHE)} entries")

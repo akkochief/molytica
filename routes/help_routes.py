@@ -79,10 +79,10 @@ def get_faq():
 def get_contact_info():
     try:
         contact_info = {
-            'email': 'sefaakkoc@outlook.com',
-            'github': 'https://github.com/sefaakkoc',
-            'twitter': '#',
-            'linkedin': '#'
+            'email': 'akkochief@gmail.com',
+            'github': 'https://github.com/akkochief',
+            'twitter': 'https://x.com/akkochief',
+            'linkedin': 'https://www.linkedin.com/in/akkochief/'
         }
         
         return jsonify({

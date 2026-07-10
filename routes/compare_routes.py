@@ -12,60 +12,70 @@ logger = logging.getLogger(__name__)
 def ensure_directory(path):
     os.makedirs(path, exist_ok=True)
 
-def parse_xml_models(xml_path):
+def parse_xml_models(xml_path, lang='tr'):
     models = []
-    
+
+    # normalize lang, only 'tr' and 'en' supported, default 'tr'
+    lang = lang if lang in ('tr', 'en') else 'tr'
+    other_lang = 'en' if lang == 'tr' else 'tr'
+
     if not os.path.exists(xml_path):
         logger.warning(f"XML dosyasi bulunamadi: {xml_path}")
         return models
-    
+
     try:
         tree = ET.parse(xml_path)
         root = tree.getroot()
-        
+
         model_nodes = root.findall('.//model')
-        
+
         for node in model_nodes:
             model = {
                 'id': node.get('id', f"model_{len(models)+1}"),
-                'name': get_node_text(node, 'name', f"Model {len(models)+1}"),
-                'description': get_node_text(node, 'description', 'Aciklama yok'),
-                'detailed_description': get_node_text(node, 'detailed_description', '<p>Detayli bilgi bulunmamaktadir.</p>'),
-                'accuracy': float(get_node_text(node, 'accuracy', '0')) or 0,
-                'speed': float(get_node_text(node, 'speed', '0')) or 0,
+                'name': get_node_text(node, 'name', lang, f"Model {len(models)+1}"),
+                'description': get_node_text(node, 'description', lang, 'Aciklama yok'),
+                'detailed_description': get_node_text(node, 'detailed_description', lang, '<p>Detayli bilgi bulunmamaktadir.</p>'),
+                'accuracy': float(get_node_text(node, 'accuracy', lang, '0') or 0),
+                'speed': float(get_node_text(node, 'speed', lang, '0') or 0),
                 'specs': {},
                 'benchmarks': {},
                 'pros': [],
                 'cons': []
             }
-            
+
             for spec in node.findall('.//spec'):
-                name = spec.get('name', 'Ozellik')
+                name = spec.get(f'name_{lang}') or spec.get(f'name_{other_lang}') or spec.get('name', 'Ozellik')
                 model['specs'][name] = spec.text.strip() if spec.text else '-'
-            
+
             for bench in node.findall('.//benchmark'):
-                name = bench.get('name', 'Test')
+                name = bench.get(f'name_{lang}') or bench.get(f'name_{other_lang}') or bench.get('name', 'Test')
                 model['benchmarks'][name] = bench.text.strip() if bench.text else '-'
-            
-            for pro in node.findall('.//pro'):
+
+            pro_nodes = node.findall(f'.//pro_{lang}')
+            if not pro_nodes:
+                pro_nodes = node.findall('.//pro')
+            for pro in pro_nodes:
                 if pro.text:
                     model['pros'].append(pro.text.strip())
-            
-            for con in node.findall('.//con'):
+
+            con_nodes = node.findall(f'.//con_{lang}')
+            if not con_nodes:
+                con_nodes = node.findall('.//con')
+            for con in con_nodes:
                 if con.text:
                     model['cons'].append(con.text.strip())
-            
+
             model['perf'] = [
                 model['accuracy'],
                 max(0, model['accuracy'] - 2),
                 max(0, model['accuracy'] - 4),
                 model['speed']
             ]
-            
+
             models.append(model)
-        
+
         return models
-        
+
     except ET.ParseError as e:
         logger.error(f"XML parse hatasi: {str(e)}")
         return []
@@ -73,7 +83,17 @@ def parse_xml_models(xml_path):
         logger.error(f"XML okuma hatasi: {str(e)}")
         return []
 
-def get_node_text(parent, tag, default=''):
+def get_node_text(parent, tag, lang='tr', default=''):
+    other_lang = 'en' if lang == 'tr' else 'tr'
+    # 1) requested language variant, e.g. name_tr / name_en
+    node = parent.find(f'{tag}_{lang}')
+    if node is not None and node.text:
+        return node.text.strip()
+    # 2) other language variant as fallback (better than nothing)
+    node = parent.find(f'{tag}_{other_lang}')
+    if node is not None and node.text:
+        return node.text.strip()
+    # 3) legacy plain tag without language suffix (old XML format)
     node = parent.find(tag)
     if node is not None and node.text:
         return node.text.strip()
@@ -228,12 +248,13 @@ def index():
 @compare_bp.route('/api/models', methods=['GET'])
 def get_models():
     try:
+        lang = request.args.get('lang', 'tr')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
             create_default_xml(xml_path)
         
-        models = parse_xml_models(xml_path)
+        models = parse_xml_models(xml_path, lang)
         
         return jsonify({
             'success': True,
@@ -250,12 +271,13 @@ def get_models():
 @compare_bp.route('/api/model/<model_id>', methods=['GET'])
 def get_model(model_id):
     try:
+        lang = request.args.get('lang', 'tr')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
             create_default_xml(xml_path)
         
-        models = parse_xml_models(xml_path)
+        models = parse_xml_models(xml_path, lang)
         
         for model in models:
             if model['id'] == model_id:
@@ -281,6 +303,7 @@ def compare_models():
         data = request.get_json()
         model1_id = data.get('model1')
         model2_id = data.get('model2')
+        lang = data.get('lang', request.args.get('lang', 'tr'))
         
         if not model1_id or not model2_id:
             return jsonify({
@@ -299,7 +322,7 @@ def compare_models():
         if not os.path.exists(xml_path):
             create_default_xml(xml_path)
         
-        models = parse_xml_models(xml_path)
+        models = parse_xml_models(xml_path, lang)
         
         model1 = None
         model2 = None
@@ -492,12 +515,13 @@ def update_model():
 @compare_bp.route('/api/reload', methods=['POST'])
 def reload_models():
     try:
+        lang = request.args.get('lang') or (request.get_json(silent=True) or {}).get('lang', 'tr')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
             create_default_xml(xml_path)
         
-        models = parse_xml_models(xml_path)
+        models = parse_xml_models(xml_path, lang)
         
         return jsonify({
             'success': True,
@@ -515,12 +539,13 @@ def reload_models():
 @compare_bp.route('/api/stats', methods=['GET'])
 def get_stats():
     try:
+        lang = request.args.get('lang', 'tr')
         xml_path = os.path.join(current_app.root_path, 'static', 'xml_data', 'data.xml')
         
         if not os.path.exists(xml_path):
             create_default_xml(xml_path)
         
-        models = parse_xml_models(xml_path)
+        models = parse_xml_models(xml_path, lang)
         
         if not models:
             return jsonify({

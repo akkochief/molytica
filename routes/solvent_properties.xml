@@ -1,0 +1,949 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<solvents>
+    <!-- ============================================================ -->
+    <!-- COMMON SOLVENTS                                              -->
+    <!-- ============================================================ -->
+    <solvent name="water">
+        <dielectric>80.1</dielectric>
+        <bp_c>100.0</bp_c>
+        <polarity_index>10.2</polarity_index>
+        <donor_number>18.0</donor_number>
+        <density>1.000</density>
+        <refractive_index>1.333</refractive_index>
+        <viscosity>0.890</viscosity>
+        <surface_tension>72.8</surface_tension>
+    </solvent>
+    
+    <solvent name="methanol">
+        <dielectric>32.7</dielectric>
+        <bp_c>64.7</bp_c>
+        <polarity_index>5.1</polarity_index>
+        <donor_number>19.0</donor_number>
+        <density>0.792</density>
+        <refractive_index>1.329</refractive_index>
+        <viscosity>0.544</viscosity>
+        <surface_tension>22.6</surface_tension>
+    </solvent>
+    
+    <solvent name="ethanol">
+        <dielectric>24.6</dielectric>
+        <bp_c>78.4</bp_c>
+        <polarity_index>4.3</polarity_index>
+        <donor_number>19.2</donor_number>
+        <density>0.789</density>
+        <refractive_index>1.361</refractive_index>
+        <viscosity>1.074</viscosity>
+        <surface_tension>22.4</surface_tension>
+    </solvent>
+    
+    <solvent name="isopropanol">
+        <dielectric>19.9</dielectric>
+        <bp_c>82.3</bp_c>
+        <polarity_index>3.9</polarity_index>
+        <donor_number>18.5</donor_number>
+        <density>0.786</density>
+        <refractive_index>1.377</refractive_index>
+        <viscosity>2.038</viscosity>
+        <surface_tension>21.7</surface_tension>
+    </solvent>
+    
+    <solvent name="acetone">
+        <dielectric>20.7</dielectric>
+        <bp_c>56.1</bp_c>
+        <polarity_index>5.1</polarity_index>
+        <donor_number>17.0</donor_number>
+        <density>0.784</density>
+        <refractive_index>1.359</refractive_index>
+        <viscosity>0.316</viscosity>
+        <surface_tension>23.7</surface_tension>
+    </solvent>
+    
+    <solvent name="acetonitrile">
+        <dielectric>37.5</dielectric>
+        <bp_c>82.0</bp_c>
+        <polarity_index>5.8</polarity_index>
+        <donor_number>14.1</donor_number>
+        <density>0.786</density>
+        <refractive_index>1.344</refractive_index>
+        <viscosity>0.369</viscosity>
+        <surface_tension>29.3</surface_tension>
+    </solvent>
+    
+    <solvent name="dmso">
+        <dielectric>46.7</dielectric>
+        <bp_c>189.0</bp_c>
+        <polarity_index>7.2</polarity_index>
+        <donor_number>29.8</donor_number>
+        <density>1.100</density>
+        <refractive_index>1.478</refractive_index>
+        <viscosity>1.996</viscosity>
+        <surface_tension>43.5</surface_tension>
+    </solvent>
+    
+    <solvent name="dmf">
+        <dielectric>36.7</dielectric>
+        <bp_c>153.0</bp_c>
+        <polarity_index>6.4</polarity_index>
+        <donor_number>26.6</donor_number>
+        <density>0.944</density>
+        <refractive_index>1.431</refractive_index>
+        <viscosity>0.796</viscosity>
+        <surface_tension>37.1</surface_tension>
+    </solvent>
+    
+    <solvent name="thf">
+        <dielectric>7.5</dielectric>
+        <bp_c>66.0</bp_c>
+        <polarity_index>4.0</polarity_index>
+        <donor_number>20.0</donor_number>
+        <density>0.889</density>
+        <refractive_index>1.407</refractive_index>
+        <viscosity>0.456</viscosity>
+        <surface_tension>26.4</surface_tension>
+    </solvent>
+    
+    <solvent name="dioxane">
+        <dielectric>2.2</dielectric>
+        <bp_c>101.0</bp_c>
+        <polarity_index>4.8</polarity_index>
+        <donor_number>14.8</donor_number>
+        <density>1.033</density>
+        <refractive_index>1.422</refractive_index>
+        <viscosity>1.200</viscosity>
+        <surface_tension>33.0</surface_tension>
+    </solvent>
+    
+    <solvent name="toluene">
+        <dielectric>2.4</dielectric>
+        <bp_c>110.6</bp_c>
+        <polarity_index>2.4</polarity_index>
+        <donor_number>0.1</donor_number>
+        <density>0.867</density>
+        <refractive_index>1.496</refractive_index>
+        <viscosity>0.590</viscosity>
+        <surface_tension>28.5</surface_tension>
+    </solvent>
+    
+    <solvent name="benzene">
+        <dielectric>2.3</dielectric>
+        <bp_c>80.1</bp_c>
+        <polarity_index>2.7</polarity_index>
+        <donor_number>0.1</donor_number>
+        <density>0.879</density>
+        <refractive_index>1.501</refractive_index>
+        <viscosity>0.604</viscosity>
+        <surface_tension>28.9</surface_tension>
+    </solvent>
+    
+    <solvent name="dichloromethane">
+        <dielectric>8.9</dielectric>
+        <bp_c>39.6</bp_c>
+        <polarity_index>3.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.325</density>
+        <refractive_index>1.424</refractive_index>
+        <viscosity>0.449</viscosity>
+        <surface_tension>28.1</surface_tension>
+    </solvent>
+    
+    <solvent name="chloroform">
+        <dielectric>4.8</dielectric>
+        <bp_c>61.2</bp_c>
+        <polarity_index>4.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.489</density>
+        <refractive_index>1.446</refractive_index>
+        <viscosity>0.563</viscosity>
+        <surface_tension>27.1</surface_tension>
+    </solvent>
+    
+    <solvent name="hexane">
+        <dielectric>1.9</dielectric>
+        <bp_c>68.7</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.659</density>
+        <refractive_index>1.375</refractive_index>
+        <viscosity>0.326</viscosity>
+        <surface_tension>18.4</surface_tension>
+    </solvent>
+    
+    <solvent name="cyclohexane">
+        <dielectric>2.0</dielectric>
+        <bp_c>80.7</bp_c>
+        <polarity_index>0.2</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.779</density>
+        <refractive_index>1.426</refractive_index>
+        <viscosity>0.894</viscosity>
+        <surface_tension>25.2</surface_tension>
+    </solvent>
+    
+    <solvent name="ethyl acetate">
+        <dielectric>6.0</dielectric>
+        <bp_c>77.1</bp_c>
+        <polarity_index>4.4</polarity_index>
+        <donor_number>14.0</donor_number>
+        <density>0.897</density>
+        <refractive_index>1.372</refractive_index>
+        <viscosity>0.426</viscosity>
+        <surface_tension>23.9</surface_tension>
+    </solvent>
+    
+    <solvent name="diethyl ether">
+        <dielectric>4.3</dielectric>
+        <bp_c>34.6</bp_c>
+        <polarity_index>2.8</polarity_index>
+        <donor_number>19.2</donor_number>
+        <density>0.713</density>
+        <refractive_index>1.353</refractive_index>
+        <viscosity>0.242</viscosity>
+        <surface_tension>17.1</surface_tension>
+    </solvent>
+    
+    <solvent name="pyridine">
+        <dielectric>12.3</dielectric>
+        <bp_c>115.2</bp_c>
+        <polarity_index>5.3</polarity_index>
+        <donor_number>33.1</donor_number>
+        <density>0.982</density>
+        <refractive_index>1.510</refractive_index>
+        <viscosity>0.879</viscosity>
+        <surface_tension>38.0</surface_tension>
+    </solvent>
+    
+    <solvent name="nmp">
+        <dielectric>32.2</dielectric>
+        <bp_c>202.0</bp_c>
+        <polarity_index>6.7</polarity_index>
+        <donor_number>27.3</donor_number>
+        <density>1.028</density>
+        <refractive_index>1.470</refractive_index>
+        <viscosity>1.666</viscosity>
+        <surface_tension>40.7</surface_tension>
+    </solvent>
+    
+    <solvent name="dme">
+        <dielectric>7.2</dielectric>
+        <bp_c>85.0</bp_c>
+        <polarity_index>3.5</polarity_index>
+        <donor_number>19.5</donor_number>
+        <density>0.867</density>
+        <refractive_index>1.380</refractive_index>
+        <viscosity>0.455</viscosity>
+        <surface_tension>24.5</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- LESS COMMON SOLVENTS                                         -->
+    <!-- ============================================================ -->
+    <solvent name="formamide">
+        <dielectric>111.0</dielectric>
+        <bp_c>210.5</bp_c>
+        <polarity_index>9.6</polarity_index>
+        <donor_number>24.0</donor_number>
+        <density>1.133</density>
+        <refractive_index>1.447</refractive_index>
+        <viscosity>3.302</viscosity>
+        <surface_tension>58.2</surface_tension>
+    </solvent>
+    
+    <solvent name="n-methylformamide">
+        <dielectric>182.4</dielectric>
+        <bp_c>197.0</bp_c>
+        <polarity_index>8.0</polarity_index>
+        <donor_number>26.0</donor_number>
+        <density>1.011</density>
+        <refractive_index>1.432</refractive_index>
+        <viscosity>1.800</viscosity>
+        <surface_tension>39.0</surface_tension>
+    </solvent>
+    
+    <solvent name="nitromethane">
+        <dielectric>35.9</dielectric>
+        <bp_c>101.2</bp_c>
+        <polarity_index>6.0</polarity_index>
+        <donor_number>2.7</donor_number>
+        <density>1.138</density>
+        <refractive_index>1.382</refractive_index>
+        <viscosity>0.610</viscosity>
+        <surface_tension>36.8</surface_tension>
+    </solvent>
+    
+    <solvent name="1,2-dichloroethane">
+        <dielectric>10.4</dielectric>
+        <bp_c>83.5</bp_c>
+        <polarity_index>3.5</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.253</density>
+        <refractive_index>1.445</refractive_index>
+        <viscosity>0.842</viscosity>
+        <surface_tension>32.2</surface_tension>
+    </solvent>
+    
+    <solvent name="carbon tetrachloride">
+        <dielectric>2.2</dielectric>
+        <bp_c>76.8</bp_c>
+        <polarity_index>1.6</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.594</density>
+        <refractive_index>1.460</refractive_index>
+        <viscosity>0.969</viscosity>
+        <surface_tension>26.8</surface_tension>
+    </solvent>
+    
+    <solvent name="1,4-dichlorobutane">
+        <dielectric>8.2</dielectric>
+        <bp_c>153.0</bp_c>
+        <polarity_index>2.8</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.142</density>
+        <refractive_index>1.454</refractive_index>
+        <viscosity>1.100</viscosity>
+        <surface_tension>30.0</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- ALCOHOLS                                                     -->
+    <!-- ============================================================ -->
+    <solvent name="1-butanol">
+        <dielectric>17.8</dielectric>
+        <bp_c>117.7</bp_c>
+        <polarity_index>3.9</polarity_index>
+        <donor_number>20.0</donor_number>
+        <density>0.810</density>
+        <refractive_index>1.399</refractive_index>
+        <viscosity>2.573</viscosity>
+        <surface_tension>25.3</surface_tension>
+    </solvent>
+    
+    <solvent name="2-butanol">
+        <dielectric>16.6</dielectric>
+        <bp_c>99.5</bp_c>
+        <polarity_index>3.8</polarity_index>
+        <donor_number>19.5</donor_number>
+        <density>0.808</density>
+        <refractive_index>1.397</refractive_index>
+        <viscosity>3.000</viscosity>
+        <surface_tension>24.6</surface_tension>
+    </solvent>
+    
+    <solvent name="tert-butanol">
+        <dielectric>10.9</dielectric>
+        <bp_c>82.4</bp_c>
+        <polarity_index>3.4</polarity_index>
+        <donor_number>19.0</donor_number>
+        <density>0.786</density>
+        <refractive_index>1.387</refractive_index>
+        <viscosity>3.350</viscosity>
+        <surface_tension>20.5</surface_tension>
+    </solvent>
+    
+    <solvent name="1-pentanol">
+        <dielectric>13.9</dielectric>
+        <bp_c>138.0</bp_c>
+        <polarity_index>3.3</polarity_index>
+        <donor_number>20.5</donor_number>
+        <density>0.815</density>
+        <refractive_index>1.410</refractive_index>
+        <viscosity>3.500</viscosity>
+        <surface_tension>25.6</surface_tension>
+    </solvent>
+    
+    <solvent name="benzyl alcohol">
+        <dielectric>13.1</dielectric>
+        <bp_c>205.3</bp_c>
+        <polarity_index>4.1</polarity_index>
+        <donor_number>20.0</donor_number>
+        <density>1.044</density>
+        <refractive_index>1.540</refractive_index>
+        <viscosity>5.474</viscosity>
+        <surface_tension>39.8</surface_tension>
+    </solvent>
+    
+    <solvent name="ethylene glycol">
+        <dielectric>37.7</dielectric>
+        <bp_c>197.3</bp_c>
+        <polarity_index>6.3</polarity_index>
+        <donor_number>20.0</donor_number>
+        <density>1.113</density>
+        <refractive_index>1.431</refractive_index>
+        <viscosity>16.100</viscosity>
+        <surface_tension>47.7</surface_tension>
+    </solvent>
+    
+    <solvent name="glycerol">
+        <dielectric>42.5</dielectric>
+        <bp_c>290.0</bp_c>
+        <polarity_index>7.7</polarity_index>
+        <donor_number>21.0</donor_number>
+        <density>1.261</density>
+        <refractive_index>1.474</refractive_index>
+        <viscosity>934.000</viscosity>
+        <surface_tension>63.4</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- ETHERS                                                       -->
+    <!-- ============================================================ -->
+    <solvent name="methyl tert-butyl ether">
+        <dielectric>4.3</dielectric>
+        <bp_c>55.2</bp_c>
+        <polarity_index>2.5</polarity_index>
+        <donor_number>18.0</donor_number>
+        <density>0.740</density>
+        <refractive_index>1.369</refractive_index>
+        <viscosity>0.360</viscosity>
+        <surface_tension>19.2</surface_tension>
+    </solvent>
+    
+    <solvent name="diisopropyl ether">
+        <dielectric>3.4</dielectric>
+        <bp_c>68.5</bp_c>
+        <polarity_index>2.2</polarity_index>
+        <donor_number>18.2</donor_number>
+        <density>0.725</density>
+        <refractive_index>1.368</refractive_index>
+        <viscosity>0.380</viscosity>
+        <surface_tension>17.7</surface_tension>
+    </solvent>
+    
+    <solvent name="dibutyl ether">
+        <dielectric>3.1</dielectric>
+        <bp_c>141.0</bp_c>
+        <polarity_index>2.4</polarity_index>
+        <donor_number>18.5</donor_number>
+        <density>0.769</density>
+        <refractive_index>1.399</refractive_index>
+        <viscosity>0.720</viscosity>
+        <surface_tension>23.0</surface_tension>
+    </solvent>
+    
+    <solvent name="anisole">
+        <dielectric>4.3</dielectric>
+        <bp_c>153.8</bp_c>
+        <polarity_index>3.5</polarity_index>
+        <donor_number>12.0</donor_number>
+        <density>0.995</density>
+        <refractive_index>1.517</refractive_index>
+        <viscosity>1.120</viscosity>
+        <surface_tension>35.7</surface_tension>
+    </solvent>
+    
+    <solvent name="dimethoxyethane">
+        <dielectric>7.2</dielectric>
+        <bp_c>85.0</bp_c>
+        <polarity_index>3.5</polarity_index>
+        <donor_number>19.5</donor_number>
+        <density>0.867</density>
+        <refractive_index>1.380</refractive_index>
+        <viscosity>0.455</viscosity>
+        <surface_tension>24.5</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- KETONES                                                      -->
+    <!-- ============================================================ -->
+    <solvent name="2-butanone">
+        <dielectric>18.5</dielectric>
+        <bp_c>79.6</bp_c>
+        <polarity_index>4.7</polarity_index>
+        <donor_number>17.0</donor_number>
+        <density>0.805</density>
+        <refractive_index>1.379</refractive_index>
+        <viscosity>0.423</viscosity>
+        <surface_tension>24.6</surface_tension>
+    </solvent>
+    
+    <solvent name="cyclohexanone">
+        <dielectric>18.3</dielectric>
+        <bp_c>155.7</bp_c>
+        <polarity_index>4.6</polarity_index>
+        <donor_number>20.0</donor_number>
+        <density>0.948</density>
+        <refractive_index>1.451</refractive_index>
+        <viscosity>2.200</viscosity>
+        <surface_tension>34.5</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- ESTERS                                                       -->
+    <!-- ============================================================ -->
+    <solvent name="methyl acetate">
+        <dielectric>6.7</dielectric>
+        <bp_c>56.9</bp_c>
+        <polarity_index>4.3</polarity_index>
+        <donor_number>14.5</donor_number>
+        <density>0.932</density>
+        <refractive_index>1.361</refractive_index>
+        <viscosity>0.364</viscosity>
+        <surface_tension>24.3</surface_tension>
+    </solvent>
+    
+    <solvent name="propyl acetate">
+        <dielectric>6.0</dielectric>
+        <bp_c>101.6</bp_c>
+        <polarity_index>4.0</polarity_index>
+        <donor_number>14.0</donor_number>
+        <density>0.888</density>
+        <refractive_index>1.384</refractive_index>
+        <viscosity>0.580</viscosity>
+        <surface_tension>24.0</surface_tension>
+    </solvent>
+    
+    <solvent name="butyl acetate">
+        <dielectric>5.0</dielectric>
+        <bp_c>126.1</bp_c>
+        <polarity_index>3.8</polarity_index>
+        <donor_number>14.0</donor_number>
+        <density>0.882</density>
+        <refractive_index>1.394</refractive_index>
+        <viscosity>0.734</viscosity>
+        <surface_tension>25.2</surface_tension>
+    </solvent>
+    
+    <solvent name="dimethyl carbonate">
+        <dielectric>3.1</dielectric>
+        <bp_c>90.0</bp_c>
+        <polarity_index>3.0</polarity_index>
+        <donor_number>14.0</donor_number>
+        <density>1.069</density>
+        <refractive_index>1.369</refractive_index>
+        <viscosity>0.585</viscosity>
+        <surface_tension>28.5</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- AMIDES                                                       -->
+    <!-- ============================================================ -->
+    <solvent name="dimethylacetamide">
+        <dielectric>37.8</dielectric>
+        <bp_c>165.0</bp_c>
+        <polarity_index>6.5</polarity_index>
+        <donor_number>27.8</donor_number>
+        <density>0.937</density>
+        <refractive_index>1.438</refractive_index>
+        <viscosity>0.928</viscosity>
+        <surface_tension>36.7</surface_tension>
+    </solvent>
+    
+    <solvent name="formamide">
+        <dielectric>111.0</dielectric>
+        <bp_c>210.5</bp_c>
+        <polarity_index>9.6</polarity_index>
+        <donor_number>24.0</donor_number>
+        <density>1.133</density>
+        <refractive_index>1.447</refractive_index>
+        <viscosity>3.302</viscosity>
+        <surface_tension>58.2</surface_tension>
+    </solvent>
+    
+    <solvent name="n-methylpyrrolidone">
+        <dielectric>32.2</dielectric>
+        <bp_c>202.0</bp_c>
+        <polarity_index>6.7</polarity_index>
+        <donor_number>27.3</donor_number>
+        <density>1.028</density>
+        <refractive_index>1.470</refractive_index>
+        <viscosity>1.666</viscosity>
+        <surface_tension>40.7</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- NITRILES                                                     -->
+    <!-- ============================================================ -->
+    <solvent name="propionitrile">
+        <dielectric>29.3</dielectric>
+        <bp_c>97.1</bp_c>
+        <polarity_index>5.2</polarity_index>
+        <donor_number>16.1</donor_number>
+        <density>0.783</density>
+        <refractive_index>1.366</refractive_index>
+        <viscosity>0.390</viscosity>
+        <surface_tension>28.0</surface_tension>
+    </solvent>
+    
+    <solvent name="butyronitrile">
+        <dielectric>20.3</dielectric>
+        <bp_c>117.6</bp_c>
+        <polarity_index>4.8</polarity_index>
+        <donor_number>16.0</donor_number>
+        <density>0.795</density>
+        <refractive_index>1.384</refractive_index>
+        <viscosity>0.510</viscosity>
+        <surface_tension>26.0</surface_tension>
+    </solvent>
+    
+    <solvent name="benzonitrile">
+        <dielectric>25.2</dielectric>
+        <bp_c>191.0</bp_c>
+        <polarity_index>4.9</polarity_index>
+        <donor_number>14.0</donor_number>
+        <density>1.010</density>
+        <refractive_index>1.528</refractive_index>
+        <viscosity>1.240</viscosity>
+        <surface_tension>43.5</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- HYDROCARBONS                                                 -->
+    <!-- ============================================================ -->
+    <solvent name="heptane">
+        <dielectric>1.9</dielectric>
+        <bp_c>98.4</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.684</density>
+        <refractive_index>1.387</refractive_index>
+        <viscosity>0.410</viscosity>
+        <surface_tension>20.3</surface_tension>
+    </solvent>
+    
+    <solvent name="octane">
+        <dielectric>1.9</dielectric>
+        <bp_c>125.6</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.703</density>
+        <refractive_index>1.397</refractive_index>
+        <viscosity>0.542</viscosity>
+        <surface_tension>21.8</surface_tension>
+    </solvent>
+    
+    <solvent name="nonane">
+        <dielectric>1.9</dielectric>
+        <bp_c>150.8</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.718</density>
+        <refractive_index>1.405</refractive_index>
+        <viscosity>0.711</viscosity>
+        <surface_tension>22.9</surface_tension>
+    </solvent>
+    
+    <solvent name="decane">
+        <dielectric>1.9</dielectric>
+        <bp_c>174.1</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.730</density>
+        <refractive_index>1.412</refractive_index>
+        <viscosity>0.920</viscosity>
+        <surface_tension>23.8</surface_tension>
+    </solvent>
+    
+    <solvent name="mineral oil">
+        <dielectric>2.0</dielectric>
+        <bp_c>300.0</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.840</density>
+        <refractive_index>1.470</refractive_index>
+        <viscosity>25.000</viscosity>
+        <surface_tension>30.0</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- AROMATIC HYDROCARBONS                                        -->
+    <!-- ============================================================ -->
+    <solvent name="xylene">
+        <dielectric>2.4</dielectric>
+        <bp_c>138.5</bp_c>
+        <polarity_index>2.5</polarity_index>
+        <donor_number>0.1</donor_number>
+        <density>0.864</density>
+        <refractive_index>1.495</refractive_index>
+        <viscosity>0.620</viscosity>
+        <surface_tension>28.7</surface_tension>
+    </solvent>
+    
+    <solvent name="mesitylene">
+        <dielectric>2.3</dielectric>
+        <bp_c>164.7</bp_c>
+        <polarity_index>2.3</polarity_index>
+        <donor_number>0.1</donor_number>
+        <density>0.864</density>
+        <refractive_index>1.499</refractive_index>
+        <viscosity>0.780</viscosity>
+        <surface_tension>28.8</surface_tension>
+    </solvent>
+    
+    <solvent name="cumene">
+        <dielectric>2.4</dielectric>
+        <bp_c>152.4</bp_c>
+        <polarity_index>2.2</polarity_index>
+        <donor_number>0.1</donor_number>
+        <density>0.862</density>
+        <refractive_index>1.491</refractive_index>
+        <viscosity>0.760</viscosity>
+        <surface_tension>28.2</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- HALOGENATED SOLVENTS                                         -->
+    <!-- ============================================================ -->
+    <solvent name="bromobenzene">
+        <dielectric>5.4</dielectric>
+        <bp_c>156.0</bp_c>
+        <polarity_index>3.4</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.495</density>
+        <refractive_index>1.560</refractive_index>
+        <viscosity>1.080</viscosity>
+        <surface_tension>36.5</surface_tension>
+    </solvent>
+    
+    <solvent name="chlorobenzene">
+        <dielectric>5.6</dielectric>
+        <bp_c>132.0</bp_c>
+        <polarity_index>3.0</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.106</density>
+        <refractive_index>1.525</refractive_index>
+        <viscosity>0.802</viscosity>
+        <surface_tension>33.6</surface_tension>
+    </solvent>
+    
+    <solvent name="iodobenzene">
+        <dielectric>4.6</dielectric>
+        <bp_c>188.0</bp_c>
+        <polarity_index>3.2</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.823</density>
+        <refractive_index>1.620</refractive_index>
+        <viscosity>1.500</viscosity>
+        <surface_tension>39.0</surface_tension>
+    </solvent>
+    
+    <solvent name="1,1,2,2-tetrachloroethane">
+        <dielectric>8.2</dielectric>
+        <bp_c>146.0</bp_c>
+        <polarity_index>3.6</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.595</density>
+        <refractive_index>1.494</refractive_index>
+        <viscosity>1.700</viscosity>
+        <surface_tension>32.4</surface_tension>
+    </solvent>
+    
+    <solvent name="trichloroethylene">
+        <dielectric>3.4</dielectric>
+        <bp_c>87.2</bp_c>
+        <polarity_index>3.4</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.464</density>
+        <refractive_index>1.477</refractive_index>
+        <viscosity>0.566</viscosity>
+        <surface_tension>26.2</surface_tension>
+    </solvent>
+    
+    <solvent name="tetrachloroethylene">
+        <dielectric>2.3</dielectric>
+        <bp_c>121.0</bp_c>
+        <polarity_index>3.0</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.623</density>
+        <refractive_index>1.505</refractive_index>
+        <viscosity>0.890</viscosity>
+        <surface_tension>31.7</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- DEUTERATED SOLVENTS                                          -->
+    <!-- ============================================================ -->
+    <solvent name="deuterium oxide">
+        <dielectric>78.3</dielectric>
+        <bp_c>101.4</bp_c>
+        <polarity_index>10.2</polarity_index>
+        <donor_number>18.0</donor_number>
+        <density>1.105</density>
+        <refractive_index>1.328</refractive_index>
+        <viscosity>1.100</viscosity>
+        <surface_tension>71.8</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated chloroform">
+        <dielectric>4.8</dielectric>
+        <bp_c>60.9</bp_c>
+        <polarity_index>4.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.500</density>
+        <refractive_index>1.445</refractive_index>
+        <viscosity>0.550</viscosity>
+        <surface_tension>26.9</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated dmso">
+        <dielectric>46.5</dielectric>
+        <bp_c>189.0</bp_c>
+        <polarity_index>7.2</polarity_index>
+        <donor_number>29.8</donor_number>
+        <density>1.190</density>
+        <refractive_index>1.477</refractive_index>
+        <viscosity>1.996</viscosity>
+        <surface_tension>43.2</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated methanol">
+        <dielectric>32.7</dielectric>
+        <bp_c>65.4</bp_c>
+        <polarity_index>5.1</polarity_index>
+        <donor_number>19.0</donor_number>
+        <density>0.888</density>
+        <refractive_index>1.328</refractive_index>
+        <viscosity>0.550</viscosity>
+        <surface_tension>22.4</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated acetonitrile">
+        <dielectric>37.5</dielectric>
+        <bp_c>81.6</bp_c>
+        <polarity_index>5.8</polarity_index>
+        <donor_number>14.1</donor_number>
+        <density>0.844</density>
+        <refractive_index>1.343</refractive_index>
+        <viscosity>0.369</viscosity>
+        <surface_tension>29.1</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated acetone">
+        <dielectric>20.7</dielectric>
+        <bp_c>55.5</bp_c>
+        <polarity_index>5.1</polarity_index>
+        <donor_number>17.0</donor_number>
+        <density>0.872</density>
+        <refractive_index>1.358</refractive_index>
+        <viscosity>0.316</viscosity>
+        <surface_tension>23.5</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated benzene">
+        <dielectric>2.3</dielectric>
+        <bp_c>79.1</bp_c>
+        <polarity_index>2.7</polarity_index>
+        <donor_number>0.1</donor_number>
+        <density>0.950</density>
+        <refractive_index>1.500</refractive_index>
+        <viscosity>0.604</viscosity>
+        <surface_tension>28.7</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated pyridine">
+        <dielectric>12.3</dielectric>
+        <bp_c>115.0</bp_c>
+        <polarity_index>5.3</polarity_index>
+        <donor_number>33.1</donor_number>
+        <density>1.050</density>
+        <refractive_index>1.509</refractive_index>
+        <viscosity>0.879</viscosity>
+        <surface_tension>37.8</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated thf">
+        <dielectric>7.5</dielectric>
+        <bp_c>66.0</bp_c>
+        <polarity_index>4.0</polarity_index>
+        <donor_number>20.0</donor_number>
+        <density>0.985</density>
+        <refractive_index>1.404</refractive_index>
+        <viscosity>0.456</viscosity>
+        <surface_tension>26.2</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated dichloromethane">
+        <dielectric>8.9</dielectric>
+        <bp_c>40.0</bp_c>
+        <polarity_index>3.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.355</density>
+        <refractive_index>1.424</refractive_index>
+        <viscosity>0.449</viscosity>
+        <surface_tension>27.9</surface_tension>
+    </solvent>
+    
+    <solvent name="deuterated toluene">
+        <dielectric>2.4</dielectric>
+        <bp_c>110.0</bp_c>
+        <polarity_index>2.4</polarity_index>
+        <donor_number>0.1</donor_number>
+        <density>0.943</density>
+        <refractive_index>1.495</refractive_index>
+        <viscosity>0.590</viscosity>
+        <surface_tension>28.3</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- IONIC LIQUIDS                                                -->
+    <!-- ============================================================ -->
+    <solvent name="1-butyl-3-methylimidazolium hexafluorophosphate">
+        <dielectric>12.0</dielectric>
+        <bp_c>340.0</bp_c>
+        <polarity_index>8.0</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.380</density>
+        <refractive_index>1.430</refractive_index>
+        <viscosity>280.000</viscosity>
+        <surface_tension>42.0</surface_tension>
+    </solvent>
+    
+    <solvent name="1-ethyl-3-methylimidazolium tetrafluoroborate">
+        <dielectric>14.0</dielectric>
+        <bp_c>350.0</bp_c>
+        <polarity_index>8.5</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.280</density>
+        <refractive_index>1.420</refractive_index>
+        <viscosity>120.000</viscosity>
+        <surface_tension>45.0</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- SUPERCRITICAL FLUIDS                                         -->
+    <!-- ============================================================ -->
+    <solvent name="supercritical carbon dioxide">
+        <dielectric>1.5</dielectric>
+        <bp_c>-78.5</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>0.770</density>
+        <refractive_index>1.000</refractive_index>
+        <viscosity>0.050</viscosity>
+        <surface_tension>0.0</surface_tension>
+    </solvent>
+    
+    <solvent name="supercritical water">
+        <dielectric>5.0</dielectric>
+        <bp_c>374.0</bp_c>
+        <polarity_index>8.0</polarity_index>
+        <donor_number>18.0</donor_number>
+        <density>0.320</density>
+        <refractive_index>1.000</refractive_index>
+        <viscosity>0.030</viscosity>
+        <surface_tension>0.0</surface_tension>
+    </solvent>
+
+    <!-- ============================================================ -->
+    <!-- PERFLUORINATED SOLVENTS                                      -->
+    <!-- ============================================================ -->
+    <solvent name="perfluorohexane">
+        <dielectric>1.8</dielectric>
+        <bp_c>57.0</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.680</density>
+        <refractive_index>1.252</refractive_index>
+        <viscosity>0.670</viscosity>
+        <surface_tension>12.0</surface_tension>
+    </solvent>
+    
+    <solvent name="perfluorodecalin">
+        <dielectric>2.0</dielectric>
+        <bp_c>142.0</bp_c>
+        <polarity_index>0.1</polarity_index>
+        <donor_number>0.0</donor_number>
+        <density>1.940</density>
+        <refractive_index>1.313</refractive_index>
+        <viscosity>5.400</viscosity>
+        <surface_tension>19.0</surface_tension>
+    </solvent>
+</solvents>

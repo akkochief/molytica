@@ -1,0 +1,1301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chemicals>
+    <!-- ============================================================ -->
+    <!-- SOLVENTS                                                     -->
+    <!-- ============================================================ -->
+    <chemical category="solvent">
+        <name>water</name>
+        <smiles>O</smiles>
+        <aliases>
+            <alias>h2o</alias>
+            <alias>aqua</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>ethanol</name>
+        <smiles>CCO</smiles>
+        <aliases>
+            <alias>ethyl alcohol</alias>
+            <alias>alcohol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>methanol</name>
+        <smiles>CO</smiles>
+        <aliases>
+            <alias>methyl alcohol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>isopropanol</name>
+        <smiles>CC(C)O</smiles>
+        <aliases>
+            <alias>2-propanol</alias>
+            <alias>isopropyl alcohol</alias>
+            <alias>ipa</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>1-butanol</name>
+        <smiles>CCCCO</smiles>
+        <aliases>
+            <alias>butanol</alias>
+            <alias>n-butanol</alias>
+            <alias>butyl alcohol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>tert-butanol</name>
+        <smiles>CC(C)(C)O</smiles>
+        <aliases>
+            <alias>t-butanol</alias>
+            <alias>tertiary butanol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>ethylene glycol</name>
+        <smiles>C(CO)O</smiles>
+        <aliases>
+            <alias>ethane-1,2-diol</alias>
+            <alias>glycol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>glycerol</name>
+        <smiles>C(C(CO)O)O</smiles>
+        <aliases>
+            <alias>glycerin</alias>
+            <alias>propane-1,2,3-triol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>dmf</name>
+        <smiles>CN(C)C=O</smiles>
+        <aliases>
+            <alias>n,n-dimethylformamide</alias>
+            <alias>dimethylformamide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>dmso</name>
+        <smiles>CS(C)=O</smiles>
+        <aliases>
+            <alias>dimethyl sulfoxide</alias>
+            <alias>methyl sulfoxide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>dmac</name>
+        <smiles>CN(C)C(=O)C</smiles>
+        <aliases>
+            <alias>dimethylacetamide</alias>
+            <alias>n,n-dimethylacetamide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>thf</name>
+        <smiles>C1CCOC1</smiles>
+        <aliases>
+            <alias>tetrahydrofuran</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>dioxane</name>
+        <smiles>C1COCCO1</smiles>
+        <aliases>
+            <alias>1,4-dioxane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>acetone</name>
+        <smiles>CC(=O)C</smiles>
+        <aliases>
+            <alias>propanone</alias>
+            <alias>dimethyl ketone</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>methyl ethyl ketone</name>
+        <smiles>CCC(=O)C</smiles>
+        <aliases>
+            <alias>mek</alias>
+            <alias>2-butanone</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>acetonitrile</name>
+        <smiles>CC#N</smiles>
+        <aliases>
+            <alias>methyl cyanide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>propionitrile</name>
+        <smiles>CCC#N</smiles>
+        <aliases>
+            <alias>ethyl cyanide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>benzonitrile</name>
+        <smiles>N#Cc1ccccc1</smiles>
+        <aliases>
+            <alias>phenyl cyanide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>dichloromethane</name>
+        <smiles>ClCCl</smiles>
+        <aliases>
+            <alias>dcm</alias>
+            <alias>methylene chloride</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>chloroform</name>
+        <smiles>ClC(Cl)Cl</smiles>
+        <aliases>
+            <alias>trichloromethane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>carbon tetrachloride</name>
+        <smiles>ClC(Cl)(Cl)Cl</smiles>
+        <aliases>
+            <alias>tetrachloromethane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>1,2-dichloroethane</name>
+        <smiles>ClCCCl</smiles>
+        <aliases>
+            <alias>ethylene dichloride</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>trichloroethylene</name>
+        <smiles>ClC=C(Cl)Cl</smiles>
+        <aliases>
+            <alias>tce</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>tetrachloroethylene</name>
+        <smiles>ClC(Cl)=C(Cl)Cl</smiles>
+        <aliases>
+            <alias>perchloroethylene</alias>
+            <alias>perc</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>chlorobenzene</name>
+        <smiles>Clc1ccccc1</smiles>
+        <aliases>
+            <alias>monochlorobenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>hexane</name>
+        <smiles>CCCCCC</smiles>
+        <aliases>
+            <alias>n-hexane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>cyclohexane</name>
+        <smiles>C1CCCCC1</smiles>
+        <aliases>
+            <alias>hexahydrobenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>heptane</name>
+        <smiles>CCCCCCC</smiles>
+        <aliases>
+            <alias>n-heptane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>ethyl acetate</name>
+        <smiles>CCOC(=O)C</smiles>
+        <aliases>
+            <alias>ethyl ethanoate</alias>
+            <alias>etoac</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>methyl acetate</name>
+        <smiles>COC(=O)C</smiles>
+        <aliases>
+            <alias>methyl ethanoate</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>isopropyl acetate</name>
+        <smiles>CC(C)OC(=O)C</smiles>
+        <aliases>
+            <alias>propan-2-yl acetate</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>diethyl ether</name>
+        <smiles>CCOCC</smiles>
+        <aliases>
+            <alias>ether</alias>
+            <alias>ethoxyethane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>methyl tert-butyl ether</name>
+        <smiles>COC(C)(C)C</smiles>
+        <aliases>
+            <alias>mtbe</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>diisopropyl ether</name>
+        <smiles>CC(C)OC(C)C</smiles>
+        <aliases>
+            <alias>dipr</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>benzene</name>
+        <smiles>c1ccccc1</smiles>
+        <aliases>
+            <alias>benzol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>pyridine</name>
+        <smiles>c1ccncc1</smiles>
+        <aliases>
+            <alias>azabenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>toluene</name>
+        <smiles>Cc1ccccc1</smiles>
+        <aliases>
+            <alias>methylbenzene</alias>
+            <alias>phenylmethane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>xylene</name>
+        <smiles>Cc1ccccc1C</smiles>
+        <aliases>
+            <alias>dimethylbenzene</alias>
+            <alias>xylol</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>mesitylene</name>
+        <smiles>Cc1cc(C)cc(C)c1</smiles>
+        <aliases>
+            <alias>1,3,5-trimethylbenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>cumene</name>
+        <smiles>CC(C)c1ccccc1</smiles>
+        <aliases>
+            <alias>isopropylbenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>nmp</name>
+        <smiles>CN1CCCC1=O</smiles>
+        <aliases>
+            <alias>n-methyl-2-pyrrolidone</alias>
+            <alias>n-methylpyrrolidone</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>dme</name>
+        <smiles>COCCOC</smiles>
+        <aliases>
+            <alias>1,2-dimethoxyethane</alias>
+            <alias>glyme</alias>
+            <alias>monoglyme</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>diglyme</name>
+        <smiles>COCCOCCOC</smiles>
+        <aliases>
+            <alias>diethylene glycol dimethyl ether</alias>
+            <alias>2-methoxyethyl ether</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>triglyme</name>
+        <smiles>COCCOCCOCCOC</smiles>
+        <aliases>
+            <alias>triethylene glycol dimethyl ether</alias>
+        </aliases>
+    </chemical>
+
+    <!-- ============================================================ -->
+    <!-- DEUTERATED SOLVENTS                                          -->
+    <!-- ============================================================ -->
+    <chemical category="solvent">
+        <name>deuterium oxide</name>
+        <smiles>[2H]O[2H]</smiles>
+        <aliases>
+            <alias>d2o</alias>
+            <alias>heavy water</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated chloroform</name>
+        <smiles>[2H]C(Cl)(Cl)Cl</smiles>
+        <aliases>
+            <alias>cdcl3</alias>
+            <alias>chloroform-d</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated dmso</name>
+        <smiles>[2H]C([2H])([2H])S(=O)C([2H])([2H])[2H]</smiles>
+        <aliases>
+            <alias>dmso-d6</alias>
+            <alias>dimethyl sulfoxide-d6</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated methanol</name>
+        <smiles>[2H]OC([2H])([2H])[2H]</smiles>
+        <aliases>
+            <alias>cd3od</alias>
+            <alias>methanol-d4</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated ethanol</name>
+        <smiles>[2H]C([2H])([2H])C([2H])([2H])O[2H]</smiles>
+        <aliases>
+            <alias>ethanol-d6</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated acetonitrile</name>
+        <smiles>[2H]C([2H])([2H])C#N</smiles>
+        <aliases>
+            <alias>cd3cn</alias>
+            <alias>acetonitrile-d3</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated acetone</name>
+        <smiles>[2H]C([2H])([2H])C(=O)C([2H])([2H])[2H]</smiles>
+        <aliases>
+            <alias>acetone-d6</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated benzene</name>
+        <smiles>[2H]c1c([2H])c([2H])c([2H])c([2H])c1[2H]</smiles>
+        <aliases>
+            <alias>c6d6</alias>
+            <alias>benzene-d6</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated pyridine</name>
+        <smiles>[2H]c1c([2H])c([2H])n([2H])c([2H])c1[2H]</smiles>
+        <aliases>
+            <alias>pyridine-d5</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated thf</name>
+        <smiles>[2H]C1C([2H])([2H])C([2H])([2H])OC1([2H])[2H]</smiles>
+        <aliases>
+            <alias>thf-d8</alias>
+            <alias>tetrahydrofuran-d8</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated dichloromethane</name>
+        <smiles>[2H]C(Cl)(Cl)[2H]</smiles>
+        <aliases>
+            <alias>cd2cl2</alias>
+            <alias>dichloromethane-d2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated toluene</name>
+        <smiles>[2H]C([2H])([2H])c1c([2H])c([2H])c([2H])c([2H])c1[2H]</smiles>
+        <aliases>
+            <alias>toluene-d8</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="solvent">
+        <name>deuterated dmf</name>
+        <smiles>[2H]C([2H])([2H])N(C([2H])([2H])[2H])C([2H])=O</smiles>
+        <aliases>
+            <alias>dmf-d7</alias>
+            <alias>dimethylformamide-d7</alias>
+        </aliases>
+    </chemical>
+
+    <!-- ============================================================ -->
+    <!-- BASES                                                       -->
+    <!-- ============================================================ -->
+    <chemical category="base">
+        <name>potassium carbonate</name>
+        <smiles>O=C([O-])[O-].[K+].[K+]</smiles>
+        <aliases>
+            <alias>k2co3</alias>
+            <alias>potash</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>cesium carbonate</name>
+        <smiles>O=C([O-])[O-].[Cs+].[Cs+]</smiles>
+        <aliases>
+            <alias>cs2co3</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium carbonate</name>
+        <smiles>O=C([O-])[O-].[Na+].[Na+]</smiles>
+        <aliases>
+            <alias>na2co3</alias>
+            <alias>soda ash</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium bicarbonate</name>
+        <smiles>OC([O-])=O.[Na+]</smiles>
+        <aliases>
+            <alias>nahco3</alias>
+            <alias>baking soda</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium hydroxide</name>
+        <smiles>[Na+].[OH-]</smiles>
+        <aliases>
+            <alias>naoh</alias>
+            <alias>caustic soda</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>potassium hydroxide</name>
+        <smiles>[K+].[OH-]</smiles>
+        <aliases>
+            <alias>koh</alias>
+            <alias>caustic potash</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>lithium hydroxide</name>
+        <smiles>[Li+].[OH-]</smiles>
+        <aliases>
+            <alias>lioh</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>tripotassium phosphate</name>
+        <smiles>[K+].[K+].[K+].[O-]P([O-])([O-])=O</smiles>
+        <aliases>
+            <alias>k3po4</alias>
+            <alias>potassium phosphate</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium phosphate</name>
+        <smiles>[Na+].[Na+].[Na+].[O-]P([O-])([O-])=O</smiles>
+        <aliases>
+            <alias>na3po4</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium tert-butoxide</name>
+        <smiles>CC(C)(C)[O-].[Na+]</smiles>
+        <aliases>
+            <alias>sodium t-butoxide</alias>
+            <alias>naotbu</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>potassium tert-butoxide</name>
+        <smiles>CC(C)(C)[O-].[K+]</smiles>
+        <aliases>
+            <alias>potassium t-butoxide</alias>
+            <alias>kotbu</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>lithium tert-butoxide</name>
+        <smiles>CC(C)(C)[O-].[Li+]</smiles>
+        <aliases>
+            <alias>liotbu</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium methoxide</name>
+        <smiles>C[O-].[Na+]</smiles>
+        <aliases>
+            <alias>naome</alias>
+            <alias>sodium methylate</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>potassium methoxide</name>
+        <smiles>C[O-].[K+]</smiles>
+        <aliases>
+            <alias>kome</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium ethoxide</name>
+        <smiles>CC[O-].[Na+]</smiles>
+        <aliases>
+            <alias>naoet</alias>
+            <alias>sodium ethylate</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>potassium ethoxide</name>
+        <smiles>CC[O-].[K+]</smiles>
+        <aliases>
+            <alias>koet</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>triethylamine</name>
+        <smiles>CCN(CC)CC</smiles>
+        <aliases>
+            <alias>tea</alias>
+            <alias>et3n</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>diisopropylethylamine</name>
+        <smiles>CC(C)N(CC)C(C)C</smiles>
+        <aliases>
+            <alias>dipea</alias>
+            <alias>hünig's base</alias>
+            <alias>hunig's base</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>pyridine</name>
+        <smiles>c1ccncc1</smiles>
+        <aliases>
+            <alias>py</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>2,6-lutidine</name>
+        <smiles>Cc1cccc(C)n1</smiles>
+        <aliases>
+            <alias>2,6-dimethylpyridine</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>4-dimethylaminopyridine</name>
+        <smiles>CN(C)c1ccncc1</smiles>
+        <aliases>
+            <alias>dmap</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>1,8-diazabicycloundec-7-ene</name>
+        <smiles>C1CCCN2CCCC2=N1</smiles>
+        <aliases>
+            <alias>dbu</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>1,4-diazabicyclooctane</name>
+        <smiles>C1CN2CCN1CC2</smiles>
+        <aliases>
+            <alias>dabco</alias>
+            <alias>triethylenediamine</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>cesium fluoride</name>
+        <smiles>[F-].[Cs+]</smiles>
+        <aliases>
+            <alias>csf</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>potassium fluoride</name>
+        <smiles>[F-].[K+]</smiles>
+        <aliases>
+            <alias>kf</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium fluoride</name>
+        <smiles>[F-].[Na+]</smiles>
+        <aliases>
+            <alias>naf</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>potassium acetate</name>
+        <smiles>CC(=O)[O-].[K+]</smiles>
+        <aliases>
+            <alias>koac</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>sodium acetate</name>
+        <smiles>CC(=O)[O-].[Na+]</smiles>
+        <aliases>
+            <alias>naoac</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>cesium acetate</name>
+        <smiles>CC(=O)[O-].[Cs+]</smiles>
+        <aliases>
+            <alias>csoac</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>barium hydroxide</name>
+        <smiles>[OH-].[OH-].[Ba+2]</smiles>
+        <aliases>
+            <alias>ba(oh)2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>calcium hydroxide</name>
+        <smiles>[OH-].[OH-].[Ca+2]</smiles>
+        <aliases>
+            <alias>ca(oh)2</alias>
+            <alias>slaked lime</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="base">
+        <name>magnesium hydroxide</name>
+        <smiles>[OH-].[OH-].[Mg+2]</smiles>
+        <aliases>
+            <alias>mg(oh)2</alias>
+        </aliases>
+    </chemical>
+
+    <!-- ============================================================ -->
+    <!-- CATALYSTS                                                   -->
+    <!-- ============================================================ -->
+    <chemical category="catalyst">
+        <name>tetrakis(triphenylphosphine)palladium(0)</name>
+        <smiles>c1ccc(cc1)P(c1ccccc1)c1ccccc1.c1ccc(cc1)P(c1ccccc1)c1ccccc1.c1ccc(cc1)P(c1ccccc1)c1ccccc1.c1ccc(cc1)P(c1ccccc1)c1ccccc1.[Pd]</smiles>
+        <aliases>
+            <alias>pd(pph3)4</alias>
+            <alias>tetrakis</alias>
+            <alias>palladium tetrakis</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>palladium(ii) acetate</name>
+        <smiles>CC(=O)O[Pd]OC(C)=O</smiles>
+        <aliases>
+            <alias>pd(oac)2</alias>
+            <alias>palladium diacetate</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>bis(triphenylphosphine)palladium(ii) dichloride</name>
+        <smiles>Cl[Pd](Cl)(P(c1ccccc1)(c1ccccc1)c1ccccc1)P(c1ccccc1)(c1ccccc1)c1ccccc1</smiles>
+        <aliases>
+            <alias>pdcl2(pph3)2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>pd(dppf)cl2</name>
+        <smiles>Cl[Pd]Cl.c1ccc(cc1)P(c1ccccc1)[c]1cccc1</smiles>
+        <aliases>
+            <alias>dichloro[1,1'-bis(diphenylphosphino)ferrocene]palladium(ii)</alias>
+            <alias>pd(dppf)cl2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>palladium(ii) chloride</name>
+        <smiles>Cl[Pd]Cl</smiles>
+        <aliases>
+            <alias>pdcl2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>palladium on carbon</name>
+        <smiles>[Pd]</smiles>
+        <aliases>
+            <alias>pd/c</alias>
+            <alias>palladium charcoal</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>platinum on carbon</name>
+        <smiles>[Pt]</smiles>
+        <aliases>
+            <alias>pt/c</alias>
+            <alias>platinum charcoal</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>nickel(ii) chloride</name>
+        <smiles>Cl[Ni]Cl</smiles>
+        <aliases>
+            <alias>nicl2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>nickel(ii) acetate</name>
+        <smiles>CC(=O)O[Ni]OC(C)=O</smiles>
+        <aliases>
+            <alias>ni(oac)2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>copper(i) iodide</name>
+        <smiles>[Cu]I</smiles>
+        <aliases>
+            <alias>cui</alias>
+            <alias>cuprous iodide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>copper(ii) sulfate</name>
+        <smiles>[O-]S(=O)(=O)[O-].[Cu+2]</smiles>
+        <aliases>
+            <alias>cuso4</alias>
+            <alias>cupric sulfate</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>iron(iii) chloride</name>
+        <smiles>Cl[Fe](Cl)Cl</smiles>
+        <aliases>
+            <alias>fecl3</alias>
+            <alias>ferric chloride</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>zinc chloride</name>
+        <smiles>Cl[Zn]Cl</smiles>
+        <aliases>
+            <alias>zncl2</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>aluminium chloride</name>
+        <smiles>Cl[Al](Cl)Cl</smiles>
+        <aliases>
+            <alias>alcl3</alias>
+            <alias>aluminum chloride</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="catalyst">
+        <name>titanium isopropoxide</name>
+        <smiles>CC(C)O[Ti](OC(C)C)OC(C)C</smiles>
+        <aliases>
+            <alias>ti(oipr)4</alias>
+            <alias>titanium tetraisopropoxide</alias>
+        </aliases>
+    </chemical>
+
+    <!-- ============================================================ -->
+    <!-- LIGANDS                                                     -->
+    <!-- ============================================================ -->
+    <chemical category="ligand">
+        <name>triphenylphosphine</name>
+        <smiles>c1ccc(cc1)P(c1ccccc1)c1ccccc1</smiles>
+        <aliases>
+            <alias>pph3</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>sphos</name>
+        <smiles>COc1cccc(OC)c1-c1ccccc1P(C1CCCCC1)C1CCCCC1</smiles>
+        <aliases>
+            <alias>sphos ligand</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>xphos</name>
+        <smiles>CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1</smiles>
+        <aliases>
+            <alias>xphos ligand</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>dppf</name>
+        <smiles>c1ccc(cc1)P(c1ccccc1)[c]1cccc1</smiles>
+        <aliases>
+            <alias>1,1'-bis(diphenylphosphino)ferrocene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>dppe</name>
+        <smiles>c1ccc(cc1)P(CCP(c1ccccc1)c1ccccc1)c1ccccc1</smiles>
+        <aliases>
+            <alias>1,2-bis(diphenylphosphino)ethane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>dppp</name>
+        <smiles>c1ccc(cc1)P(CCCP(c1ccccc1)c1ccccc1)c1ccccc1</smiles>
+        <aliases>
+            <alias>1,3-bis(diphenylphosphino)propane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>dppb</name>
+        <smiles>c1ccc(cc1)P(CCCCP(c1ccccc1)c1ccccc1)c1ccccc1</smiles>
+        <aliases>
+            <alias>1,4-bis(diphenylphosphino)butane</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>binap</name>
+        <smiles>c1ccc(cc1)P(c2ccccc2)c3ccc4c(c3)c5ccccc5c(c4)P(c6ccccc6)c7ccccc7</smiles>
+        <aliases>
+            <alias>2,2'-bis(diphenylphosphino)-1,1'-binaphthyl</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="ligand">
+        <name>davephos</name>
+        <smiles>CC(C)c1ccccc1P(c2ccccc2)c3ccccc3C</smiles>
+        <aliases>
+            <alias>2-dicyclohexylphosphino-2'-(n,n-dimethylamino)biphenyl</alias>
+        </aliases>
+    </chemical>
+
+    <!-- ============================================================ -->
+    <!-- SUBSTRATES                                                  -->
+    <!-- ============================================================ -->
+    <chemical category="substrate">
+        <name>bromobenzene</name>
+        <smiles>Brc1ccccc1</smiles>
+        <aliases>
+            <alias>phenyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>chlorobenzene</name>
+        <smiles>Clc1ccccc1</smiles>
+        <aliases>
+            <alias>phenyl chloride</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>iodobenzene</name>
+        <smiles>Ic1ccccc1</smiles>
+        <aliases>
+            <alias>phenyl iodide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>fluorobenzene</name>
+        <smiles>Fc1ccccc1</smiles>
+        <aliases>
+            <alias>phenyl fluoride</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>4-bromotoluene</name>
+        <smiles>Cc1ccc(Br)cc1</smiles>
+        <aliases>
+            <alias>p-bromotoluene</alias>
+            <alias>1-bromo-4-methylbenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>4-bromoanisole</name>
+        <smiles>COc1ccc(Br)cc1</smiles>
+        <aliases>
+            <alias>p-bromoanisole</alias>
+            <alias>1-bromo-4-methoxybenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>4-bromonitrobenzene</name>
+        <smiles>O=[N+]([O-])c1ccc(Br)cc1</smiles>
+        <aliases>
+            <alias>p-bromonitrobenzene</alias>
+            <alias>1-bromo-4-nitrobenzene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>4-bromobenzaldehyde</name>
+        <smiles>O=Cc1ccc(Br)cc1</smiles>
+        <aliases>
+            <alias>p-bromobenzaldehyde</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>4-bromobenzonitrile</name>
+        <smiles>N#Cc1ccc(Br)cc1</smiles>
+        <aliases>
+            <alias>p-bromobenzonitrile</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>4-bromobenzoic acid</name>
+        <smiles>O=C(O)c1ccc(Br)cc1</smiles>
+        <aliases>
+            <alias>p-bromobenzoic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>2-bromopyridine</name>
+        <smiles>Brc1ccccn1</smiles>
+        <aliases>
+            <alias>2-pyridyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>3-bromopyridine</name>
+        <smiles>Brc1cccnc1</smiles>
+        <aliases>
+            <alias>3-pyridyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>4-bromopyridine</name>
+        <smiles>Brc1ccncc1</smiles>
+        <aliases>
+            <alias>4-pyridyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>2-bromothiophene</name>
+        <smiles>Brc1cccs1</smiles>
+        <aliases>
+            <alias>2-thienyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>3-bromothiophene</name>
+        <smiles>Brc1ccsc1</smiles>
+        <aliases>
+            <alias>3-thienyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>2-bromofuran</name>
+        <smiles>Brc1ccco1</smiles>
+        <aliases>
+            <alias>2-furyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>3-bromofuran</name>
+        <smiles>Brc1ccoc1</smiles>
+        <aliases>
+            <alias>3-furyl bromide</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>vinyl bromide</name>
+        <smiles>BrC=C</smiles>
+        <aliases>
+            <alias>bromoethene</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="substrate">
+        <name>allyl bromide</name>
+        <smiles>BrCC=C</smiles>
+        <aliases>
+            <alias>3-bromopropene</alias>
+        </aliases>
+    </chemical>
+
+    <!-- ============================================================ -->
+    <!-- BORONIC ACIDS                                                -->
+    <!-- ============================================================ -->
+    <chemical category="boronic_acid">
+        <name>phenylboronic acid</name>
+        <smiles>OB(O)c1ccccc1</smiles>
+        <aliases>
+            <alias>benzeneboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>phenylboronic acid pinacol ester</name>
+        <smiles>CC1(C)OB(OC1(C)C)c1ccccc1</smiles>
+        <aliases>
+            <alias>phenylboronic ester</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>4-methylphenylboronic acid</name>
+        <smiles>Cc1ccc(cc1)B(O)O</smiles>
+        <aliases>
+            <alias>p-tolylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>4-methoxyphenylboronic acid</name>
+        <smiles>COc1ccc(cc1)B(O)O</smiles>
+        <aliases>
+            <alias>p-methoxyphenylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>4-nitrophenylboronic acid</name>
+        <smiles>O=[N+]([O-])c1ccc(cc1)B(O)O</smiles>
+        <aliases>
+            <alias>p-nitrophenylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>4-fluorophenylboronic acid</name>
+        <smiles>Fc1ccc(cc1)B(O)O</smiles>
+        <aliases>
+            <alias>p-fluorophenylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>4-chlorophenylboronic acid</name>
+        <smiles>Clc1ccc(cc1)B(O)O</smiles>
+        <aliases>
+            <alias>p-chlorophenylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>4-bromophenylboronic acid</name>
+        <smiles>Brc1ccc(cc1)B(O)O</smiles>
+        <aliases>
+            <alias>p-bromophenylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>2-methylphenylboronic acid</name>
+        <smiles>Cc1ccccc1B(O)O</smiles>
+        <aliases>
+            <alias>o-tolylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>3-methylphenylboronic acid</name>
+        <smiles>Cc1cccc(c1)B(O)O</smiles>
+        <aliases>
+            <alias>m-tolylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>2,4-dimethylphenylboronic acid</name>
+        <smiles>Cc1ccc(B(O)O)c(C)c1</smiles>
+        <aliases>
+            <alias>2,4-dimethylbenzeneboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>2,6-dimethylphenylboronic acid</name>
+        <smiles>Cc1cccc(C)c1B(O)O</smiles>
+        <aliases>
+            <alias>2,6-dimethylbenzeneboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>pyridine-2-boronic acid</name>
+        <smiles>OB(O)c1ccccn1</smiles>
+        <aliases>
+            <alias>2-pyridylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>pyridine-3-boronic acid</name>
+        <smiles>OB(O)c1cccnc1</smiles>
+        <aliases>
+            <alias>3-pyridylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>pyridine-4-boronic acid</name>
+        <smiles>OB(O)c1ccncc1</smiles>
+        <aliases>
+            <alias>4-pyridylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>thiophene-2-boronic acid</name>
+        <smiles>OB(O)c1cccs1</smiles>
+        <aliases>
+            <alias>2-thienylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>thiophene-3-boronic acid</name>
+        <smiles>OB(O)c1ccsc1</smiles>
+        <aliases>
+            <alias>3-thienylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>furan-2-boronic acid</name>
+        <smiles>OB(O)c1ccco1</smiles>
+        <aliases>
+            <alias>2-furylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>furan-3-boronic acid</name>
+        <smiles>OB(O)c1ccoc1</smiles>
+        <aliases>
+            <alias>3-furylboronic acid</alias>
+        </aliases>
+    </chemical>
+    
+    <chemical category="boronic_acid">
+        <name>vinylboronic acid pinacol ester</name>
+        <smiles>CC1(C)OB(OC1(C)C)C=C</smiles>
+        <aliases>
+            <alias>vinylboronic ester</alias>
+        </aliases>
+    </chemical>
+</chemicals>
