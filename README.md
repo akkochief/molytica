@@ -11,7 +11,22 @@
 [![RDKit](https://img.shields.io/badge/RDKit-2023+-brightgreen.svg)](https://www.rdkit.org)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
-A Flask-based analysis platform for Suzuki-Miyaura cross-coupling reactions. It takes reaction data (substrates, catalyst, base, solvent, temperature/time) and produces yield predictions using both a **physicochemical model** (Eyring/Hammett/Taft/HSAB-based rule engine) and a **13-model ML ensemble** with academic DFT/QSAR/QSPR descriptors.
+A Flask-based analysis platform for Suzuki-Miyaura cross-coupling reactions.
+It takes reaction data (substrates, catalyst, base, solvent, temperature/
+time) and produces yield predictions using both a **heuristic
+physicochemical model** (Eyring/Hammett/Taft/HSAB-inspired rule engine) and
+a **13-model ML ensemble** trained on RDKit-derived molecular descriptors.
+
+> **Read this before citing anything from this repo in a paper, poster, or
+> report:** the physicochemical model is a heuristic scoring function, not
+> a validated first-principles model, and the shipped training dataset is
+> very small (~14-15 rows). Every constant in `config/info.xml` is tagged
+> `[LIT]` (a real literature value/equation form, with a citation) or
+> `[PARAM]` (an author-chosen engineering constant, not measured or fitted
+> to any cited source). **Full audit: [`PARAMETER_PROVENANCE.md`](PARAMETER_PROVENANCE.md).**
+> As of v7.4.0, no module in this codebase is named after a real
+> computational technique (DFT, docking) unless that technique is actually
+> being run — see [What changed in v7.4.0](#what-changed-in-v740) below.
 
 ## Core Capabilities
 
@@ -27,36 +42,51 @@ The system includes embedded reference tables for:
 Computes:
 - **Eyring equation** reaction rate, Gibbs free energy (ΔG), and equilibrium constant
 - **LFER** (Linear Free Energy Relationships) from Hammett σ and Taft Eₛ
-- **HSAB** (hard-soft acid-base) compatibility: absolute hardness, chemical potential, electronegativity
-- **Michaelis-Menten kinetics** for catalyst efficiency
-- **A-values** for steric analysis (methyl, ethyl, isopropyl, tert-butyl)
+- **HSAB** (hard-soft acid-base) compatibility: absolute hardness, chemical potential, electronegativity — the *framework* is Pearson's (1963); the specific numeric softness/hardness values used are illustrative placeholders on a self-defined scale, not a tabulated reference
+- **Michaelis-Menten-style saturation** for catalyst loading (used by analogy, not as a literal enzyme-kinetics claim)
+- **A-values** for steric analysis (methyl, ethyl, isopropyl, tert-butyl, cyclohexyl, phenyl)
+- A **Hammett-sigma-driven electronic proxy** (chemical potential / hardness / electrophilicity / Fukui-index-style terms) — see below
+- A **continuous physicochemical proxy** (MW/LogP/TPSA/rotatable-bond-based) — see below
+- Three **illustrative mechanistic-barrier estimates** (oxidative addition / transmetalation / reductive elimination), in the range typically reported for Pd(0)/Pd(II) cycles, but not calculated for the specific input molecule
 
-The rule-based `calculate_yield()` combines temperature, time, catalyst loading, steric, electronic, HSAB, solvent, base, and mechanistic factors into an independent yield estimate.
+All of the above are combined by `ChemicalCalculator.calculate_yield()` into
+a single rule-based yield estimate, independent of the ML ensemble below.
 
-### 2. DFT & QSAR Academic Features
+### 2. Electronic & Physicochemical Proxy Descriptors
 
-| Class | Features |
-|-------|----------|
-| **AcademicDFTCalculator** | Fukui indices (f⁺, f⁻, f⁰), HOMO-LUMO energies, chemical potential (μ), absolute hardness (η), electronegativity (χ), electrophilicity index (ω), nucleophilicity index |
-| **QSARCalculator** | 2D QSAR descriptors (MW, LogP, TPSA, MR, HBA, HBD, RotBonds), Lipinski/Ghose/Veber rule compliance, QED drug-likeness score |
-| **MolecularDockingCalculator** | Predicted binding affinity, hydrophobic/electrostatic/H-bond contributions, entropic penalty |
+| Method | What it actually does |
+|--------|------------------------|
+| `calculate_electronic_proxy_parameters()` | A Hammett-σ-driven **proxy** for HOMO/LUMO-style electronic descriptors (chemical potential, hardness, electrophilicity, Fukui-index-style terms). **This is not a DFT calculation** — no quantum-chemistry package (Gaussian, ORCA, PySCF, ...) runs anywhere in this codebase. Only the *definitions* used (Parr & Pearson conceptual DFT, 1983) are the genuine literature framework; the numbers fed into them are a linear function of the Hammett σₚ constant. |
+| `calculate_physicochemical_proxy_parameters()` | Real RDKit-computed MW/LogP/TPSA/HBA/HBD/rotatable-bond descriptors for the actual input molecule, combined into a continuous "distance from a typical-substrate center" proxy score. Prior versions of this codebase scored these against Lipinski/Ghose/Veber Rule-of-Five-style drug-likeness cutoffs and a QED composite score — those rules are real and were correctly cited, but they were derived for oral drug bioavailability, not Suzuki-Miyaura yield, so they have been **removed outright** (v7.4.0), not kept with a disclaimer. |
+
+A "docking" scoring module (hydrophobic/electrostatic/H-bond/entropic terms
+styled after AutoDock Vina) existed in earlier versions and has been
+**deleted entirely** (v7.4.0), not renamed: molecular docking scores a
+small molecule against a protein binding pocket, and this pipeline has no
+protein target, so the concept does not apply to a homogeneous
+Pd-catalyzed Suzuki coupling between two small molecules. No AutoDock Vina
+run, or any other docking engine, has ever executed in this codebase.
 
 ### 3. Feature Engineering — `FeatureEngineer`
 
-`engineer_features()` derives **500+ features** from enriched CSV data:
+`engineer_features()` derives several hundred features from the enriched
+CSV/SMILES data, including:
 - Temperature × time interactions (product, ratio, log transforms, difference)
 - Catalyst quantity transforms (log, sqrt, square, cube, exponential, inverse)
-- SMILES-derived molecular descriptors for substrates, product, catalyst, base, solvents
-- Steric, LogP, MW, ring count, halogen count differences/ratios/sums
-- DFT-based composite features (`dft_homo_sum`, `dft_gap_sum`, `dft_chemical_potential_avg`)
-- QSAR-derived features (`qsar_mr`, `qsar_drug_likeness`)
-- Mechanistic predictors (`hammett_effect`, `taft_effect`, `electronic_softness`)
+- SMILES-derived molecular descriptors for substrates (`subs1_*`/`subs2_*`: MW, LogP, TPSA, rings, aromatic rings, HBA/HBD, rotatable bonds, kappa shape indices, complexity, fraction Csp3, halogen/heteroatom counts, Hammett σ, Taft Eₛ)
+- Steric, LogP, MW, ring-count, halogen-count differences/ratios/sums
+- Hammett/Taft-derived composite features (`hammett_effect`, `taft_effect`, `electronic_softness`)
+- Electronic-proxy composite features (`elecproxy_homo_energy`, `elecproxy_gap_energy`, `elecproxy_chemical_potential`, etc. — see naming note above)
+- A single continuous `physchem_proxy_score` feature (see above)
 
-**Note:** Training requires **enriched datasets** with columns like `subs1_SMILES_*`, `subs2_SMILES_*`, `hsab_*`, `dft_*`, `qsar_*`. Basic datasets trigger an error and redirect to `dataset_routes.py`.
+**Note:** Training requires **enriched datasets** with columns like
+`subs1_SMILES_*`, `subs2_SMILES_*`, `hsab_*`. Basic datasets trigger an
+error and redirect to `dataset_routes.py`.
 
 ### 4. ML Prediction Engine — `SuzukiPredictor`
 
-`train()` fits **13 models** simultaneously and compares them on a held-out test set using R², MAE, and RMSE:
+`train()` fits up to **13 models** and compares them on a held-out test set
+using R², MAE, and RMSE:
 
 | Model Family | Specific Models |
 |--------------|-----------------|
@@ -65,34 +95,62 @@ The rule-based `calculate_yield()` combines temperature, time, catalyst loading,
 | Linear | Ridge, Lasso, ElasticNet |
 | Other | KNN, SVR, Neural Network (MLP), Gaussian Process |
 
-**Ensemble Strategy:**
-- Weighted average ensemble (e.g., Random Forest 16%, Hist-GB 16%, XGBoost 12%, LightGBM 8%, CatBoost 8%)
-- Stacking with Random Forest as meta-model (optional)
+**Low-data safeguards (see `<ml_training_safeguards>` in `info.xml`):** with
+the shipped dataset (~14-15 rows), fitting all 13 models — several of which
+can reach near-zero training error on a handful of rows regardless of any
+real signal — and reporting a single train/test split R² as "performance"
+is a well-known statistical failure mode. As of this pass, `train()`:
+- refuses to fit anything below a configurable minimum sample count,
+- restricts the ensemble to Ridge/Lasso/ElasticNet below a configurable
+  "full ensemble" sample threshold,
+- caps feature count via `SelectKBest` so the sample-to-feature ratio
+  stays above a configurable minimum,
+- reports an `honest_cv_performance` nested-CV metric (feature selection
+  re-fit *inside* each fold) alongside the legacy single-split
+  `performance` dict — **the nested-CV number is the one that should be
+  cited**, not the single-split number.
+
+**Ensemble strategy:**
+- Weighted average ensemble (weights configurable in `info.xml`)
+- Optional stacking with Random Forest as meta-model
 - Soft voting for final predictions
 
-**Academic Analytics:**
-- **Cross-validation** (5-fold KFold) with R² scores
-- **SHAP** model interpretability (TreeExplainer)
-- **ANOVA** statistical analysis (top 5 features)
-- **Confidence intervals** (95%, t-distribution)
-- **Prediction intervals** (90%, normal distribution)
-- **Residual analysis** with Shapiro-Wilk normality test
+**Statistical analyses:**
+- Cross-validation (K-fold) R² scores
+- SHAP model interpretability (TreeExplainer)
+- ANOVA on top features
+- Confidence intervals (t-distribution) and prediction intervals (normal approximation)
+- Residual analysis with Shapiro-Wilk normality test
 
 ### 5. Configuration — `ConfigManager` (XML)
 
-All model hyperparameters, ensemble weights, and chemistry constants are read from `config/info.xml`. The file is auto-created with defaults if missing and supports:
+All model hyperparameters, ensemble weights, and physicochemical constants
+are read from `config/info.xml` — nothing described above is hardcoded as a
+"magic number" in the Python source; every weight, threshold, bonus, and
+penalty has a corresponding, editable XML key with a `default` fallback
+only used if that key is absent. The file is auto-created with defaults if
+missing, and supports:
 - Full XML parsing with caching
 - Type-aware value parsing (int, float, bool, string)
 - Get/set/update via REST API
 - Config backup/restore on update
 
+**What is and isn't XML-editable:** the *coefficients* (weights, centers,
+scales, thresholds, bonuses, penalties) for every factor are XML-editable.
+The *functional form* of each factor (e.g. "Arrhenius-shaped", "distance-
+from-center penalty", which RDKit descriptors are computed, which 13
+algorithms make up the ensemble) is Python code, not XML — that is a
+routine config-vs-architecture split, not a limitation specific to this
+project. See `PARAMETER_PROVENANCE.md` for exactly which numbers in
+`info.xml` are literature values vs. engineering constants.
+
 ### 6. Visualization Engine
 
-Automatically generates **4 academic-level plots** after training:
-1. **DFT HOMO-LUMO Energy Diagram** — Energy levels for substrates and product with gap values
-2. **HSAB Pearson Compatibility Matrix** — Soft-soft/hard-hard matching heatmap
-3. **Mechanistic Barrier Analysis** — OA/TM/RE activation barriers, rate constants, sensitivities
-4. **QSAR Drug-Likeness Radar Plot** — Lipinski rule compliance with QED scores
+Generates plots after training, including:
+1. **Electronic-proxy HOMO-LUMO energy diagram** — energy levels for substrates/product from the Hammett-based proxy described above (not a DFT-calculated diagram)
+2. **HSAB Pearson compatibility matrix** — soft-soft/hard-hard matching heatmap, using the illustrative HSAB placeholder values
+3. **Mechanistic barrier analysis** — the three illustrative OA/TM/RE barrier estimates, rate constants, sensitivities
+4. **Physicochemical proxy plot** — the continuous MW/LogP/TPSA/rotatable-bond proxy score (replaces the earlier "QSAR drug-likeness radar / Lipinski compliance" plot, which has been removed along with the underlying rule set)
 
 ## API Endpoints (`/predict_ml/...`)
 
@@ -105,10 +163,10 @@ Automatically generates **4 academic-level plots** after training:
 | `/api/save_model` | POST | Save trained model with joblib |
 | `/api/load_model` | POST | Load a saved model |
 | `/api/list_models` | GET | List saved models |
-| `/api/make_prediction` | POST | Predict yield for a single reaction with DFT/QSAR/docking details |
+| `/api/make_prediction` | POST | Predict yield for a single reaction, with the full factor breakdown (electronic proxy / physicochemical proxy / HSAB / mechanistic / etc.) |
 | `/api/optimize_catalyst` | POST | Suggest optimal catalyst for given conditions |
-| `/api/model_performance` | GET | Get R²/MAE/RMSE and academic analyses (CV, ANOVA, CIs) |
-| `/api/model_comparison` | POST | Compare all 13 model performances |
+| `/api/model_performance` | GET | Get R²/MAE/RMSE plus `honest_cv_performance` and other statistical analyses (CV, ANOVA, CIs) |
+| `/api/model_comparison` | POST | Compare all trained model performances |
 | `/api/feature_importance` | GET | Feature importance ranking (permutation importance) |
 | `/api/get_xml_config` | GET | Get current XML configuration |
 | `/api/update_xml_config` | POST | Update XML configuration with validation |
@@ -120,10 +178,10 @@ Automatically generates **4 academic-level plots** after training:
 | `/api/clear_cache` | POST | Clear in-memory cache |
 | `/api/get_logs` | GET | Get application logs (filter by level) |
 | `/api/clear_logs` | POST | Clear logs |
-| `/api/get_yield_stats` | GET | Yield statistics from config |
+| `/api/get_yield_stats` | GET | Yield statistics from config (`[DATA]` — should be re-derived whenever the training CSV changes) |
 | `/api/get_model_list` | GET | List available model names |
-| `/api/update_visualizations` | POST | Regenerate academic visualizations |
-| `/api/health` | GET | Health check with cache/status/academic features |
+| `/api/update_visualizations` | POST | Regenerate visualizations |
+| `/api/health` | GET | Health check with cache/status |
 
 ## Project Structure
 
@@ -132,11 +190,12 @@ molytica/
 ├── main.py
 ├── requirements.txt
 ├── config/
-│   └── info.xml                     # Full XML config (200+ parameters)
+│   └── info.xml                     # Full XML config (weights, thresholds, citations)
+├── PARAMETER_PROVENANCE.md          # [LIT] vs [PARAM] audit for every constant in info.xml
 ├── routes/
-│   ├── predict_ml_routes.py         # ML + Chemistry + Academic features
+│   ├── predict_ml_routes.py         # ML + physicochemical engine
 │   ├── predict_routes.py
-│   ├── dataset_routes.py            # Data enrichment (generates academic columns)
+│   ├── dataset_routes.py            # Data enrichment (generates derived feature columns)
 │   ├── compare_routes.py
 │   ├── csv_routes.py
 │   ├── xlsx_routes.py
@@ -145,11 +204,11 @@ molytica/
 ├── static/
 │   ├── datasets/                    # Raw and enriched CSVs
 │   ├── models/                      # Trained models (joblib .pkl)
-│   └── images/YYYYMMDD_HHMMSS/      # Academic visualizations per run
-│       ├── resim1_dft_diagram.png
+│   └── images/YYYYMMDD_HHMMSS/      # Generated visualizations per run
+│       ├── resim1_elecproxy_diagram.png
 │       ├── resim2_hsab_heatmap.png
 │       ├── resim3_mechanistic_analysis.png
-│       └── resim4_qsar_radar.png
+│       └── resim4_physchem_proxy_plot.png
 └── templates/
     ├── index.html
     ├── predict.html
@@ -171,7 +230,9 @@ molytica/
 | `time` / `minute` | Time (min) | `120` |
 | `yield` | Experimental yield (%) | `81` |
 
-**Important:** Training requires **enriched data** with academic columns (`subs1_SMILES_*`, `hsab_*`, `dft_*`, etc.) — use `dataset_routes.py` to generate these from a basic CSV.
+**Important:** Training requires **enriched data** with derived columns
+(`subs1_SMILES_*`, `hsab_*`, etc.) — use `dataset_routes.py` to generate
+these from a basic CSV.
 
 ## Installation
 
@@ -186,26 +247,45 @@ The app runs at `http://127.0.0.1:5000`.
 
 ## Scientific Foundation
 
-- **Suzuki-Miyaura mechanism**: Pd(0)/Pd(II) catalytic cycle (OA, TM, RE)
-- **Hammett/Taft LFER**: Substituent effects (σₘ, σₚ, σ⁺, σ⁻, Eₛ)
-- **HSAB theory**: Hardness, chemical potential, electrophilicity
+- **Suzuki-Miyaura mechanism**: Pd(0)/Pd(II) catalytic cycle (OA, TM, RE) — the three barrier *estimates* used are illustrative, not per-molecule calculated (see `PARAMETER_PROVENANCE.md` §5)
+- **Hammett/Taft LFER**: substituent effects (σₘ, σₚ, σ⁺, σ⁻, Eₛ) — genuinely literature-grounded
+- **HSAB theory** (Pearson, 1963): hardness, chemical potential, electrophilicity — framework is real; the specific numeric scale used is an illustrative placeholder, not a tabulated reference
 - **Eyring transition-state kinetics**: ΔH‡, ΔS‡, reaction rates
 - **Kamlet-Taft solvent parameters**: α, β, π*
-- **DFT-based descriptors**: HOMO-LUMO, Fukui indices
-- **QSAR/QSPR**: 2D descriptors, drug-likeness rules
-- **ML Ensemble**: Random Forest, XGBoost, LightGBM, CatBoost, Hist-GB, SVR, KNN, Ridge, Lasso, ElasticNet, MLP, Gaussian Process
+- **A conceptual-DFT-*inspired* electronic proxy**: HOMO-LUMO-style, chemical-potential/hardness/electrophilicity definitions (Parr & Pearson, 1983) applied to a Hammett-σ-derived proxy — **not an actual DFT calculation**
+- **A continuous physicochemical proxy**: real RDKit MW/LogP/TPSA/rotatable-bond descriptors, no borrowed drug-likeness rule set
+- **ML Ensemble**: Random Forest, XGBoost, LightGBM, CatBoost, Hist-GB, SVR, KNN, Ridge, Lasso, ElasticNet, MLP, Gaussian Process — restricted to linear models automatically at low sample counts (see §4)
 
-## Key Academic Features Summary
+## What changed in v7.4.0
 
-| Category | Features |
-|----------|----------|
-| **Electronic** | Hammett σ (m, p, plus, minus), Taft Eₛ, LFER, conjugation/inductive/resonance effects |
-| **Steric** | A-values, ring penalties, ortho/meta/para penalties, rotatable bonds, molecular volume |
-| **DFT** | HOMO/LUMO energies, gap, chemical potential, hardness, electrophilicity, Fukui indices |
-| **QSAR** | MW, LogP, TPSA, MR, HBA, HBD, RotBonds, QED, drug-likeness score |
-| **HSAB** | Softness, hardness, chemical potential, compatibility scores |
-| **Kinetics** | Eyring rates, Gibbs energy, equilibrium constants, Michaelis-Menten |
-| **Solvent** | Dielectric, donor number, polarity, Kamlet-Taft α/β/π*, Reichardt Eₜ(30) |
+A full academic-integrity pass renamed or removed every module whose name
+implied a computational technique that isn't actually performed:
+
+- **"DFT" → "electronic proxy" (renamed, not removed).** The Hammett-σ-
+  based formula is unchanged; only the misleading `dft_*` naming (config
+  keys, function names, feature columns) was fixed, since no DFT/quantum-
+  chemistry package ever ran in this codebase.
+- **"Docking" (removed entirely, not renamed).** Molecular docking scores
+  a small molecule against a protein binding pocket; this pipeline has no
+  protein target, so no honestly-labelled version of "docking score" would
+  be meaningful here. The module, its config block, and its feature
+  columns are gone.
+- **"QSAR" → continuous "physicochemical proxy" (redesigned, not just
+  renamed).** Lipinski/Ghose/Veber Rule-of-Five-style pass/fail cutoffs and
+  the QED composite score were deleted outright — those rules are real but
+  were derived for oral drug bioavailability, not coupling yield. What
+  remains is a plain, continuous penalty based on real RDKit MW/LogP/TPSA/
+  rotatable-bond descriptors, with no borrowed rule names.
+- **Added `PARAMETER_PROVENANCE.md`**, previously referenced by the code
+  but missing from the repo — the full `[LIT]`/`[PARAM]`/`[REMOVED]` audit
+  for every constant in `info.xml`.
+- **Low-data ML safeguards** (minimum sample thresholds, restricted
+  ensemble at low N, nested-CV `honest_cv_performance` metric) — see §4.
+
+None of this changes the numeric output of the electronic-proxy or
+mechanistic-barrier calculations; it changes what they're honestly called
+and removes the module (docking) and the borrowed rule set (QSAR
+drug-likeness) that had no defensible chemical basis for this reaction.
 
 ## References
 
@@ -214,6 +294,10 @@ The app runs at `http://127.0.0.1:5000`.
 3. Fortman, G. C.; Nolan, S. P. *Chem. Soc. Rev.* **2011**, *40*, 5151-5169.
 4. Lennox, A. J. J.; Lloyd-Jones, G. C. *Chem. Soc. Rev.* **2014**, *43*, 412-433.
 5. Ahneman, D. T.; Estrada, J. G.; Lin, S.; Dreher, S. D.; Doyle, A. G. *Science* **2018**, *360*, 186-190.
+6. Parr, R. G.; Pearson, R. G. *J. Am. Chem. Soc.* **1983**, *105*, 7512-7516. (conceptual-DFT definitions used by the electronic proxy)
+7. Pearson, R. G. *J. Am. Chem. Soc.* **1963**, *85*, 3533-3539. (HSAB framework)
+
+Full parameter-by-parameter citations: see [`PARAMETER_PROVENANCE.md`](PARAMETER_PROVENANCE.md).
 
 ## License
 
@@ -221,7 +305,11 @@ MIT License — see [LICENSE](LICENSE)
 
 ## Note
 
-This software is intended for academic and research purposes. Contact the developers before commercial use.
+This software is intended for academic and research purposes, and the
+physicochemical model should be described as a heuristic, literature-
+*inspired* scoring function, not a validated predictive model, in any
+academic write-up — see the provenance audit above. Contact the developers
+before commercial use.
 
-## Drive 
+## Drive
 Link : https://drive.google.com/file/d/14_TyiuhB_WluTO_udYXPrO9DOz4VurRA/view?usp=sharing
