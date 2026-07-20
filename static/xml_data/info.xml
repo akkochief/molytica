@@ -1,350 +1,772 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<suzuki_config version="3.0.0">
+<suzuki_config version="7.4.0">
     <metadata>
-        <version>3.0.0</version>
-        <last_updated>2026-07-06</last_updated>
-        <author>Molytica AI Team</author>
-        <description>Ultimate Suzuki-Miyaura coupling predictor with full XML integration</description>
+        <version>7.4.0</version>
+        <last_updated>2026-07-19</last_updated>
+        <author>Molytica AI Team - Full Academic Edition</author>
+        <description>Suzuki-Miyaura coupling yield predictor. The model is a heuristic, physically-INSPIRED scoring function: a subset of its inputs (activation energy, Taft/Hammett-type substituent constants, A-values, rate law FORMS) are taken from or consistent with published literature and are labelled [LIT] below; the remaining combination weights, bonuses, and thresholds are engineering design parameters chosen by the authors to produce chemically-plausible monotonic trends and are labelled [PARAM] - they are NOT fitted to, or measured in, any cited publication, and must not be presented as such. See PARAMETER_PROVENANCE.md for the full audit. v7.4.0: every "dft_*" name (config keys, feature columns, function names) was renamed to "elecproxy_*" (electronic_proxy block) since no real DFT/quantum-chemistry calculation ever ran - the underlying Hammett-based formula is unchanged, only the honest naming; the entire "docking" module (config block, functions, feature columns) was deleted outright, not renamed, because molecular docking has no defined meaning for a protein-free, homogeneous Suzuki coupling. v7.2.7: corrected a mis-cited reference (Bourouina et al. was Catalysts 2020, 10, 989 - not 2019, 9, 1070 as previously stated); removed an unverifiable specific patent citation for the pseudo-first-order rate constant and replaced it with an honest general statement; added explicit [LIT]/[PARAM] provenance tags throughout. v7.2.4-7.2.6 (retained): experimental mode uses the real named kinetic equation FORMS (Arrhenius / pseudo-first-order / Michaelis-Menten) with ceiling terms removed; increment_factor values are [PARAM] engineering constants calibrated so the combined-yield feature weighting still produces a visible trend, not literature-measured coefficients.</description>
         <dataset_size>15</dataset_size>
         <target_variable>yield</target_variable>
-        <target_range_min>5</target_range_min>
-        <target_range_max>99</target_range_max>
+        <target_range_min>0</target_range_min>
+        <target_range_max>100</target_range_max>
     </metadata>
+
+    <!-- ============================================================ -->
+    <!-- CHEMICAL INTUITION - PHYSICALLY-INSPIRED SCORING PARAMETERS   -->
+    <!--                                                                -->
+    <!-- PROVENANCE LEGEND (applies to every value below):             -->
+    <!--   [LIT]   = the specific number (or the functional form) is   -->
+    <!--             taken from, or directly consistent with, a named  -->
+    <!--             published source cited in that block.             -->
+    <!--   [PARAM] = an engineering design constant (weight, bonus,     -->
+    <!--             threshold, penalty) chosen by the authors to shape -->
+    <!--             the scoring function. It is inspired by the named  -->
+    <!--             theory/framework but is NOT a number measured or   -->
+    <!--             reported in the cited publication. Presenting a    -->
+    <!--             [PARAM] value as an experimentally-measured or      -->
+    <!--             literature-fitted constant would be a misrepresen- -->
+    <!--             tation of the model and must be avoided in any      -->
+    <!--             academic write-up.                                 -->
+    <!-- Full parameter-by-parameter audit: PARAMETER_PROVENANCE.md    -->
+    <!-- ============================================================ -->
     <chemical_intuition>
+
+        <!-- ========================================================== -->
+        <!-- TEMPERATURE                                                -->
+        <!-- [LIT] activation_energy = 63.0 kJ/mol (std dev 11 kJ/mol,  -->
+        <!--   confidence coefficient 0.88): the measured global         -->
+        <!-- activation energy for the Herrmann-Beller palladacycle-    -->
+        <!-- catalyzed Suzuki-Miyaura coupling of 4-iodoacetophenone +  -->
+        <!-- phenylboronic acid (oxidative addition rate-determining).  -->
+        <!-- CORRECTED CITATION: Bourouina, A.; Oswald, A.; Lido, V.;   -->
+        <!-- Dong, L.; Rataboul, F.; Djakovitch, L.; de Bellefon, C.;   -->
+        <!-- Meille, V. "Kinetic Study of the Herrmann-Beller           -->
+        <!-- Palladacycle-Catalyzed Suzuki-Miyaura Coupling of          -->
+        <!-- 4-Iodoacetophenone and Phenylboronic Acid." Catalysts      -->
+        <!-- 2020, 10(9), 989. https://doi.org/10.3390/catal10090989   -->
+        <!-- (the previous "Catalysts 2019, 9, 1070" citation in this   -->
+        <!-- file was an incorrect year/volume/page and has been fixed  -->
+        <!-- in v7.2.7 - the article does not exist at that reference). -->
+        <!-- This is ONE measured system, not a universal Suzuki-Miyaura -->
+        <!-- constant - reported Ea values for other Pd/ligand/substrate -->
+        <!-- combinations range roughly 50-113 kJ/mol in the literature. -->
+        <!-- [LIT] the general form "rate increases with temperature     -->
+        <!-- following an Arrhenius/Eyring relationship" - Arrhenius, S. -->
+        <!-- Z. Phys. Chem. 1889, 4, 226-248; Eyring, H. J. Chem. Phys.  -->
+        <!-- 1935, 3, 107-115.                                          -->
+        <!-- [PARAM] every weight/bonus/threshold below (temp_coefficient, -->
+        <!-- logarithmic_gain, linear_gain, sigmoidal_gain/steepness/    -->
+        <!-- midpoint, degradation_threshold/penalty/rate, solvent_bp_*, -->
+        <!-- optimal_temp_bonus, curve_steepness/asymmetry, eyring_weight, -->
+        <!-- temp_increment_factor) is an authors' engineering constant, -->
+        <!-- not a literature-reported value.                            -->
+        <!-- ========================================================== -->
         <temperature>
-            <optimal_temp>85</optimal_temp>
-            <temp_range>35</temp_range>
-            <min_temp>40</min_temp>
-            <max_temp>150</max_temp>
-            <degradation_threshold>130</degradation_threshold>
-            <too_low_threshold>50</too_low_threshold>
-            <temp_coefficient>0.8</temp_coefficient>
-            <activation_energy>45.2</activation_energy>
-            <arrhenius_prefactor>1.2e12</arrhenius_prefactor>
+            <baseline_temp>25</baseline_temp>
+            <min_temp>25</min_temp>
+            <max_temp>250</max_temp>
+            <low_temp_penalty>0.20</low_temp_penalty>
+            <high_temp_penalty>0.85</high_temp_penalty>
+            <optimal_temp>110</optimal_temp>
+            <temp_coefficient>0.85</temp_coefficient>
+            <arrhenius_prefactor>1.2e13</arrhenius_prefactor>
+            <activation_energy>63.0</activation_energy>
             <gas_constant>8.314</gas_constant>
-            <curve_steepness>0.15</curve_steepness>
-            <curve_asymmetry>1.2</curve_asymmetry>
-            <low_temp_penalty>0.65</low_temp_penalty>
-            <high_temp_penalty>0.40</high_temp_penalty>
-            <optimal_temp_bonus>1.15</optimal_temp_bonus>
-            <solvent_bp_margin>15</solvent_bp_margin>
-            <solvent_bp_penalty>0.85</solvent_bp_penalty>
+            <temperature_effect_power>0.65</temperature_effect_power>
+            <temperature_scaling>0.5</temperature_scaling>
+            <logarithmic_gain>0.55</logarithmic_gain>
+            <linear_gain>0.30</linear_gain>
+            <sigmoidal_gain>0.15</sigmoidal_gain>
+            <sigmoidal_steepness>0.06</sigmoidal_steepness>
+            <sigmoidal_midpoint>70</sigmoidal_midpoint>
+            <enthalpy_activation>35.2</enthalpy_activation>
+            <entropy_activation>-16.5</entropy_activation>
+            <pre_exponential_factor>1.0e13</pre_exponential_factor>
+            <degradation_threshold>120</degradation_threshold>
+            <degradation_penalty>0.35</degradation_penalty>
+            <degradation_rate>0.045</degradation_rate>
+            <degradation_activation_energy>58.6</degradation_activation_energy>
+            <solvent_bp_margin>20</solvent_bp_margin>
+            <solvent_bp_penalty>0.70</solvent_bp_penalty>
+            <solvent_decomposition_threshold>15</solvent_decomposition_threshold>
+            <optimal_temp_bonus>1.18</optimal_temp_bonus>
+            <temp_range>40</temp_range>
+            <curve_steepness>0.08</curve_steepness>
+            <curve_asymmetry>1.1</curve_asymmetry>
+            <eyring_prefactor>1.0e13</eyring_prefactor>
+            <eyring_weight>0.25</eyring_weight>
+            <temp_increment_factor>0.55</temp_increment_factor>
+            <base_temp_yield>40</base_temp_yield>
         </temperature>
+
+        <!-- ========================================================== -->
+        <!-- TIME                                                       -->
+        <!-- [LIT] the functional FORM - integrated pseudo-first-order  -->
+        <!-- kinetics, conversion = 1 - exp(-k*t) - is standard chemical -->
+        <!-- kinetics (see e.g. Fersht, A. Structure and Mechanism in    -->
+        <!-- Protein Science, 1999, for the general treatment).          -->
+        <!-- [PARAM] rate_constant = 0.10/h (implying ~91% conversion by -->
+        <!-- 24h) is NOT taken from a specific measured Suzuki-Miyaura    -->
+        <!-- system. It was chosen because published Suzuki-Miyaura       -->
+        <!-- protocols commonly report near-complete conversion within    -->
+        <!-- roughly 1-24 h under standard batch conditions, but the      -->
+        <!-- true rate constant is strongly substrate/catalyst/ligand/    -->
+        <!-- base-dependent and no single universal value exists.         -->
+        <!-- v7.2.7: removed a specific patent citation ("US Patent        -->
+        <!-- 7687640") that was attached to this constant in a prior       -->
+        <!-- version but could not be independently verified as            -->
+        <!-- supporting this exact number - citing it would have been a    -->
+        <!-- fabricated/unverifiable attribution, so it has been dropped   -->
+        <!-- in favour of this honest, uncited engineering justification.  -->
+        <!-- If exact literature grounding is required, this constant      -->
+        <!-- should be re-fit against a specific published time-course      -->
+        <!-- dataset for the target substrate/catalyst pair before any     -->
+        <!-- academic claim is made about it.                              -->
+        <!-- [PARAM] every other weight/bonus/threshold below              -->
+        <!-- (time_coefficient, logarithmic_factor, linear_factor,          -->
+        <!-- plateau_factor, diminishing_returns, early/late_time_          -->
+        <!-- multiplier, long_time_bonus, optimal_time_bonus, reaction_     -->
+        <!-- order, half_life_temperature_dependence, diffusion_limited_    -->
+        <!-- rate, time_increment_factor) is an engineering constant, not   -->
+        <!-- a literature-reported value.                                   -->
+        <!-- ========================================================== -->
         <time>
-            <optimal_time>18</optimal_time>
-            <time_range>12</time_range>
+            <baseline_time>1</baseline_time>
             <min_time>1</min_time>
-            <max_time>48</max_time>
-            <time_coefficient>1.2</time_coefficient>
-            <reaction_half_life>6.5</reaction_half_life>
-            <rate_constant>0.107</rate_constant>
-            <diffusion_limit>0.85</diffusion_limit>
+            <max_time>72</max_time>
+            <short_time_penalty>0.10</short_time_penalty>
+            <long_time_penalty>0.92</long_time_penalty>
+            <optimal_time>24</optimal_time>
+            <time_coefficient>0.75</time_coefficient>
+            <reaction_half_life>6.9</reaction_half_life>
+            <rate_constant>0.10</rate_constant>
+            <time_effect_power>0.40</time_effect_power>
+            <time_scaling>0.45</time_scaling>
+            <logarithmic_factor>0.65</logarithmic_factor>
+            <linear_factor>0.35</linear_factor>
             <saturation_point>24</saturation_point>
-            <plateau_factor>0.92</plateau_factor>
-            <diminishing_returns>0.35</diminishing_returns>
-            <short_time_penalty>0.40</short_time_penalty>
-            <long_time_penalty>0.70</long_time_penalty>
-            <optimal_time_bonus>1.10</optimal_time_bonus>
+            <plateau_factor>0.93</plateau_factor>
+            <diminishing_returns>0.20</diminishing_returns>
+            <early_time_multiplier>2.0</early_time_multiplier>
+            <late_time_multiplier>0.5</late_time_multiplier>
+            <long_time_bonus>1.08</long_time_bonus>
+            <optimal_time_bonus>1.12</optimal_time_bonus>
+            <reaction_order>1.1</reaction_order>
+            <half_life_temperature_dependence>-0.06</half_life_temperature_dependence>
+            <diffusion_limited_rate>0.70</diffusion_limited_rate>
+            <time_range>12</time_range>
+            <time_increment_factor>0.22</time_increment_factor>
+            <base_time_yield>35</base_time_yield>
         </time>
+
+        <!-- ========================================================== -->
+        <!-- CATALYST                                                   -->
+        <!-- [LIT] the functional FORM - saturation kinetics             -->
+        <!-- q/(k_m+q) - is borrowed BY ANALOGY from enzyme kinetics:    -->
+        <!-- Michaelis, L.; Menten, M. L. Biochem. Z. 1913, 49, 333-369. -->
+        <!-- Using Michaelis-Menten for a homogeneous Pd catalyst        -->
+        <!-- loading (rather than an enzyme/substrate system) is a       -->
+        <!-- modelling CHOICE, not a literature-validated equivalence -   -->
+        <!-- it is a reasonable saturation-curve analogy, not a proven    -->
+        <!-- mechanism for catalyst-loading-vs-yield in Suzuki-Miyaura.   -->
+        <!-- [PARAM] k_m = 0.0008 mol is a plausible order-of-magnitude   -->
+        <!-- estimate (modern XPhos/SPhos-type ligand systems are widely  -->
+        <!-- reported to reach useful turnover at loadings as low as      -->
+        <!-- ~0.05-0.1 mol%), not a value measured or fitted for a         -->
+        <!-- specific published dataset.                                  -->
+        <!-- [PARAM] all remaining weights/bonuses/factors below           -->
+        <!-- (v_max, turnover_number, turnover_frequency,                  -->
+        <!-- catalyst_efficiency, early/late_catalyst_multiplier,          -->
+        <!-- ligand_pd_ratio, ligand_bite_angle, ligand_* factors,         -->
+        <!-- high/optimal_quantity_bonus, mono/bidentate/bulky/electron_   -->
+        <!-- rich_ligand_factor, catalyst_increment_factor) are engineering-->
+        <!-- constants, not literature-reported values.                    -->
+        <!-- ========================================================== -->
         <catalyst>
-            <k_m>0.003</k_m>
-            <v_max>18</v_max>
-            <min_quantity>0.0005</min_quantity>
-            <max_quantity>0.08</max_quantity>
-            <degradation_threshold>0.04</degradation_threshold>
-            <quality_coefficient>0.6</quality_coefficient>
-            <turnover_number>1200</turnover_number>
-            <turnover_frequency>45.6</turnover_frequency>
-            <catalyst_efficiency>0.78</catalyst_efficiency>
-            <ligand_pd_ratio>4.0</ligand_pd_ratio>
-            <ligand_bite_angle>102</ligand_bite_angle>
-            <ligand_electron_donating>0.45</ligand_electron_donating>
-            <ligand_steric_bulk>1.8</ligand_steric_bulk>
-            <low_quantity_penalty>0.30</low_quantity_penalty>
-            <high_quantity_penalty>0.50</high_quantity_penalty>
+            <k_m>0.0008</k_m>
+            <v_max>22</v_max>
+            <baseline_quantity>0.0001</baseline_quantity>
+            <min_quantity>0.0001</min_quantity>
+            <max_quantity>0.50</max_quantity>
+            <low_quantity_penalty>0.10</low_quantity_penalty>
+            <catalyst_effect_power>0.55</catalyst_effect_power>
+            <catalyst_scaling>0.60</catalyst_scaling>
+            <mm_weight>0.50</mm_weight>
+            <linear_weight>0.30</linear_weight>
+            <logarithmic_weight>0.20</logarithmic_weight>
+            <turnover_number>4500</turnover_number>
+            <turnover_frequency>110.2</turnover_frequency>
+            <catalyst_efficiency>0.90</catalyst_efficiency>
+            <early_catalyst_multiplier>2.2</early_catalyst_multiplier>
+            <late_catalyst_multiplier>0.4</late_catalyst_multiplier>
+            <ligand_pd_ratio>2.5</ligand_pd_ratio>
+            <ligand_bite_angle>92</ligand_bite_angle>
+            <ligand_electron_donating>0.50</ligand_electron_donating>
+            <ligand_steric_bulk>1.4</ligand_steric_bulk>
+            <high_quantity_bonus>1.12</high_quantity_bonus>
             <optimal_quantity_bonus>1.20</optimal_quantity_bonus>
             <monodentate_ligand_factor>0.90</monodentate_ligand_factor>
             <bidentate_ligand_factor>1.10</bidentate_ligand_factor>
             <bulky_ligand_factor>0.85</bulky_ligand_factor>
             <electron_rich_ligand_factor>1.15</electron_rich_ligand_factor>
-            <pd_sources>
-                <pd_acetate>Pd(OAc)2</pd_acetate>
-                <pd_chloride>PdCl2</pd_chloride>
-                <pd_dba>Pd2(dba)3</pd_dba>
-                <pd_phosphine>Pd(PPh3)4</pd_phosphine>
-            </pd_sources>
+            <pd_oxidation_state>2</pd_oxidation_state>
+            <ligand_coordination_number>4</ligand_coordination_number>
+            <degradation_threshold>0.50</degradation_threshold>
+            <quality_coefficient>0.75</quality_coefficient>
+            <catalyst_increment_factor>0.090</catalyst_increment_factor>
+            <base_catalyst_yield>30</base_catalyst_yield>
         </catalyst>
+
+        <!-- ========================================================== -->
+        <!-- HAMMETT-DRIVEN ELECTRONIC PROXY (renamed from "DFT" - see   -->
+        <!-- CHANGELOG in predict_ml_routes.py v7.4.0). This is NOT a    -->
+        <!-- DFT/quantum-chemistry module.                               -->
+        <!-- [LIT] the DEFINITIONS of chemical potential, hardness, and -->
+        <!-- electrophilicity from HOMO/LUMO energies are the standard   -->
+        <!-- conceptual-DFT framework of Parr, R. G.; Pearson, R. G.     -->
+        <!-- J. Am. Chem. Soc. 1983, 105, 7512-7516. That citation is    -->
+        <!-- genuine and stays - only the misleading "dft_" naming was    -->
+        <!-- removed.                                                     -->
+        <!-- [PARAM] IMPORTANT: base_homo_energy/base_lumo_energy below  -->
+        <!-- are NOT outputs of an actual DFT calculation on the input   -->
+        <!-- molecule (no quantum-chemical calculation is performed by   -->
+        <!-- this code) - they are fixed placeholder values combined     -->
+        <!-- with cheap descriptors as a proxy. All weights/thresholds   -->
+        <!-- (chemical_potential_weight, hardness_weight, fukui_weight,  -->
+        <!-- fukui_*_threshold, electrophilicity/nucleophilicity_        -->
+        <!-- threshold, homo/lumo/gap_energy_factor, homo_lumo_          -->
+        <!-- correlation) are engineering constants. If real HOMO/LUMO   -->
+        <!-- values are required for an academic claim, they must be      -->
+        <!-- computed per-molecule with an actual DFT package (e.g.        -->
+        <!-- Gaussian, ORCA, PySCF) rather than read from this block.      -->
+        <!-- ========================================================== -->
+        <electronic_proxy>
+            <base_homo_energy>-6.50</base_homo_energy>
+            <base_lumo_energy>-1.50</base_lumo_energy>
+            <homo_shift_factor>0.80</homo_shift_factor>
+            <lumo_shift_factor>1.20</lumo_shift_factor>
+            <chemical_potential_weight>0.28</chemical_potential_weight>
+            <hardness_weight>0.22</hardness_weight>
+            <electrophilicity_weight>0.18</electrophilicity_weight>
+            <fukui_weight>0.32</fukui_weight>
+            <fukui_plus_threshold>0.12</fukui_plus_threshold>
+            <fukui_minus_threshold>0.12</fukui_minus_threshold>
+            <fukui_zero_threshold>0.10</fukui_zero_threshold>
+            <electrophilicity_threshold>1.3</electrophilicity_threshold>
+            <nucleophilicity_threshold>1.8</nucleophilicity_threshold>
+            <homo_energy_factor>0.35</homo_energy_factor>
+            <lumo_energy_factor>0.25</lumo_energy_factor>
+            <gap_energy_factor>0.40</gap_energy_factor>
+            <homo_lumo_correlation>0.15</homo_lumo_correlation>
+        </electronic_proxy>
+
+        <!-- ========================================================== -->
+        <!-- MECHANISTIC STEP BARRIERS (illustrative, not calculated)   -->
+        <!-- [PARAM] IMPORTANT CORRECTION: no B3LYP/6-31G* (or any other) -->
+        <!-- DFT calculation is actually run by this codebase. The        -->
+        <!-- barrier values below (oxidative_addition_barrier = 26.5      -->
+        <!-- kJ/mol, transmetalation_barrier = 20.8, reductive_           -->
+        <!-- elimination_barrier = 17.2) are illustrative numbers in the   -->
+        <!-- range commonly reported for Pd(0)/Pd(II) cross-coupling       -->
+        <!-- cycles in the computational literature, chosen to be          -->
+        <!-- chemically plausible and consistent with oxidative addition   -->
+        <!-- typically being rate-limiting - they are NOT the output of     -->
+        <!-- a calculation performed on the user's specific input           -->
+        <!-- molecule and must not be described as "real DFT-calculated."   -->
+        <!-- For an academic claim, these barriers should be replaced by     -->
+        <!-- literature values for the specific catalyst/substrate system    -->
+        <!-- being modelled, with individual citations, or by an actual      -->
+        <!-- DFT calculation.                                                -->
+        <!-- [PARAM] all sensitivity/weight/rate/bonus terms below are        -->
+        <!-- engineering constants, not measured values.                      -->
+        <!-- ========================================================== -->
+        <mechanistic>
+            <oxidative_addition_barrier>26.5</oxidative_addition_barrier>
+            <oxidative_addition_barrier_sigma_effect>4.2</oxidative_addition_barrier_sigma_effect>
+            <oxidative_addition_barrier_steric_effect>3.8</oxidative_addition_barrier_steric_effect>
+            <oxidative_addition_rate>0.048</oxidative_addition_rate>
+            <oxidative_addition_steric_sensitivity>0.60</oxidative_addition_steric_sensitivity>
+            <oxidative_addition_electronic_sensitivity>0.80</oxidative_addition_electronic_sensitivity>
+            <oxidative_addition_pd_effect>1.08</oxidative_addition_pd_effect>
+            <transmetalation_barrier>20.8</transmetalation_barrier>
+            <transmetalation_barrier_base_effect>-3.2</transmetalation_barrier_base_effect>
+            <transmetalation_barrier_boronic_effect>-2.8</transmetalation_barrier_boronic_effect>
+            <transmetalation_rate>0.082</transmetalation_rate>
+            <transmetalation_base_sensitivity>0.70</transmetalation_base_sensitivity>
+            <transmetalation_boronic_sensitivity>0.65</transmetalation_boronic_sensitivity>
+            <transmetalation_halide_sensitivity>0.55</transmetalation_halide_sensitivity>
+            <reductive_elimination_barrier>17.2</reductive_elimination_barrier>
+            <reductive_elimination_barrier_steric_effect>5.6</reductive_elimination_barrier_steric_effect>
+            <reductive_elimination_rate>0.125</reductive_elimination_rate>
+            <reductive_elimination_steric_sensitivity>0.85</reductive_elimination_steric_sensitivity>
+            <reductive_elimination_electronic_sensitivity>0.55</reductive_elimination_electronic_sensitivity>
+            <reductive_elimination_ring_closure_bonus>1.12</reductive_elimination_ring_closure_bonus>
+            <transition_state_asymmetry>1.1</transition_state_asymmetry>
+            <reaction_coordinate_step>0.08</reaction_coordinate_step>
+            <intermediate_stability_factor>0.75</intermediate_stability_factor>
+            <pre_exponential_factor>1.0e13</pre_exponential_factor>
+            <oa_weight>0.35</oa_weight>
+            <tm_weight>0.35</tm_weight>
+            <re_weight>0.30</re_weight>
+        </mechanistic>
+
+        <!-- ========================================================== -->
+        <!-- REMOVED in v7.4.0 (not renamed): a "docking" block used to  -->
+        <!-- live here (hydrophobic/electrostatic/H-bond/entropic terms  -->
+        <!-- styled after AutoDock Vina's scoring function - no Vina run -->
+        <!-- ever executed in this codebase). It has been deleted rather -->
+        <!-- than relabeled: molecular docking scores a small molecule   -->
+        <!-- against a protein binding pocket, and this pipeline models  -->
+        <!-- a homogeneous Pd-catalyzed Suzuki-Miyaura coupling between   -->
+        <!-- two small molecules with no protein target - there is no    -->
+        <!-- honestly-labelled version of "docking score" that applies   -->
+        <!-- here. See predict_ml_routes.py CHANGELOG (v7.4.0).          -->
+        <!-- ========================================================== -->
+        <!-- STERIC                                                     -->
+        <!-- [LIT] a_value_methyl/ethyl/isopropyl/tertbutyl/cyclohexyl/  -->
+        <!-- phenyl are standard textbook A-values (cyclohexane           -->
+        <!-- conformational free-energy values), broadly consistent with -->
+        <!-- Eliel, E. L.; Wilen, S. H. Stereochemistry of Organic        -->
+        <!-- Compounds, 1994, and are genuinely literature-grounded.       -->
+        <!-- [PARAM] every other threshold/penalty/factor below           -->
+        <!-- (penalty_coefficient, ring/bulky/ortho/meta/para              -->
+        <!-- substituent penalties, molecular_volume_threshold,            -->
+        <!-- volume_penalty_factor, rotatable_bond_penalty/threshold,      -->
+        <!-- fused/bridged/spiro_ring_penalty, heavy_atom/halogen_steric_  -->
+        <!-- factor) is an engineering constant chosen to give plausible   -->
+        <!-- monotonic penalties, not a value reported in the cited text.  -->
+        <!-- ========================================================== -->
         <steric>
-            <threshold>0.35</threshold>
+            <threshold>0.20</threshold>
             <penalty_coefficient>7.5</penalty_coefficient>
-            <ring_penalty_factor>0.3</ring_penalty_factor>
-            <bulky_group_penalty>1.8</bulky_group_penalty>
-            <ortho_substituent_penalty>2.5</ortho_substituent_penalty>
-            <meta_substituent_penalty>1.2</meta_substituent_penalty>
+            <ring_penalty_factor>0.30</ring_penalty_factor>
+            <bulky_group_penalty>2.0</bulky_group_penalty>
+            <ortho_substituent_penalty>2.8</ortho_substituent_penalty>
+            <meta_substituent_penalty>1.3</meta_substituent_penalty>
             <para_substituent_penalty>0.8</para_substituent_penalty>
-            <molecular_volume_threshold>250</molecular_volume_threshold>
-            <volume_penalty_factor>0.02</volume_penalty_factor>
+            <molecular_volume_threshold>180</molecular_volume_threshold>
+            <volume_penalty_factor>0.020</volume_penalty_factor>
             <rotatable_bond_penalty>0.15</rotatable_bond_penalty>
-            <rotatable_bond_threshold>6</rotatable_bond_threshold>
-            <fused_ring_penalty>0.40</fused_ring_penalty>
-            <bridged_ring_penalty>0.60</bridged_ring_penalty>
-            <spiro_ring_penalty>0.50</spiro_ring_penalty>
+            <rotatable_bond_threshold>8</rotatable_bond_threshold>
+            <fused_ring_penalty>0.45</fused_ring_penalty>
+            <bridged_ring_penalty>0.65</bridged_ring_penalty>
+            <spiro_ring_penalty>0.55</spiro_ring_penalty>
             <heavy_atom_steric_factor>0.08</heavy_atom_steric_factor>
             <halogen_steric_factor>0.15</halogen_steric_factor>
+            <a_value_methyl>1.74</a_value_methyl>
+            <a_value_ethyl>1.75</a_value_ethyl>
+            <a_value_isopropyl>2.21</a_value_isopropyl>
+            <a_value_tertbutyl>4.9</a_value_tertbutyl>
+            <a_value_cyclohexyl>2.15</a_value_cyclohexyl>
+            <a_value_phenyl>2.8</a_value_phenyl>
         </steric>
+
+        <!-- ========================================================== -->
+        <!-- ELECTRONIC                                                 -->
+        <!-- [LIT] sigma_m/p_electron_withdrawing/donating and the       -->
+        <!-- taft_es_* values are broadly consistent with the compiled    -->
+        <!-- Hammett sigma and Taft steric (Es) constants in Hansch, C.;  -->
+        <!-- Leo, A.; Taft, R. W. Chem. Rev. 1991, 91, 165-195, and are    -->
+        <!-- genuinely literature-grounded (treat as representative        -->
+        <!-- literature values, not necessarily the exact per-substituent  -->
+        <!-- entry - verify the specific substituent against the compiled  -->
+        <!-- table before citing an exact figure in a paper).               -->
+        <!-- [PARAM] every weight/bonus/penalty below (hammett/taft_        -->
+        <!-- coefficient, sigma_plus/minus_coefficient, brown_sigma_plus_   -->
+        <!-- factor, hammett_reaction_constant, lfer_weight, electron_      -->
+        <!-- donating_bonus/withdrawing_penalty, conjugation/inductive/     -->
+        <!-- resonance_effect, polarity_factor, solubility_threshold/       -->
+        <!-- penalty, logp_coefficient, hbd_penalty, hba_bonus) is an        -->
+        <!-- engineering constant, not a literature-reported value.          -->
+        <!-- ========================================================== -->
         <electronic>
             <logp_coefficient>0.25</logp_coefficient>
-            <hbd_penalty>2.0</hbd_penalty>
-            <hba_bonus>1.5</hba_bonus>
-            <hammett_coefficient>2.8</hammett_coefficient>
-            <taft_coefficient>1.5</taft_coefficient>
-            <sigma_m_electron_withdrawing>0.65</sigma_m_electron_withdrawing>
-            <sigma_p_electron_withdrawing>0.78</sigma_p_electron_withdrawing>
-            <sigma_m_electron_donating>-0.25</sigma_m_electron_donating>
-            <sigma_p_electron_donating>-0.35</sigma_p_electron_donating>
+            <hbd_penalty>2.2</hbd_penalty>
+            <hba_bonus>1.6</hba_bonus>
+            <hammett_coefficient>3.0</hammett_coefficient>
+            <taft_coefficient>1.6</taft_coefficient>
+            <sigma_m_electron_withdrawing>0.70</sigma_m_electron_withdrawing>
+            <sigma_p_electron_withdrawing>0.80</sigma_p_electron_withdrawing>
+            <sigma_m_electron_donating>-0.28</sigma_m_electron_donating>
+            <sigma_p_electron_donating>-0.40</sigma_p_electron_donating>
+            <sigma_plus_coefficient>3.2</sigma_plus_coefficient>
+            <sigma_minus_coefficient>2.6</sigma_minus_coefficient>
+            <brown_sigma_plus_factor>1.2</brown_sigma_plus_factor>
+            <hammett_reaction_constant>1.1</hammett_reaction_constant>
+            <lfer_weight>0.12</lfer_weight>
             <electron_donating_bonus>1.25</electron_donating_bonus>
-            <electron_withdrawing_penalty>0.75</electron_withdrawing_penalty>
-            <conjugation_effect>1.10</conjugation_effect>
-            <inductive_effect>0.95</inductive_effect>
-            <resonance_effect>1.15</resonance_effect>
+            <electron_withdrawing_penalty>0.72</electron_withdrawing_penalty>
+            <conjugation_effect>1.12</conjugation_effect>
+            <inductive_effect>0.90</inductive_effect>
+            <resonance_effect>1.18</resonance_effect>
             <polarity_factor>0.12</polarity_factor>
-            <solubility_threshold>-2.0</solubility_threshold>
-            <solubility_penalty>0.60</solubility_penalty>
-            <hammett>
-                <sigma_m_electron_withdrawing>0.65</sigma_m_electron_withdrawing>
-                <sigma_p_electron_withdrawing>0.78</sigma_p_electron_withdrawing>
-                <sigma_m_electron_donating>-0.25</sigma_m_electron_donating>
-                <sigma_p_electron_donating>-0.35</sigma_p_electron_donating>
-                <hammett_coefficient>2.8</hammett_coefficient>
-            </hammett>
-            <taft>
-                <es_methyl>0.0</es_methyl>
-                <es_ethyl>-0.07</es_ethyl>
-                <es_isopropyl>-0.47</es_isopropyl>
-                <es_tertbutyl>-1.54</es_tertbutyl>
-                <es_phenyl>-1.20</es_phenyl>
-                <taft_coefficient>1.5</taft_coefficient>
-            </taft>
-            <substituent_effects>
-                <electron_donating_bonus>1.25</electron_donating_bonus>
-                <electron_withdrawing_penalty>0.75</electron_withdrawing_penalty>
-                <conjugation_effect>1.10</conjugation_effect>
-                <inductive_effect>0.95</inductive_effect>
-                <resonance_effect>1.15</resonance_effect>
-            </substituent_effects>
+            <solubility_threshold>-2.2</solubility_threshold>
+            <solubility_penalty>0.58</solubility_penalty>
+            <taft_es_methyl>0.00</taft_es_methyl>
+            <taft_es_ethyl>-0.07</taft_es_ethyl>
+            <taft_es_isopropyl>-0.47</taft_es_isopropyl>
+            <taft_es_tertbutyl>-1.54</taft_es_tertbutyl>
+            <taft_es_phenyl>-1.20</taft_es_phenyl>
+            <taft_es_benzyl>-0.45</taft_es_benzyl>
         </electronic>
+
+        <!-- ========================================================== -->
+        <!-- HSAB                                                       -->
+        <!-- [LIT] the qualitative Hard/Soft Acid-Base FRAMEWORK (soft   -->
+        <!-- species prefer soft partners) is Pearson, R. G. J. Am.       -->
+        <!-- Chem. Soc. 1963, 85, 3533-3539.                              -->
+        <!-- [PARAM] IMPORTANT: the specific numeric softness/hardness/   -->
+        <!-- chemical-potential/electronegativity values below (pd_       -->
+        <!-- softness=2.8, halide_softness=3.2, etc.) are illustrative     -->
+        <!-- placeholders on a self-defined scale, not values tabulated    -->
+        <!-- in the cited paper or any absolute-hardness reference table   -->
+        <!-- for these specific species - do not present them as measured  -->
+        <!-- or literature-tabulated numbers. All match/bonus/penalty       -->
+        <!-- weights below are engineering constants.                       -->
+        <!-- ========================================================== -->
         <hsab>
             <pd_softness>2.8</pd_softness>
             <halide_softness>3.2</halide_softness>
             <ligand_softness>2.5</ligand_softness>
             <base_softness>3.0</base_softness>
-            <soft_soft_bonus>1.20</soft_soft_bonus>
-            <hard_hard_bonus>1.10</hard_hard_bonus>
-            <soft_hard_penalty>0.70</soft_hard_penalty>
-            <mismatch_penalty>0.50</mismatch_penalty>
+            <absolute_hardness_pd>3.8</absolute_hardness_pd>
+            <absolute_hardness_halide>4.2</absolute_hardness_halide>
+            <absolute_hardness_ligand>3.5</absolute_hardness_ligand>
+            <chemical_potential_pd>-5.2</chemical_potential_pd>
+            <electronegativity_pd>5.2</electronegativity_pd>
+            <pearson_softness_threshold>6.0</pearson_softness_threshold>
             <pd_halide_match>0.85</pd_halide_match>
             <pd_ligand_match>0.90</pd_ligand_match>
             <ligand_halide_match>0.75</ligand_halide_match>
             <overall_compatibility>0.80</overall_compatibility>
-            <hardness>
-                <pd_softness>2.8</pd_softness>
-                <halide_softness>3.2</halide_softness>
-                <ligand_softness>2.5</ligand_softness>
-                <base_softness>3.0</base_softness>
-            </hardness>
-            <matching_scores>
-                <pd_halide_match>0.85</pd_halide_match>
-                <pd_ligand_match>0.90</pd_ligand_match>
-                <ligand_halide_match>0.75</ligand_halide_match>
-                <overall_compatibility>0.80</overall_compatibility>
-            </matching_scores>
+            <soft_soft_bonus>1.22</soft_soft_bonus>
+            <hard_hard_bonus>1.12</hard_hard_bonus>
+            <soft_hard_penalty>0.68</soft_hard_penalty>
+            <mismatch_penalty>0.48</mismatch_penalty>
+            <soft_soft_weight>0.40</soft_soft_weight>
+            <hard_hard_weight>0.35</hard_hard_weight>
+            <mismatch_penalty_weight>0.25</mismatch_penalty_weight>
         </hsab>
+
+        <!-- ========================================================== -->
+        <!-- SOLVENT                                                    -->
+        <!-- [LIT] the descriptor CATEGORIES (dielectric constant,       -->
+        <!-- donor number, Kamlet-Taft alpha/beta/pi*, Reichardt's ET(30) -->
+        <!-- polarity, Hildebrand solubility parameter) are real,          -->
+        <!-- established solvent-polarity scales: Reichardt, C. Chem.      -->
+        <!-- Rev. 1994, 94, 2319-2358; Kamlet, M. J.; Taft, R. W. J. Am.    -->
+        <!-- Chem. Soc. 1976, 98, 377-383 (beta scale; the pi* scale        -->
+        <!-- follows in Kamlet, Abboud, Taft, J. Am. Chem. Soc. 1977, 99,   -->
+        <!-- 6027-6038, and the alpha scale in J. Am. Chem. Soc. 1976, 98,  -->
+        <!-- 2886-2894 - this file's original single citation was correct  -->
+        <!-- for the beta scale but the full alpha/beta/pi* triad spans     -->
+        <!-- these three papers, not one).                                  -->
+        <!-- [PARAM] the specific optimal/range/weight values and all        -->
+        <!-- solvent-mixture bonus factors below are engineering choices,     -->
+        <!-- not values measured for this reaction or reported in the         -->
+        <!-- cited papers.                                                     -->
+        <!-- ========================================================== -->
         <solvent>
-            <dielectric_optimal>25.0</dielectric_optimal>
-            <dielectric_range>15.0</dielectric_range>
-            <dielectric_weight>0.15</dielectric_weight>
+            <dielectric_optimal>28.0</dielectric_optimal>
+            <dielectric_range>18.0</dielectric_range>
+            <dielectric_weight>0.10</dielectric_weight>
             <donor_optimal>20.0</donor_optimal>
-            <donor_range>15.0</donor_range>
-            <donor_weight>0.12</donor_weight>
-            <polarity_optimal>4.0</polarity_optimal>
-            <polarity_range>3.0</polarity_range>
-            <polarity_weight>0.10</polarity_weight>
+            <donor_range>16.0</donor_range>
+            <donor_weight>0.08</donor_weight>
+            <polarity_optimal>4.5</polarity_optimal>
+            <polarity_range>3.5</polarity_range>
+            <polarity_weight>0.06</polarity_weight>
+            <alpha_weight>0.08</alpha_weight>
+            <beta_weight>0.08</beta_weight>
+            <pi_star_weight>0.06</pi_star_weight>
+            <reichardt_weight>0.05</reichardt_weight>
+            <hildebrand_weight>0.04</hildebrand_weight>
             <aprotic_solvent_bonus>1.10</aprotic_solvent_bonus>
-            <protic_solvent_penalty>0.90</protic_solvent_penalty>
-            <polar_solvent_bonus>1.05</polar_solvent_bonus>
-            <nonpolar_solvent_penalty>0.95</nonpolar_solvent_penalty>
-            <dielectric_constant>
-                <optimal>25.0</optimal>
-                <range>15.0</range>
-                <weight>0.15</weight>
-            </dielectric_constant>
-            <donor_number>
-                <optimal>20.0</optimal>
-                <range>15.0</range>
-                <weight>0.12</weight>
-            </donor_number>
-            <polarity_index>
-                <optimal>4.0</optimal>
-                <range>3.0</range>
-                <weight>0.10</weight>
-            </polarity_index>
+            <protic_solvent_penalty>0.88</protic_solvent_penalty>
+            <polar_solvent_bonus>1.06</polar_solvent_bonus>
+            <nonpolar_solvent_penalty>0.92</nonpolar_solvent_penalty>
             <solvent_mixtures>
-                <toluene_ethanol>1.15</toluene_ethanol>
-                <dioxane_water>1.10</dioxane_water>
-                <thf_water>1.05</thf_water>
-                <dme_water>1.08</dme_water>
+                <toluene_ethanol>1.18</toluene_ethanol>
+                <dioxane_water>1.12</dioxane_water>
+                <thf_water>1.08</thf_water>
+                <dme_water>1.10</dme_water>
+                <acetonitrile_water>1.06</acetonitrile_water>
+                <dmso_water>1.15</dmso_water>
             </solvent_mixtures>
         </solvent>
+
+        <!-- ========================================================== -->
+        <!-- BASE                                                       -->
+        <!-- [LIT] pKa as a general predictor of base strength in         -->
+        <!-- proton-transfer equilibria is standard physical organic       -->
+        <!-- chemistry; Bordwell, F. G. Acc. Chem. Res. 1988, 21, 456-463  -->
+        <!-- is a real, relevant compilation of pKa values, though it       -->
+        <!-- covers acidity in DMSO generally rather than being a study     -->
+        <!-- specific to Suzuki-Miyaura base selection.                     -->
+        <!-- [PARAM] pka_threshold and every bonus/penalty/weight below     -->
+        <!-- (strong/weak_base_bonus/penalty, inorganic/organic/carbonate/  -->
+        <!-- phosphate/acetate/fluoride_base_factor, soluble/insoluble/      -->
+        <!-- hygroscopic_base_bonus/penalty, cation_radius_effect, pka/pkb_ -->
+        <!-- effect, and the four *_weight terms) are engineering            -->
+        <!-- constants, not values reported in the cited source.             -->
+        <!-- ========================================================== -->
         <base>
             <pka_threshold>18.0</pka_threshold>
-            <strong_base_bonus>1.15</strong_base_bonus>
-            <weak_base_penalty>0.85</weak_base_penalty>
+            <strong_base_bonus>1.18</strong_base_bonus>
+            <weak_base_penalty>0.82</weak_base_penalty>
             <inorganic_base_factor>1.00</inorganic_base_factor>
-            <organic_base_factor>0.95</organic_base_factor>
+            <organic_base_factor>0.94</organic_base_factor>
             <carbonate_base_factor>1.10</carbonate_base_factor>
-            <phosphate_base_factor>1.05</phosphate_base_factor>
+            <phosphate_base_factor>1.06</phosphate_base_factor>
+            <acetate_base_factor>0.88</acetate_base_factor>
+            <fluoride_base_factor>0.82</fluoride_base_factor>
             <soluble_base_bonus>1.08</soluble_base_bonus>
-            <insoluble_base_penalty>0.80</insoluble_base_penalty>
-            <hygroscopic_base_penalty>0.90</hygroscopic_base_penalty>
-            <base_strength>
-                <pka_threshold>18.0</pka_threshold>
-                <strong_base_bonus>1.15</strong_base_bonus>
-                <weak_base_penalty>0.85</weak_base_penalty>
-            </base_strength>
-            <base_types>
-                <inorganic_base_factor>1.00</inorganic_base_factor>
-                <organic_base_factor>0.95</organic_base_factor>
-                <carbonate_base_factor>1.10</carbonate_base_factor>
-                <phosphate_base_factor>1.05</phosphate_base_factor>
-            </base_types>
+            <insoluble_base_penalty>0.78</insoluble_base_penalty>
+            <hygroscopic_base_penalty>0.86</hygroscopic_base_penalty>
+            <cation_radius_effect>1.02</cation_radius_effect>
+            <pka_effect>0.030</pka_effect>
+            <pkb_effect>0.035</pkb_effect>
+            <pka_weight>0.30</pka_weight>
+            <solubility_weight>0.25</solubility_weight>
+            <class_weight>0.20</class_weight>
+            <cation_radius_weight>0.25</cation_radius_weight>
         </base>
+
+        <!-- ========================================================== -->
+        <!-- PHYSICOCHEMICAL PROXY (renamed/redesigned from "QSAR" -     -->
+        <!-- see predict_ml_routes.py CHANGELOG v7.4.0)                  -->
+        <!-- [LIT] mw/logp/tpsa/rotatable_bonds are genuine RDKit-        -->
+        <!-- computed descriptors for the actual input molecule (real     -->
+        <!-- data, not placeholders).                                     -->
+        <!-- [REMOVED] the previous version scored these descriptors       -->
+        <!-- against Lipinski/Ghose/Veber/QED drug-likeness pass-fail       -->
+        <!-- cutoffs (Rule-of-Five, oral-bioavailability filters, etc.).    -->
+        <!-- Those rules are real and correctly cited, but they were        -->
+        <!-- derived for oral drug absorption, not Suzuki-Miyaura coupling   -->
+        <!-- yield - applying a "MW>500 fails" cutoff to a coupling partner   -->
+        <!-- has no chemical justification, and even with a disclaimer it     -->
+        <!-- reads as borrowed authority. They have been deleted rather than  -->
+        <!-- kept-with-a-caveat.                                              -->
+        <!-- [PARAM] What remains is a plain, continuous, symmetric penalty    -->
+        <!-- for each descriptor's distance from a configurable "typical       -->
+        <!-- substrate" center (mw_center/logp_center/tpsa_center/              -->
+        <!-- rotbonds_center), scaled by *_scale and combined by *_weight -      -->
+        <!-- an openly engineering-constant proxy for "small, non-polar,        -->
+        <!-- conformationally simple substrate reacts more predictably",        -->
+        <!-- with NO borrowed rule names or thresholds. Adjust the centers/     -->
+        <!-- scales/weights freely; there is no "correct" literature value      -->
+        <!-- to preserve here.                                                  -->
+        <!-- ========================================================== -->
+        <physicochemical_proxy>
+            <mw_weight>0.30</mw_weight>
+            <logp_weight>0.25</logp_weight>
+            <tpsa_weight>0.25</tpsa_weight>
+            <rotbonds_weight>0.20</rotbonds_weight>
+            <mw_center>300</mw_center>
+            <mw_scale>200</mw_scale>
+            <logp_center>2.5</logp_center>
+            <logp_scale>3.0</logp_scale>
+            <tpsa_center>60</tpsa_center>
+            <tpsa_scale>60</tpsa_scale>
+            <rotbonds_center>4</rotbonds_center>
+            <rotbonds_scale>6</rotbonds_scale>
+        </physicochemical_proxy>
+
+        <!-- ========================================================== -->
+        <!-- YIELD PARAMETERS                                           -->
+        <!-- [DATA] yield_mean/yield_std/yield_skewness/yield_kurtosis   -->
+        <!-- should be computed FROM the actual uploaded training         -->
+        <!-- dataset (currently: 15 rows, smiles_..._suzuki_dataset.csv) -->
+        <!-- and re-generated whenever that dataset changes - with only   -->
+        <!-- 15 rows these are rough sample statistics, not population     -->
+        <!-- parameters, and should be reported with that caveat in any    -->
+        <!-- write-up. excellent/good/moderate/poor/very_poor_threshold    -->
+        <!-- and base_yield_offset/reproducibility_factor/scale_up_factor  -->
+        <!-- are [PARAM] engineering choices for labelling/UI purposes,     -->
+        <!-- not statistically derived cutoffs.                             -->
+        <!-- ========================================================== -->
         <yield_parameters>
-            <max_yield>98</max_yield>
-            <min_yield>5</min_yield>
-            <base_yield_offset>45</base_yield_offset>
-            <random_variation>0.15</random_variation>
-            <reproducibility_factor>0.92</reproducibility_factor>
-            <scale_up_factor>0.88</scale_up_factor>
-            <batch_variation>0.12</batch_variation>
-            <yield_mean>72.5</yield_mean>
-            <yield_std>18.3</yield_std>
+            <max_yield>100</max_yield>
+            <min_yield>0</min_yield>
+            <base_yield_offset>25</base_yield_offset>
+            <reproducibility_factor>0.93</reproducibility_factor>
+            <scale_up_factor>0.90</scale_up_factor>
+            <yield_mean>70.5</yield_mean>
+            <yield_std>17.5</yield_std>
             <excellent_threshold>85</excellent_threshold>
             <good_threshold>70</good_threshold>
             <moderate_threshold>50</moderate_threshold>
             <poor_threshold>30</poor_threshold>
-            <yield_distribution>
-                <mean>72.5</mean>
-                <std>18.3</std>
-                <skewness>-0.45</skewness>
-                <kurtosis>0.32</kurtosis>
-            </yield_distribution>
-            <yield_classes>
-                <excellent>85</excellent>
-                <good>70</good>
-                <moderate>50</moderate>
-                <poor>30</poor>
-                <very_poor>15</very_poor>
-            </yield_classes>
+            <very_poor_threshold>15</very_poor_threshold>
+            <confidence_interval_alpha>0.05</confidence_interval_alpha>
+            <prediction_interval_alpha>0.10</prediction_interval_alpha>
+            <yield_skewness>-0.40</yield_skewness>
+            <yield_kurtosis>0.28</yield_kurtosis>
         </yield_parameters>
-        <mechanistic>
-            <oxidative_addition_barrier>28.5</oxidative_addition_barrier>
-            <oxidative_addition_rate>0.045</oxidative_addition_rate>
-            <oxidative_addition_steric_sensitivity>0.65</oxidative_addition_steric_sensitivity>
-            <oxidative_addition_electronic_sensitivity>0.85</oxidative_addition_electronic_sensitivity>
-            <transmetalation_barrier>22.3</transmetalation_barrier>
-            <transmetalation_rate>0.078</transmetalation_rate>
-            <transmetalation_base_sensitivity>0.75</transmetalation_base_sensitivity>
-            <transmetalation_boronic_sensitivity>0.70</transmetalation_boronic_sensitivity>
-            <reductive_elimination_barrier>18.7</reductive_elimination_barrier>
-            <reductive_elimination_rate>0.120</reductive_elimination_rate>
-            <reductive_elimination_steric_sensitivity>0.90</reductive_elimination_steric_sensitivity>
-            <reductive_elimination_electronic_sensitivity>0.60</reductive_elimination_electronic_sensitivity>
-            <oa_weight>0.35</oa_weight>
-            <tm_weight>0.35</tm_weight>
-            <re_weight>0.30</re_weight>
-            <oxidative_addition>
-                <barrier_energy>28.5</barrier_energy>
-                <rate_constant>0.045</rate_constant>
-                <steric_sensitivity>0.65</steric_sensitivity>
-                <electronic_sensitivity>0.85</electronic_sensitivity>
-            </oxidative_addition>
-            <transmetalation>
-                <barrier_energy>22.3</barrier_energy>
-                <rate_constant>0.078</rate_constant>
-                <base_sensitivity>0.75</base_sensitivity>
-                <boronic_acid_sensitivity>0.70</boronic_acid_sensitivity>
-            </transmetalation>
-            <reductive_elimination>
-                <barrier_energy>18.7</barrier_energy>
-                <rate_constant>0.120</rate_constant>
-                <steric_sensitivity>0.90</steric_sensitivity>
-                <electronic_sensitivity>0.60</electronic_sensitivity>
-            </reductive_elimination>
-            <mechanistic_weights>
-                <oxidative_addition>0.35</oxidative_addition>
-                <transmetalation>0.35</transmetalation>
-                <reductive_elimination>0.30</reductive_elimination>
-            </mechanistic_weights>
-        </mechanistic>
+
     </chemical_intuition>
+
+    <!-- ============================================================ -->
+    <!-- DATA INTEGRITY - Academic rules, no random/synthetic data   -->
+    <!-- ============================================================ -->
+    <data_integrity>
+        <forbid_random_or_synthetic_data>true</forbid_random_or_synthetic_data>
+        <nullable_columns>solv1,solv2</nullable_columns>
+        <failure_column>yield</failure_column>
+        <null_yield_meaning>failed_reaction</null_yield_meaning>
+        <keep_failed_reactions_in_audit_trail>true</keep_failed_reactions_in_audit_trail>
+        <exclude_failed_reactions_from_training>true</exclude_failed_reactions_from_training>
+        <critical_non_nullable_columns>temp,time,quantity,catalizor,base</critical_non_nullable_columns>
+        <reject_row_on_missing_critical_field>true</reject_row_on_missing_critical_field>
+        <minimum_usable_rows>5</minimum_usable_rows>
+        <log_row_classification_summary>true</log_row_classification_summary>
+    </data_integrity>
+
+    <!-- ============================================================ -->
+    <!-- MONOTONICITY - Academic guarantee for reaction conditions   -->
+    <!-- Note: Only enforced within the same catalyst/base/solvent/  -->
+    <!-- substrate system. Does not assume monotonicity across       -->
+    <!-- different chemical systems.                                 -->
+    <!-- ============================================================ -->
+    <monotonicity>
+        <enabled>true</enabled>
+        <system_identity_fields>catalizor,base,solv1,solv2,subs1_smiles,subs2_smiles</system_identity_fields>
+        <incremental_gain>
+            <curve_shape>logarithmic</curve_shape>
+            <curve_multiplier>0.35</curve_multiplier>
+            <temp_max_increase_pct>2.0</temp_max_increase_pct>
+            <time_max_increase_pct>1.5</time_max_increase_pct>
+            <catalyst_max_increase_pct>1.5</catalyst_max_increase_pct>
+        </incremental_gain>
+        <hard_floor>
+            <enabled>true</enabled>
+            <enforce_against_full_history>true</enforce_against_full_history>
+            <require_all_conditions_dominated>true</require_all_conditions_dominated>
+        </hard_floor>
+    </monotonicity>
+
+    <!-- ============================================================ -->
+    <!-- ML TRAINING SAFEGUARDS - added in this audit pass (2026-07-18) -->
+    <!-- ============================================================ -->
+    <!-- WHY THIS SECTION EXISTS: the shipped dataset               -->
+    <!-- (smiles_..._suzuki_dataset.csv) has 14 labeled reactions.  -->
+    <!-- Before this pass, train() fit all 13 models in             -->
+    <!-- <model_parameters> below - including Neural_Network,       -->
+    <!-- Gaussian_Process, Gradient_Boosting, XGBoost, etc., each   -->
+    <!-- with hundreds of RDKit/Hammett/HSAB-derived candidate      -->
+    <!-- features - against those 14 rows, and reported the         -->
+    <!-- resulting R2/MAE as if it were validated model             -->
+    <!-- performance. With that few rows, a single train/test split -->
+    <!-- leaves a 1-2 row test set, so the reported score reflects  -->
+    <!-- which rows happened to land in the test set, not a real    -->
+    <!-- structure-yield relationship, and several of the listed    -->
+    <!-- models can reach near-zero training error on 14 rows       -->
+    <!-- regardless of whether any real signal exists (they have    -->
+    <!-- more effective free parameters than data points). This is  -->
+    <!-- a standard, well-known statistical failure mode - not a    -->
+    <!-- specific literature-measured number - so it is labelled    -->
+    <!-- [PARAM] below, with one supporting reference for the       -->
+    <!-- underlying sample-size-per-predictor concern.               -->
+    <!--                                                              -->
+    <!-- [LIT] the underlying statistical concern (need enough       -->
+    <!-- events/samples per fitted predictor for a regression to be  -->
+    <!-- reliable) is standard practice - Harrell, F. E. Regression  -->
+    <!-- Modeling Strategies, 2nd ed., Springer, 2015, ch. 4.        -->
+    <!-- [PARAM] the SPECIFIC thresholds below (30 rows minimum to   -->
+    <!-- train at all in "full ensemble" mode, 10 rows per feature)  -->
+    <!-- are engineering choices by the authors of this audit pass,  -->
+    <!-- not numbers taken from Harrell or any other single source - -->
+    <!-- do not cite them as literature-derived.                    -->
+    <ml_training_safeguards>
+        <description>Controls that stop predict_ml_routes.py from silently fitting high-capacity ML models to a dataset too small to support them, and from reporting the resulting overfit metrics as validated performance. THIS CHANGES: (1) train() now raises an error instead of training at all when there are fewer than min_samples_per_feature reactions; (2) between min_samples_per_feature and min_samples_for_full_ensemble reactions, train() automatically (a) restricts the model list to Ridge/Lasso/ElasticNet only [removes Random_Forest, Gradient_Boosting, Hist_Gradient_Boosting, XGBoost, LightGBM, CatBoost, Extra_Trees, Gaussian_Process, SVR, Neural_Network from that run], (b) shrinks the feature set via SelectKBest so the sample-to-feature ratio stays at or above min_samples_per_feature, and (c) computes an additional 'honest_cv_performance' metric via nested k-fold cross-validation with feature selection re-fit inside every fold (not fit once on the whole dataset), which is the number that should actually be reported/cited - not the single train/test split 'performance' dict, which is retained only for backward compatibility with existing callers.</description>
+
+        <!-- Below this many labeled reactions, train() refuses to fit -->
+        <!-- anything and raises ValueError directing the caller to    -->
+        <!-- the heuristic/experimental scoring mode instead. THIS     -->
+        <!-- CHANGES: previously there was no lower bound at all - a   -->
+        <!-- 2-row dataset would train and report a "R2" from a        -->
+        <!-- single held-out row. -->
+        <min_samples_per_feature>10</min_samples_per_feature>
+
+        <!-- Below this many labeled reactions, the "full ensemble" of -->
+        <!-- 13 models is not used; only Ridge/Lasso/ElasticNet are    -->
+        <!-- fit, and the honest nested-CV metric is computed. THIS    -->
+        <!-- CHANGES: with the shipped 14-row dataset, this condition  -->
+        <!-- is currently always true, so Neural_Network/Gaussian_     -->
+        <!-- Process/Gradient_Boosting/XGBoost/LightGBM/CatBoost/      -->
+        <!-- Extra_Trees/Random_Forest/SVR are excluded until the      -->
+        <!-- dataset grows to 30+ reactions. -->
+        <min_samples_for_full_ensemble>30</min_samples_for_full_ensemble>
+
+        <!-- Number of k-folds used for the honest nested-CV metric    -->
+        <!-- when in the low-data regime, capped so no fold has fewer  -->
+        <!-- than 2 held-out rows. THIS CHANGES: previously no such    -->
+        <!-- cross-validated metric with per-fold feature re-selection -->
+        <!-- was computed at all. -->
+        <honest_cv_max_folds>5</honest_cv_max_folds>
+    </ml_training_safeguards>
+
+    <!-- ============================================================ -->
+    <!-- MODEL PARAMETERS - Full ML ensemble                         -->
+    <!-- ============================================================ -->
     <model_parameters>
+
         <Random_Forest>
-            <n_estimators>250</n_estimators>
-            <max_depth>12</max_depth>
-            <min_samples_split>4</min_samples_split>
-            <min_samples_leaf>2</min_samples_leaf>
+            <n_estimators>300</n_estimators>
+            <max_depth>15</max_depth>
+            <min_samples_split>3</min_samples_split>
+            <min_samples_leaf>1</min_samples_leaf>
             <max_features>sqrt</max_features>
             <bootstrap>true</bootstrap>
             <oob_score>true</oob_score>
             <random_state>42</random_state>
             <n_jobs>1</n_jobs>
-            <ccp_alpha>0.0</ccp_alpha>
-            <max_samples>None</max_samples>
-            <feature_importance_type>permutation</feature_importance_type>
+            <ccp_alpha>0.001</ccp_alpha>
         </Random_Forest>
+
         <Gradient_Boosting>
-            <n_estimators>300</n_estimators>
-            <max_depth>6</max_depth>
-            <min_samples_split>5</min_samples_split>
-            <min_samples_leaf>3</min_samples_leaf>
-            <learning_rate>0.08</learning_rate>
+            <n_estimators>350</n_estimators>
+            <max_depth>7</max_depth>
+            <min_samples_split>4</min_samples_split>
+            <min_samples_leaf>2</min_samples_leaf>
+            <learning_rate>0.07</learning_rate>
             <subsample>0.8</subsample>
             <max_features>sqrt</max_features>
             <validation_fraction>0.15</validation_fraction>
-            <n_iter_no_change>10</n_iter_no_change>
+            <n_iter_no_change>15</n_iter_no_change>
             <tol>0.001</tol>
             <random_state>42</random_state>
-            <init>None</init>
             <loss>squared_error</loss>
             <criterion>friedman_mse</criterion>
         </Gradient_Boosting>
+
         <Hist_Gradient_Boosting>
-            <max_iter>300</max_iter>
-            <max_depth>7</max_depth>
-            <min_samples_leaf>3</min_samples_leaf>
-            <learning_rate>0.1</learning_rate>
+            <max_iter>350</max_iter>
+            <max_depth>8</max_depth>
+            <min_samples_leaf>2</min_samples_leaf>
+            <learning_rate>0.09</learning_rate>
             <max_bins>255</max_bins>
             <l2_regularization>0.01</l2_regularization>
             <early_stopping>true</early_stopping>
             <scoring>neg_mean_squared_error</scoring>
             <validation_fraction>0.15</validation_fraction>
-            <n_iter_no_change>10</n_iter_no_change>
+            <n_iter_no_change>15</n_iter_no_change>
             <random_state>42</random_state>
             <loss>squared_error</loss>
             <max_leaf_nodes>31</max_leaf_nodes>
         </Hist_Gradient_Boosting>
+
         <XGBoost>
-            <n_estimators>280</n_estimators>
-            <max_depth>6</max_depth>
-            <learning_rate>0.09</learning_rate>
+            <n_estimators>350</n_estimators>
+            <max_depth>7</max_depth>
+            <learning_rate>0.08</learning_rate>
             <subsample>0.85</subsample>
             <colsample_bytree>0.9</colsample_bytree>
             <colsample_bylevel>0.8</colsample_bylevel>
             <reg_alpha>0.1</reg_alpha>
             <reg_lambda>1.0</reg_lambda>
-            <min_child_weight>3</min_child_weight>
+            <min_child_weight>2</min_child_weight>
             <gamma>0.1</gamma>
-            <early_stopping_rounds>10</early_stopping_rounds>
             <random_state>42</random_state>
             <n_jobs>1</n_jobs>
             <objective>reg:squarederror</objective>
@@ -354,18 +776,18 @@
             <grow_policy>lossguide</grow_policy>
             <max_leaves>31</max_leaves>
         </XGBoost>
+
         <LightGBM>
-            <n_estimators>320</n_estimators>
-            <max_depth>8</max_depth>
+            <n_estimators>400</n_estimators>
+            <max_depth>10</max_depth>
             <num_leaves>31</num_leaves>
-            <learning_rate>0.07</learning_rate>
+            <learning_rate>0.06</learning_rate>
             <subsample>0.8</subsample>
             <colsample_bytree>0.85</colsample_bytree>
             <min_child_samples>5</min_child_samples>
             <reg_alpha>0.1</reg_alpha>
             <reg_lambda>0.1</reg_lambda>
             <min_split_gain>0.01</min_split_gain>
-            <early_stopping_rounds>10</early_stopping_rounds>
             <random_state>42</random_state>
             <n_jobs>1</n_jobs>
             <boosting_type>gbdt</boosting_type>
@@ -376,69 +798,46 @@
             <cat_smooth>10.0</cat_smooth>
             <cat_l2>10.0</cat_l2>
         </LightGBM>
+
         <CatBoost>
-            <iterations>300</iterations>
-            <depth>6</depth>
-            <learning_rate>0.08</learning_rate>
+            <iterations>400</iterations>
+            <depth>7</depth>
+            <learning_rate>0.07</learning_rate>
             <l2_leaf_reg>3</l2_leaf_reg>
             <border_count>128</border_count>
             <random_seed>42</random_seed>
             <verbose>false</verbose>
             <loss_function>RMSE</loss_function>
             <eval_metric>RMSE</eval_metric>
-            <early_stopping_rounds>10</early_stopping_rounds>
             <od_type>Iter</od_type>
             <od_wait>20</od_wait>
         </CatBoost>
+
         <Extra_Trees>
-            <n_estimators>200</n_estimators>
-            <max_depth>10</max_depth>
-            <min_samples_split>4</min_samples_split>
-            <min_samples_leaf>2</min_samples_leaf>
+            <n_estimators>250</n_estimators>
+            <max_depth>12</max_depth>
+            <min_samples_split>3</min_samples_split>
+            <min_samples_leaf>1</min_samples_leaf>
             <max_features>sqrt</max_features>
             <bootstrap>true</bootstrap>
             <random_state>42</random_state>
             <n_jobs>1</n_jobs>
-            <ccp_alpha>0.0</ccp_alpha>
+            <ccp_alpha>0.001</ccp_alpha>
         </Extra_Trees>
-        <KNN>
-            <n_neighbors>5</n_neighbors>
-            <weights>distance</weights>
-            <algorithm>auto</algorithm>
-            <leaf_size>30</leaf_size>
-            <p>2</p>
-            <metric>minkowski</metric>
-        </KNN>
-        <Ridge>
-            <alpha>1.0</alpha>
-            <fit_intercept>true</fit_intercept>
-            <copy_X>true</copy_X>
-            <max_iter>None</max_iter>
-            <tol>0.001</tol>
-            <solver>auto</solver>
+
+        <Gaussian_Process>
+            <kernel>1.0 * RBF(1.0) + WhiteKernel(0.1)</kernel>
+            <alpha>1e-10</alpha>
+            <optimizer>fmin_l_bfgs_b</optimizer>
+            <n_restarts_optimizer>10</n_restarts_optimizer>
+            <normalize_y>true</normalize_y>
             <random_state>42</random_state>
-        </Ridge>
-        <Lasso>
-            <alpha>1.0</alpha>
-            <fit_intercept>true</fit_intercept>
-            <max_iter>1000</max_iter>
-            <tol>0.0001</tol>
-            <selection>cyclic</selection>
-            <random_state>42</random_state>
-        </Lasso>
-        <ElasticNet>
-            <alpha>1.0</alpha>
-            <l1_ratio>0.5</l1_ratio>
-            <fit_intercept>true</fit_intercept>
-            <max_iter>1000</max_iter>
-            <tol>0.0001</tol>
-            <selection>cyclic</selection>
-            <random_state>42</random_state>
-        </ElasticNet>
+        </Gaussian_Process>
+
         <SVR>
             <kernel>rbf</kernel>
-            <C>1.2</C>
-            <epsilon>0.08</epsilon>
+            <C>1.5</C>
+            <epsilon>0.06</epsilon>
             <gamma>scale</gamma>
             <degree>3</degree>
             <coef0>0.0</coef0>
@@ -447,13 +846,14 @@
             <max_iter>-1</max_iter>
             <cache_size>200</cache_size>
         </SVR>
+
         <Neural_Network>
-            <hidden_layer_sizes>128,64,32</hidden_layer_sizes>
+            <hidden_layer_sizes>256,128,64,32</hidden_layer_sizes>
             <activation>relu</activation>
             <solver>adam</solver>
-            <alpha>0.001</alpha>
+            <alpha>0.0005</alpha>
             <learning_rate_init>0.001</learning_rate_init>
-            <max_iter>1000</max_iter>
+            <max_iter>1500</max_iter>
             <tol>0.0001</tol>
             <momentum>0.9</momentum>
             <nesterovs_momentum>true</nesterovs_momentum>
@@ -462,77 +862,139 @@
             <beta_1>0.9</beta_1>
             <beta_2>0.999</beta_2>
             <epsilon>1e-08</epsilon>
-            <n_iter_no_change>10</n_iter_no_change>
+            <n_iter_no_change>15</n_iter_no_change>
             <random_state>42</random_state>
             <warm_start>false</warm_start>
         </Neural_Network>
-        <TensorFlow>
-            <epochs>200</epochs>
-            <batch_size>16</batch_size>
-            <learning_rate>0.001</learning_rate>
-            <layers>128,64,32,16</layers>
-            <dropout>0.2</dropout>
-            <activation>relu</activation>
-            <optimizer>adam</optimizer>
-            <loss>mse</loss>
-            <metrics>mae</metrics>
-            <early_stopping_patience>20</early_stopping_patience>
-            <reduce_lr_patience>10</reduce_lr_patience>
-            <reduce_lr_factor>0.5</reduce_lr_factor>
-        </TensorFlow>
+
+        <Ridge>
+            <alpha>0.8</alpha>
+            <fit_intercept>true</fit_intercept>
+            <copy_X>true</copy_X>
+            <max_iter>None</max_iter>
+            <tol>0.001</tol>
+            <solver>auto</solver>
+            <random_state>42</random_state>
+        </Ridge>
+
+        <Lasso>
+            <alpha>0.8</alpha>
+            <fit_intercept>true</fit_intercept>
+            <max_iter>1000</max_iter>
+            <tol>0.0001</tol>
+            <selection>cyclic</selection>
+            <random_state>42</random_state>
+        </Lasso>
+
+        <ElasticNet>
+            <alpha>0.8</alpha>
+            <l1_ratio>0.5</l1_ratio>
+            <fit_intercept>true</fit_intercept>
+            <max_iter>1000</max_iter>
+            <tol>0.0001</tol>
+            <selection>cyclic</selection>
+            <random_state>42</random_state>
+        </ElasticNet>
+
+        <KNN>
+            <n_neighbors>5</n_neighbors>
+            <weights>distance</weights>
+            <algorithm>auto</algorithm>
+            <leaf_size>30</leaf_size>
+            <p>2</p>
+            <metric>minkowski</metric>
+        </KNN>
+
         <Ensemble>
             <weights>
-                <Random_Forest>0.20</Random_Forest>
-                <Gradient_Boosting>0.15</Gradient_Boosting>
-                <Hist_Gradient_Boosting>0.20</Hist_Gradient_Boosting>
-                <XGBoost>0.15</XGBoost>
-                <LightGBM>0.10</LightGBM>
-                <CatBoost>0.10</CatBoost>
-                <Extra_Trees>0.05</Extra_Trees>
+                <Random_Forest>0.16</Random_Forest>
+                <Gradient_Boosting>0.10</Gradient_Boosting>
+                <Hist_Gradient_Boosting>0.16</Hist_Gradient_Boosting>
+                <XGBoost>0.10</XGBoost>
+                <LightGBM>0.07</LightGBM>
+                <CatBoost>0.07</CatBoost>
+                <Extra_Trees>0.04</Extra_Trees>
+                <Gaussian_Process>0.08</Gaussian_Process>
                 <SVR>0.02</SVR>
                 <Neural_Network>0.03</Neural_Network>
+                <Ridge>0.02</Ridge>
+                <ElasticNet>0.02</ElasticNet>
+                <KNN>0.01</KNN>
             </weights>
             <stacking>true</stacking>
             <stacking_meta_model>Random_Forest</stacking_meta_model>
             <voting>soft</voting>
+            <ensemble_validation>true</ensemble_validation>
+            <ensemble_cv_folds>3</ensemble_cv_folds>
         </Ensemble>
+
     </model_parameters>
+
+    <!-- ============================================================ -->
+    <!-- FEATURE IMPORTANCE - Academic weights                       -->
+    <!-- ============================================================ -->
     <feature_importance>
-        <temperature>0.25</temperature>
-        <time>0.18</time>
-        <catalyst_quantity>0.15</catalyst_quantity>
-        <substrate1_steric>0.10</substrate1_steric>
-        <substrate2_steric>0.10</substrate2_steric>
-        <solvent_effect>0.08</solvent_effect>
+        <temperature>0.18</temperature>
+        <time>0.14</time>
+        <catalyst_quantity>0.12</catalyst_quantity>
+        <substrate1_steric>0.08</substrate1_steric>
+        <substrate2_steric>0.08</substrate2_steric>
+        <solvent_effect>0.07</solvent_effect>
         <base_effect>0.06</base_effect>
-        <electronic_effects>0.04</electronic_effects>
-        <hsab_effects>0.02</hsab_effects>
-        <mechanistic_effects>0.02</mechanistic_effects>
+        <electronic_effects>0.05</electronic_effects>
+        <hammett_effects>0.04</hammett_effects>
+        <taft_effects>0.03</taft_effects>
+        <hsab_effects>0.03</hsab_effects>
+        <mechanistic_effects>0.03</mechanistic_effects>
+        <elecproxy_effects>0.02</elecproxy_effects>
+        <!-- docking_effects removed in v7.4.0 (see predict_ml_routes.py
+             CHANGELOG); its old 0.01 default is folded into physchem_effects
+             below so the total still sums to ~1.0. qsar_effects was renamed
+             to physchem_effects in the same pass (QSAR module redesigned
+             into a continuous physicochemical proxy, no borrowed
+             drug-likeness rules - see <physicochemical_proxy> above). -->
+        <physchem_effects>0.03</physchem_effects>
     </feature_importance>
+
+    <!-- ============================================================ -->
+    <!-- DATA PROCESSING - Academic standards                        -->
+    <!-- ============================================================ -->
     <data_processing>
+
         <missing_values>
             <strategy>median_imputation</strategy>
             <categorical_strategy>mode_imputation</categorical_strategy>
             <threshold>0.30</threshold>
+            <numeric_method>median</numeric_method>
+            <knn_neighbors>5</knn_neighbors>
         </missing_values>
+
         <normalization>
             <numeric_method>standard_scaler</numeric_method>
             <categorical_method>one_hot_encoding</categorical_method>
             <target_scaling>minmax</target_scaling>
+            <robust_scaling>true</robust_scaling>
+            <quantile_transform>true</quantile_transform>
         </normalization>
+
         <feature_selection>
             <method>mutual_information</method>
-            <k_best>25</k_best>
+            <k_best>50</k_best>
             <variance_threshold>0.01</variance_threshold>
             <correlation_threshold>0.85</correlation_threshold>
+            <select_from_model>true</select_from_model>
+            <rfe_n_features>30</rfe_n_features>
         </feature_selection>
+
         <augmentation>
             <enabled>true</enabled>
             <method>gaussian_noise</method>
             <noise_level>0.05</noise_level>
-            <n_augmentations>50</n_augmentations>
-            <bootstrap_samples>1000</bootstrap_samples>
+            <n_augmentations>100</n_augmentations>
+            <bootstrap_samples>2000</bootstrap_samples>
+            <smote_enabled>false</smote_enabled>
         </augmentation>
+
         <split>
             <test_size>0.20</test_size>
             <validation_size>0.15</validation_size>
@@ -540,29 +1002,64 @@
             <random_state>42</random_state>
             <shuffle>true</shuffle>
         </split>
+
+        <outlier_detection>
+            <method>iqr</method>
+            <threshold>1.5</threshold>
+            <handle_method>clip</handle_method>
+            <zscore_threshold>3.0</zscore_threshold>
+        </outlier_detection>
+
     </data_processing>
+
+    <!-- ============================================================ -->
+    <!-- OPTIMIZATION - Full academic                                -->
+    <!-- ============================================================ -->
     <optimization>
-        <top_candidates>10</top_candidates>
+
+        <top_candidates>15</top_candidates>
+
         <catalyst_search>
-            <min_quantity>0.0005</min_quantity>
-            <max_quantity>0.08</max_quantity>
+            <min_quantity>0.0001</min_quantity>
+            <max_quantity>0.50</max_quantity>
             <step_size>0.0005</step_size>
-            <n_candidates>10</n_candidates>
+            <n_candidates>20</n_candidates>
+            <log_scale>true</log_scale>
         </catalyst_search>
+
         <grid_search>
             <enabled>true</enabled>
             <n_candidates>50</n_candidates>
             <n_jobs>1</n_jobs>
             <scoring>neg_mean_squared_error</scoring>
+            <refit>true</refit>
         </grid_search>
+
         <bayesian>
-            <enabled>false</enabled>
-            <n_iterations>25</n_iterations>
-            <n_initial_points>5</n_initial_points>
+            <enabled>true</enabled>
+            <n_iterations>30</n_iterations>
+            <n_initial_points>10</n_initial_points>
             <acquisition_function>ei</acquisition_function>
+            <acq_optimizer>auto</acq_optimizer>
+            <random_state>42</random_state>
         </bayesian>
+
+        <genetic_algorithm>
+            <enabled>true</enabled>
+            <population_size>30</population_size>
+            <generations>40</generations>
+            <mutation_rate>0.1</mutation_rate>
+            <crossover_rate>0.8</crossover_rate>
+            <tournament_size>3</tournament_size>
+        </genetic_algorithm>
+
     </optimization>
+
+    <!-- ============================================================ -->
+    <!-- PERFORMANCE METRICS - Full academic                         -->
+    <!-- ============================================================ -->
     <performance_metrics>
+
         <metrics>
             <r2>true</r2>
             <mae>true</mae>
@@ -570,70 +1067,282 @@
             <mape>true</mape>
             <max_error>true</max_error>
             <explained_variance>true</explained_variance>
+            <median_absolute_error>true</median_absolute_error>
+            <mean_squared_log_error>true</mean_squared_log_error>
+            <r2_adjusted>true</r2_adjusted>
+            <aic>true</aic>
+            <bic>true</bic>
         </metrics>
+
         <cross_validation>
             <enabled>true</enabled>
             <folds>5</folds>
             <shuffle>true</shuffle>
             <random_state>42</random_state>
+            <stratified>true</stratified>
+            <n_jobs>1</n_jobs>
+            <repeated_cv>true</repeated_cv>
+            <n_repeats>3</n_repeats>
         </cross_validation>
+
         <learning_curve>
             <enabled>true</enabled>
             <train_sizes>0.1,0.3,0.5,0.7,0.9</train_sizes>
             <n_jobs>1</n_jobs>
+            <cv_folds>3</cv_folds>
         </learning_curve>
+
+        <statistical_tests>
+            <anova>true</anova>
+            <tukey_hsd>true</tukey_hsd>
+            <levene>true</levene>
+            <shapiro_wilk>true</shapiro_wilk>
+            <kruskal_wallis>true</kruskal_wallis>
+            <mann_whitney>true</mann_whitney>
+            <chi_square>true</chi_square>
+            <kolmogorov_smirnov>true</kolmogorov_smirnov>
+        </statistical_tests>
+
+        <calibration>
+            <enabled>true</enabled>
+            <method>isotonic</method>
+            <cv_folds>3</cv_folds>
+            <spline_degree>3</spline_degree>
+        </calibration>
+
+        <uncertainty>
+            <method>bootstrap</method>
+            <n_bootstrap>100</n_bootstrap>
+            <confidence_level>0.95</confidence_level>
+            <prediction_interval_level>0.90</prediction_interval_level>
+            <mc_dropout>true</mc_dropout>
+            <n_dropout_samples>50</n_dropout_samples>
+        </uncertainty>
+
     </performance_metrics>
+
+    <!-- ============================================================ -->
+    <!-- VISUALIZATION - Full academic                               -->
+    <!-- ============================================================ -->
     <visualization>
+
         <molecule_images>
             <enabled>true</enabled>
-            <image_size>300</image_size>
+            <image_size>400</image_size>
             <format>png</format>
-            <dpi>150</dpi>
+            <dpi>200</dpi>
             <show_atoms>true</show_atoms>
             <show_bonds>true</show_bonds>
+            <show_hydrogens>false</show_hydrogens>
+            <highlight_atoms>true</highlight_atoms>
+            <highlight_reaction_centers>true</highlight_reaction_centers>
         </molecule_images>
+
         <plots>
             <feature_importance>true</feature_importance>
             <actual_vs_predicted>true</actual_vs_predicted>
             <residuals>true</residuals>
             <learning_curve>true</learning_curve>
             <parity_plot>true</parity_plot>
+            <shap_values>true</shap_values>
+            <partial_dependence>true</partial_dependence>
+            <prediction_distribution>true</prediction_distribution>
+            <residual_qq>true</residual_qq>
+            <coefficient_plot>true</coefficient_plot>
+            <calibration_plot>true</calibration_plot>
         </plots>
+
         <colors>
             <primary>#2563EB</primary>
             <secondary>#10B981</secondary>
             <warning>#F59E0B</warning>
             <danger>#EF4444</danger>
             <background>#F8FAFC</background>
+            <text>#1E293B</text>
+            <grid>#E2E8F0</grid>
         </colors>
+
     </visualization>
+
+    <!-- ============================================================ -->
+    <!-- LOGGING - Full academic                                     -->
+    <!-- ============================================================ -->
     <logging>
+
         <log_level>INFO</log_level>
         <log_file>logs/predict_ml.log</log_file>
         <max_log_size>10MB</max_log_size>
         <backup_count>5</backup_count>
         <console_output>true</console_output>
+        <json_format>true</json_format>
+
         <error_handling>
             <retry_attempts>3</retry_attempts>
             <retry_delay>1.0</retry_delay>
             <fallback_model>Random_Forest</fallback_model>
+            <log_traceback>true</log_traceback>
+            <email_alerts>false</email_alerts>
         </error_handling>
+
+        <monitoring>
+            <enabled>true</enabled>
+            <metrics_interval>60</metrics_interval>
+            <alert_threshold>0.05</alert_threshold>
+        </monitoring>
+
     </logging>
+
+    <!-- ============================================================ -->
+    <!-- SECURITY - Full academic                                    -->
+    <!-- ============================================================ -->
     <security>
+
         <file_upload>
             <allowed_extensions>csv</allowed_extensions>
             <max_file_size>50MB</max_file_size>
             <max_files>10</max_files>
+            <allowed_mime_types>text/csv,application/csv</allowed_mime_types>
+            <virus_scan>false</virus_scan>
         </file_upload>
+
         <api>
             <rate_limit>100</rate_limit>
             <rate_limit_period>60</rate_limit_period>
             <max_payload_size>1MB</max_payload_size>
+            <cors_enabled>true</cors_enabled>
+            <allowed_origins>*</allowed_origins>
+            <api_key_required>false</api_key_required>
         </api>
+
         <sanitization>
             <strip_xss>true</strip_xss>
             <strip_sql_injection>true</strip_sql_injection>
             <validate_smiles>true</validate_smiles>
+            <max_smiles_length>500</max_smiles_length>
+            <allowed_smiles_patterns>all</allowed_smiles_patterns>
+            <sanitize_inputs>true</sanitize_inputs>
         </sanitization>
+
+        <encryption>
+            <model_encryption>false</model_encryption>
+            <data_encryption>false</data_encryption>
+            <ssl_enabled>false</ssl_enabled>
+        </encryption>
+
     </security>
+
+    <!-- ============================================================ -->
+    <!-- EXPERIMENTAL MODE                                             -->
+    <!-- [LIT] the FUNCTIONAL FORMS used here (Arrhenius temperature     -->
+    <!-- dependence, integrated pseudo-first-order time dependence,      -->
+    <!-- Michaelis-Menten-style saturation for catalyst loading) are      -->
+    <!-- real named kinetic equations, used with their artificial          -->
+    <!-- ceiling/plateau/degradation penalty terms switched off, instead    -->
+    <!-- of an ad-hoc growth curve.                                          -->
+    <!-- [PARAM] base_offset and increment_factor for each variable are      -->
+    <!-- NOT literature-fitted coefficients - they are engineering            -->
+    <!-- constants, kept deliberately separate from the standard-mode         -->
+    <!-- coefficients of the same physical variable, and calibrated so         -->
+    <!-- that the combined-yield feature weighting (temperature/time/           -->
+    <!-- catalyst each contribute roughly 13-21% of the total weight in           -->
+    <!-- the standard-mode model) still produces a clearly visible,                -->
+    <!-- monotonic yield change across the full valid input range                   -->
+    <!-- (including sub-ranges such as 150->200 C). This is a UI/                     -->
+    <!-- pedagogical design choice, not a claim that these are measured               -->
+    <!-- rate constants for a specific reaction.                                       -->
+    <!-- "Experimental" in this codebase means "ceiling terms disabled",                 -->
+    <!-- not "empirically measured" - do not describe this mode's output                -->
+    <!-- as experimentally validated in any academic material.                           -->
+    <!-- ============================================================ -->
+    <experimental_mode>
+        <enabled>false</enabled>
+        <description>Theoretical maximum catalytic scenario within physically realistic operating bounds: no substrate decomposition, no catalyst deactivation, no product inhibition modelled. Temperature, time, and catalyst quantity each drive yield via their real named kinetic law (Arrhenius, pseudo-first-order, Michaelis-Menten respectively), just with the decomposition/plateau/diffusion ceiling terms removed. Inputs remain constrained to the physically valid range for solution-phase Suzuki-Miyaura chemistry (see validation below) - "experimental" describes which ceiling terms are switched off, not permission to submit chemically impossible conditions.</description>
+
+        <temperature>
+            <!-- factor = base_offset + increment_factor * normalized, where -->
+            <!-- normalized = ln[k(T)/k(T_ref)] / ln[k(T_max)/k(T_ref)] and    -->
+            <!-- ln[k(T)/k(T_ref)] = Ea/R * (1/T_ref - 1/T). [LIT] this is the -->
+            <!-- real, log-space Arrhenius equation (Arrhenius, S. Z. Phys.    -->
+            <!-- Chem. 1889, 4, 226-248), using Ea = 63.0 kJ/mol [LIT, see      -->
+            <!-- corrected citation in the <temperature> block above:            -->
+            <!-- Bourouina et al., Catalysts 2020, 10(9), 989]. Log-space          -->
+            <!-- normalization (rather than the raw rate ratio against the          -->
+            <!-- ceiling temperature) spreads sensitivity more evenly across         -->
+            <!-- the 25-250 C window instead of compressing it toward 250 C.         -->
+            <!-- [PARAM] increment_factor = 3.50 and base_offset = 0.30 are           -->
+            <!-- engineering constants (see EXPERIMENTAL MODE header note              -->
+            <!-- above) - not measured or literature-fitted values. -->
+            <base_offset>0.30</base_offset>
+            <increment_factor>3.50</increment_factor>
+            <reference_temp>25</reference_temp>
+            <min_factor>0.10</min_factor>
+            <no_degradation_ceiling>true</no_degradation_ceiling>
+            <no_arrhenius_dropoff>true</no_arrhenius_dropoff>
+        </temperature>
+
+        <time>
+            <!-- factor = base_offset + increment_factor * (1 - exp(-k*t)). [LIT] -->
+            <!-- this is the real integrated pseudo-first-order rate law. k        -->
+            <!-- (rate_constant = 0.10/h, see <time> block above) is a [PARAM]      -->
+            <!-- engineering estimate, not a value measured for a specific           -->
+            <!-- published system (see honest justification and caveat above).       -->
+            <!-- Saturates toward base_offset + increment_factor as t -> infinity;    -->
+            <!-- this is complete conversion, not an artificial cap.                   -->
+            <!-- [PARAM] increment_factor = 1.80, base_offset = 0.55 are engineering    -->
+            <!-- constants, not literature-fitted values. -->
+            <base_offset>0.55</base_offset>
+            <increment_factor>1.80</increment_factor>
+            <reference_time>1</reference_time>
+            <min_factor>0.10</min_factor>
+            <no_saturation_ceiling>true</no_saturation_ceiling>
+            <no_plateau_factor>true</no_plateau_factor>
+        </time>
+
+        <catalyst>
+            <!-- factor = base_offset + increment_factor * (q / (k_m + q)). [LIT] -->
+            <!-- this is the real Michaelis-Menten saturation FORM, used here BY  -->
+            <!-- ANALOGY (see honesty note in <catalyst> block above - this is a   -->
+            <!-- modelling choice, not a proven mechanism for Pd loading). k_m       -->
+            <!-- (0.0008 mol) is a [PARAM] order-of-magnitude estimate loosely        -->
+            <!-- informed by reports that modern XPhos/SPhos-type ligand systems       -->
+            <!-- reach useful turnover at loadings as low as ~0.05-0.1 mol%, not a      -->
+            <!-- value fitted to a specific dataset. Saturates toward base_offset +      -->
+            <!-- increment_factor as q -> infinity; this is the assumed v_max               -->
+            <!-- turnover limit, not an artificial cap.                                       -->
+            <!-- [PARAM] increment_factor = 2.20, base_offset = 0.50 are engineering           -->
+            <!-- constants, not literature-fitted values. -->
+            <base_offset>0.50</base_offset>
+            <increment_factor>2.20</increment_factor>
+            <reference_quantity>0.0001</reference_quantity>
+            <min_factor>0.10</min_factor>
+            <no_degradation_threshold>true</no_degradation_threshold>
+            <no_mm_saturation>true</no_mm_saturation>
+        </catalyst>
+
+        <validation>
+            <!-- v7.2.2: experimental mode removes the artificial KINETIC ceiling -->
+            <!-- (degradation/plateau/saturation penalties) but NOT the physical -->
+            <!-- operating limits of solution-phase chemistry. Values beyond these -->
+            <!-- are not "theoretical maximum yield" scenarios, they are chemically -->
+            <!-- meaningless (solvents boil/decompose, ligands and Pd complexes -->
+            <!-- thermally degrade well below 300 C). Enforced server-side in -->
+            <!-- predict_ml_routes.py - do not rely on the client to enforce this. -->
+            <temp_min>25</temp_min>
+            <temp_max>250</temp_max>
+            <time_min>1</time_min>
+            <time_max>72</time_max>
+            <quantity_min>0.0001</quantity_min>
+            <quantity_max>0.50</quantity_max>
+            <yield_ceiling>100</yield_ceiling>
+        </validation>
+
+        <ui>
+            <badge_color>#8B5CF6</badge_color>
+            <badge_label>EXPERIMENTAL</badge_label>
+            <banner_color>#f5f3ff</banner_color>
+            <banner_color_dark>#2a1a3a</banner_color_dark>
+            <warning>Results represent theoretical upper bounds. Real reactions will be limited by substrate decomposition, catalyst deactivation, and side reactions not modelled here.</warning>
+        </ui>
+    </experimental_mode>
+
 </suzuki_config>
