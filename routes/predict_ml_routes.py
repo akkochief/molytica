@@ -1,10 +1,9 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify
 import os
 import json
 import traceback
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional, Any
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import io
@@ -15,16 +14,10 @@ import re
 import joblib
 import warnings
 import hashlib
-from collections import defaultdict
 from scipy import stats
 from scipy.constants import R, h, k as boltzmann_k
-from sklearn.model_selection import (
-    train_test_split, cross_val_score, KFold
-)
-from sklearn.metrics import (
-    r2_score, mean_absolute_error, mean_squared_error,
-    mean_absolute_percentage_error, explained_variance_score
-)
+from sklearn.model_selection import train_test_split, cross_val_score, KFold, RepeatedKFold, LeaveOneOut, GridSearchCV, RandomizedSearchCV
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, mean_absolute_percentage_error, explained_variance_score, max_error
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.feature_selection import SelectKBest, f_regression
@@ -32,17 +25,19 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge, Lasso, ElasticNet
 from sklearn.svm import SVR
 from sklearn.neural_network import MLPRegressor
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor
-from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor, HistGradientBoostingRegressor, StackingRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+from werkzeug.utils import secure_filename
 
 try:
     from rdkit import Chem
-    from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors, Draw
+    from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors, Draw, AllChem
     RDKIT_AVAILABLE = True
+    RDKIT_3D_AVAILABLE = True
 except ImportError:
     RDKIT_AVAILABLE = False
+    RDKIT_3D_AVAILABLE = False
 
 try:
     from sklearn.inspection import permutation_importance
@@ -52,9 +47,10 @@ except ImportError:
 
 try:
     from scipy.stats import shapiro
-    STATSMODELS_AVAILABLE = True
+    from scipy.stats import pearsonr
+    SCIPY_STATS_SHAPIRO_AVAILABLE = True
 except ImportError:
-    STATSMODELS_AVAILABLE = False
+    SCIPY_STATS_SHAPIRO_AVAILABLE = False
 
 try:
     from xgboost import XGBRegressor
@@ -74,6 +70,30 @@ try:
 except ImportError:
     CATBOOST_AVAILABLE = False
 
+try:
+    from sklearn.gaussian_process import GaussianProcessRegressor
+    GP_AVAILABLE = True
+except ImportError:
+    GP_AVAILABLE = False
+
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+
+try:
+    from mapie.regression import MapieRegressor
+    MAPIE_AVAILABLE = True
+except ImportError:
+    MAPIE_AVAILABLE = False
+
+try:
+    from xtb.interface import Calculator
+    XTB_AVAILABLE = True
+except ImportError:
+    XTB_AVAILABLE = False
+
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -81,6 +101,18 @@ predict_ml_bp = Blueprint('predict_ml', __name__, url_prefix='/predict_ml')
 
 PREDICTION_HISTORY_FILE = 'prediction_history.json'
 PREDICTION_HISTORY = []
+PREDICTOR = None
+CONFIG = None
+DATA_INFO = None
+CURRENT_FILE = None
+CURRENT_MODEL = 'Ensemble'
+MODEL_PERFORMANCE = {}
+CACHE = {}
+FEATURE_IMPORTANCE = {}
+CACHE_HIT = 0
+CACHE_MISS = 0
+MAX_SMILES_LENGTH = 500
+MAX_TEXT_FIELD_LENGTH = 500
 
 HAMMETT_SIGMA = {
     'H': {'sigma_m': 0.00, 'sigma_p': 0.00, 'taft_es': 0.00},
@@ -107,6 +139,30 @@ HAMMETT_SIGMA = {
     'COCH3': {'sigma_m': 0.38, 'sigma_p': 0.50, 'taft_es': -1.20},
     'SO2NH2': {'sigma_m': 0.55, 'sigma_p': 0.62, 'taft_es': -1.30},
     'NHAc': {'sigma_m': 0.21, 'sigma_p': 0.00, 'taft_es': -0.50},
+}
+
+GROUP_SMARTS = {
+    'CH3': '[CH3;!$(C=O)]',
+    'OCH3': '[OX2][CH3]',
+    'NO2': '[NX3](=O)=O',
+    'Cl': '[Cl]',
+    'F': '[F]',
+    'CN': '[C]#[N]',
+    'CF3': '[C](F)(F)F',
+    'COOH': 'C(=O)[OH]',
+    'COOCH3': 'C(=O)[O][CH3]',
+    'CHO': '[CH1](=O)',
+    'NH2': '[NX3;H2;!$(N-C=O)]',
+    'N(CH3)2': '[NX3]([CH3])([CH3])',
+    'SO2CH3': 'S(=O)(=O)[CH3]',
+    'B(OH)2': '[B]([OH])([OH])',
+    'Si(CH3)3': '[Si]([CH3])([CH3])([CH3])',
+    'C(CH3)3': '[C]([CH3])([CH3])([CH3])',
+    'C6H5': '[c]1[c][c][c][c][c]1',
+    'COCH3': 'C(=O)[CH3]',
+    'OH': '[OX2H]',
+    'I': '[I]',
+    'Br': '[Br]',
 }
 
 BASE_PROPERTIES = {
@@ -152,24 +208,11 @@ SOLVENT_PHYSICS_ADVANCED = {
     'dme': {'dielectric': 7.2, 'donor_number': 19.5, 'polarity_index': 3.5, 'alpha': 0.00, 'beta': 0.53, 'pi_star': 0.53, 'reichardt_et30': 36.5, 'hildebrand_delta': 17.6},
 }
 
-PREDICTOR = None
-CONFIG = None
-DATA_INFO = None
-CURRENT_FILE = None
-CURRENT_MODEL = 'Ensemble'
-MODEL_PERFORMANCE = {}
-CACHE = {}
-LAST_PREDICTION = None
-FEATURE_IMPORTANCE = {}
-MODEL_HISTORY = []
-CACHE_HIT = 0
-CACHE_MISS = 0
-
 REQUIRED_COLUMNS = ['yield', 'temp', 'time', 'quantity', 'catalizor', 'base', 'solv1']
 OPTIONAL_COLUMNS = ['solv2', 'subs1', 'subs2', 'product']
 NULLABLE_COLUMNS = ['solv1', 'solv2']
 FAILURE_COLUMN = 'yield'
-CRITICAL_NON_NULLABLE_COLUMNS = [c for c in REQUIRED_COLUMNS if c not in NULLABLE_COLUMNS and c != FAILURE_COLUMN]
+CRITICAL_NON_NULLABLE_COLUMNS = ['temp', 'time', 'quantity', 'catalizor', 'base']
 
 ACADEMIC_FEATURE_COLUMNS = [
     'subs1_SMILES_logp', 'subs1_SMILES_sigma_p', 'subs1_SMILES_sigma_m',
@@ -178,17 +221,7 @@ ACADEMIC_FEATURE_COLUMNS = [
     'subs2_SMILES_logp', 'subs2_SMILES_sigma_p', 'subs2_SMILES_sigma_m',
     'subs2_SMILES_taft_es', 'subs2_SMILES_hba', 'subs2_SMILES_hbd',
     'subs2_SMILES_complexity', 'subs2_SMILES_kappa1',
-    'hsab_overall_compatibility', 'hsab_pd_halide_mismatch',
-    'reaction_rate_indicator',
-    'elecproxy_homo_energy', 'elecproxy_lumo_energy', 'elecproxy_gap_energy',
-    'elecproxy_chemical_potential', 'elecproxy_absolute_hardness', 'elecproxy_electrophilicity',
-    'elecproxy_fukui_plus', 'elecproxy_fukui_minus',
-    'physchem_proxy_score'
 ]
-
-MAX_SMILES_LENGTH = 2000
-MAX_TEXT_FIELD_LENGTH = 500
-
 
 def classify_and_filter_rows(df):
     working = df.copy()
@@ -206,7 +239,6 @@ def classify_and_filter_rows(df):
     usable_df = valid_structure_df[yield_present_mask].copy()
     failed_df = valid_structure_df[~yield_present_mask].copy()
     return usable_df, failed_df, rejected_df
-
 
 def save_prediction_history(prediction_data):
     global PREDICTION_HISTORY
@@ -235,16 +267,16 @@ def save_prediction_history(prediction_data):
                 'yield': prediction_data.get('yield'),
                 'yield_class': prediction_data.get('yield_class'),
                 'model': prediction_data.get('model')
-            }
+            },
+            'experimental_mode': prediction_data.get('experimental_mode', False)
         }
         PREDICTION_HISTORY.append(entry)
         if len(PREDICTION_HISTORY) > 1000:
             PREDICTION_HISTORY = PREDICTION_HISTORY[-1000:]
         with open(history_file, 'w', encoding='utf-8') as f:
             json.dump(PREDICTION_HISTORY, f, ensure_ascii=False, indent=2)
-    except Exception as e:
+    except Exception:
         pass
-
 
 def load_prediction_history():
     global PREDICTION_HISTORY
@@ -254,9 +286,8 @@ def load_prediction_history():
                 PREDICTION_HISTORY = json.load(f)
         else:
             PREDICTION_HISTORY = []
-    except Exception as e:
+    except Exception:
         PREDICTION_HISTORY = []
-
 
 def get_last_prediction_for_conditions(conditions):
     global PREDICTION_HISTORY
@@ -279,52 +310,6 @@ def get_last_prediction_for_conditions(conditions):
                 'timestamp': entry.get('timestamp')
             }
     return None
-
-
-def get_dominated_history_max_yield(conditions):
-    global PREDICTION_HISTORY
-    if not PREDICTION_HISTORY:
-        return None
-    key_fields = ['catalizor', 'base', 'solv1', 'solv2', 'subs1_smiles', 'subs2_smiles']
-    current_temp = conditions.get('temp')
-    current_time = conditions.get('time')
-    current_quantity = conditions.get('quantity')
-    if current_temp is None or current_time is None or current_quantity is None:
-        return None
-    best = None
-    for entry in PREDICTION_HISTORY:
-        cond = entry.get('conditions', {})
-        same_system = all(cond.get(field) == conditions.get(field) for field in key_fields)
-        if not same_system:
-            continue
-        prev_temp = cond.get('temp')
-        prev_time = cond.get('time')
-        prev_quantity = cond.get('quantity')
-        prev_yield = entry.get('result', {}).get('yield')
-        if prev_temp is None or prev_time is None or prev_quantity is None or prev_yield is None:
-            continue
-        dominated = (current_temp >= prev_temp and current_time >= prev_time and current_quantity >= prev_quantity)
-        if dominated and (best is None or prev_yield > best['yield']):
-            best = {
-                'yield': prev_yield,
-                'temp': prev_temp,
-                'time': prev_time,
-                'quantity': prev_quantity,
-                'timestamp': entry.get('timestamp')
-            }
-    return best
-
-
-def calculate_logarithmic_increase(base_value, new_value, base_yield, max_increase=2.0):
-    if new_value <= base_value:
-        return 0.0
-    diff = new_value - base_value
-    log_factor = np.log1p(diff / max(base_value, 1.0))
-    max_log_increase = np.log1p(max_increase / max(base_value, 1.0))
-    normalized = log_factor / max(max_log_increase, 0.001)
-    increase = normalized * max_increase * 0.35
-    return min(increase, max_increase)
-
 
 def convert_to_serializable(obj):
     if isinstance(obj, np.ndarray):
@@ -355,16 +340,8 @@ def convert_to_serializable(obj):
         return obj.tolist()
     elif isinstance(obj, datetime):
         return obj.isoformat()
-    elif isinstance(obj, timedelta):
-        return obj.total_seconds()
-    elif hasattr(obj, '__dict__') and not isinstance(obj, (str, int, float, bool)):
-        try:
-            return {k: convert_to_serializable(v) for k, v in obj.__dict__.items()}
-        except:
-            return str(obj)
     else:
-        return obj
-
+        return str(obj)
 
 def clean_feature_name(name):
     tr_map = {'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c'}
@@ -377,7 +354,6 @@ def clean_feature_name(name):
         digest = hashlib.md5(name.encode('utf-8')).hexdigest()[:10]
         name = name[:38].rstrip('_') + '_' + digest
     return name if name else 'feature'
-
 
 def _dedupe_columns(df):
     seen = {}
@@ -393,22 +369,19 @@ def _dedupe_columns(df):
     df.columns = new_cols
     return df
 
-
-def format_size(bytes):
-    if bytes == 0:
+def format_size(bytes_val):
+    if bytes_val == 0:
         return '0 B'
     k = 1024
     sizes = ['B', 'KB', 'MB', 'GB', 'TB']
     i = 0
-    while bytes >= k and i < len(sizes) - 1:
-        bytes /= k
+    while bytes_val >= k and i < len(sizes) - 1:
+        bytes_val /= k
         i += 1
-    return f"{bytes:.1f} {sizes[i]}"
+    return f"{bytes_val:.1f} {sizes[i]}"
 
-
-def secure_filename(filename):
+def secure_filename_custom(filename):
     return re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
-
 
 def is_enriched_dataset(df):
     cols = df.columns.tolist()
@@ -423,125 +396,11 @@ def is_enriched_dataset(df):
         return True
     return False
 
-
-def validate_reaction_conditions(conditions):
-    if 'yield' in conditions and conditions['yield'] is not None and conditions['yield'] != '':
-        try:
-            yield_val = float(conditions['yield'])
-            if yield_val < 0 or yield_val > 100:
-                return False, "Yield must be between 0 and 100"
-        except:
-            return False, "Invalid yield value"
-    else:
-        return True, "Yield is null - reaction recorded as failed"
-    for field in CRITICAL_NON_NULLABLE_COLUMNS:
-        if field == 'yield':
-            continue
-        value = conditions.get(field)
-        if value is None or value == '':
-            return False, f"Required field '{field}' is missing"
-    if conditions.get('solv2'):
-        return True, "Two-solvent system detected"
-    if conditions.get('solv1'):
-        return True, "Single-solvent system"
-    return True, "No solvent recorded"
-
-
-class Logger:
-    def __init__(self):
-        self.logs = []
-        self.start_time = datetime.now()
-        self.levels = {'INFO': 1, 'SUCCESS': 1, 'DEBUG': 0, 'WARNING': 2, 'ERROR': 3}
-        self.current_level = 'INFO'
-        self.colors = {
-            'INFO': '\033[94m',
-            'SUCCESS': '\033[92m',
-            'DEBUG': '\033[90m',
-            'WARNING': '\033[93m',
-            'ERROR': '\033[91m'
-        }
-        self.reset = '\033[0m'
-
-    def set_level(self, level):
-        if level in self.levels:
-            self.current_level = level
-
-    def log(self, msg, level='INFO'):
-        if self.levels.get(level, 1) < self.levels.get(self.current_level, 1):
-            return
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        elapsed = (datetime.now() - self.start_time).total_seconds()
-        log_entry = {'timestamp': timestamp, 'elapsed': elapsed, 'level': level, 'message': msg}
-        self.logs.append(log_entry)
-        color = self.colors.get(level, '')
-        reset = self.reset
-        print(f"{color}[{timestamp}] [{level}] [{elapsed:.1f}s] {msg}{reset}")
-        if len(self.logs) > 1000:
-            self.logs = self.logs[-1000:]
-
-    def info(self, msg): self.log(msg, 'INFO')
-    def success(self, msg): self.log(msg, 'SUCCESS')
-    def debug(self, msg): self.log(msg, 'DEBUG')
-    def warning(self, msg): self.log(msg, 'WARNING')
-    def error(self, msg): self.log(msg, 'ERROR')
-
-    def get_logs(self, level=None):
-        if level:
-            return [l for l in self.logs if l['level'] == level]
-        return self.logs
-
-    def clear(self):
-        self.logs = []
-
-    def get_summary(self):
-        levels = {}
-        for log in self.logs:
-            levels[log['level']] = levels.get(log['level'], 0) + 1
-        return {
-            'total': len(self.logs),
-            'by_level': levels,
-            'start_time': self.start_time.isoformat(),
-            'elapsed': (datetime.now() - self.start_time).total_seconds()
-        }
-
-
-logger = Logger()
-
-
-def error_handler(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except (TypeError, KeyError, ValueError) as e:
-            logger.error(f"Bad request in {func.__name__}: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': 'Invalid or incomplete request data',
-                'timestamp': datetime.now().isoformat()
-            }), 400
-        except Exception as e:
-            logger.error(f"Error in {func.__name__}: {str(e)}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            debug_on = os.getenv('DEBUG', '').lower() in ('1', 'true', 'yes')
-            return jsonify({
-                'success': False,
-                'message': str(e) if debug_on else 'An internal error occurred. Please try again.',
-                'traceback': traceback.format_exc() if debug_on else None,
-                'timestamp': datetime.now().isoformat()
-            }), 500
-    return wrapper
-
-
-def get_json_body():
-    try:
-        data = request.get_json(silent=True, force=False)
-    except Exception:
-        data = None
-    if not isinstance(data, dict):
-        return {}
-    return data
-
+def clean_text(value, max_length=MAX_TEXT_FIELD_LENGTH):
+    if value is None:
+        return ''
+    text = str(value).strip()
+    return text[:max_length]
 
 def to_float(value, default=None, field_name='value'):
     if value is None or value == '':
@@ -556,51 +415,274 @@ def to_float(value, default=None, field_name='value'):
         raise ValueError(f'{field_name} must be a finite number')
     return f
 
-
-def clean_text(value, max_length=MAX_TEXT_FIELD_LENGTH):
-    if value is None:
-        return ''
-    text = str(value).strip()
-    return text[:max_length]
-
-
 def timing_decorator(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         start = time.time()
         result = func(*args, **kwargs)
         elapsed = time.time() - start
-        logger.info(f"{func.__name__} completed in {elapsed:.3f}s")
         return result
     return wrapper
 
+def error_handler(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (TypeError, KeyError, ValueError) as e:
+            return jsonify({'success': False, 'message': str(e)}), 400
+        except Exception as e:
+            debug_on = os.getenv('DEBUG', '').lower() in ('1', 'true', 'yes')
+            return jsonify({
+                'success': False,
+                'message': str(e) if debug_on else 'An internal error occurred',
+                'traceback': traceback.format_exc() if debug_on else None
+            }), 500
+    return wrapper
 
-def cache_result(ttl=300, max_size=100):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            global CACHE_HIT, CACHE_MISS
-            key_parts = [func.__name__]
-            key_parts.extend(str(arg) for arg in args)
-            key_parts.extend(f"{k}={v}" for k, v in kwargs.items())
-            cache_key = hashlib.md5('_'.join(key_parts).encode()).hexdigest()
-            if cache_key in CACHE:
-                entry = CACHE[cache_key]
-                if time.time() - entry['time'] < ttl:
-                    CACHE_HIT += 1
-                    return entry['data']
-                else:
-                    del CACHE[cache_key]
-            CACHE_MISS += 1
-            result = func(*args, **kwargs)
-            CACHE[cache_key] = {'data': result, 'time': time.time(), 'hits': 0}
-            if len(CACHE) > max_size:
-                oldest = min(CACHE.keys(), key=lambda k: CACHE[k]['time'])
-                del CACHE[oldest]
-            return result
-        return wrapper
-    return decorator
+def get_json_body():
+    try:
+        data = request.get_json(silent=True, force=False)
+    except Exception:
+        data = None
+    if not isinstance(data, dict):
+        return {}
+    return data
 
+class Logger:
+    def __init__(self):
+        self.logs = []
+        self.start_time = datetime.now()
+    def info(self, msg):
+        self.logs.append({'time': datetime.now().isoformat(), 'level': 'INFO', 'msg': msg})
+    def error(self, msg):
+        self.logs.append({'time': datetime.now().isoformat(), 'level': 'ERROR', 'msg': msg})
+    def warning(self, msg):
+        self.logs.append({'time': datetime.now().isoformat(), 'level': 'WARNING', 'msg': msg})
+
+logger = Logger()
+
+class DFTEngine:
+    def __init__(self):
+        self.xtb_available = XTB_AVAILABLE
+        self.rdkit_3d = RDKIT_3D_AVAILABLE
+
+    def calculate_homo_lumo(self, smiles):
+        if not RDKIT_AVAILABLE:
+            return None
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return None
+            if self.rdkit_3d:
+                mol3d = Chem.AddHs(mol)
+                AllChem.EmbedMolecule(mol3d, randomSeed=42)
+                AllChem.MMFFOptimizeMolecule(mol3d)
+                if self.xtb_available:
+                    try:
+                        calc = Calculator(method="GFN2-xTB", charge=0, mult=1)
+                        calc.singlepoint(mol3d)
+                        return {
+                            'homo_energy': float(calc.get_homo()),
+                            'lumo_energy': float(calc.get_lumo()),
+                            'gap_energy': float(calc.get_gap()),
+                            'method': 'GFN2-xTB (ab-initio DFT)',
+                            'is_dft': True,
+                            'conformer_generated': True
+                        }
+                    except Exception:
+                        pass
+            return {
+                'homo_energy': None,
+                'lumo_energy': None,
+                'gap_energy': None,
+                'method': 'DFT not available - use electronic proxy',
+                'is_dft': False,
+                'conformer_generated': False
+            }
+        except Exception as e:
+            logger.error(f"DFT calculation failed: {e}")
+            return None
+
+class SHAPAnalyzer:
+    def __init__(self):
+        self.shap_available = SHAP_AVAILABLE
+
+    def analyze(self, model, X, feature_names):
+        if not self.shap_available:
+            return None
+        try:
+            if isinstance(model, (RandomForestRegressor, GradientBoostingRegressor,
+                                  XGBRegressor, LGBMRegressor, CatBoostRegressor)):
+                explainer = shap.TreeExplainer(model)
+                shap_values = explainer.shap_values(X)
+                return {
+                    'shap_values': shap_values.tolist() if hasattr(shap_values, 'tolist') else shap_values,
+                    'base_value': float(explainer.expected_value) if hasattr(explainer.expected_value, '__float__') else explainer.expected_value,
+                    'feature_names': feature_names,
+                    'method': 'SHAP TreeExplainer'
+                }
+            else:
+                explainer = shap.KernelExplainer(model.predict, X[:100])
+                shap_values = explainer.shap_values(X[:100])
+                return {
+                    'shap_values': shap_values.tolist() if hasattr(shap_values, 'tolist') else shap_values,
+                    'base_value': float(explainer.expected_value),
+                    'feature_names': feature_names,
+                    'method': 'SHAP KernelExplainer'
+                }
+        except Exception as e:
+            logger.error(f"SHAP analysis failed: {e}")
+            return None
+
+class ConformalPredictor:
+    def __init__(self):
+        self.mapie_available = MAPIE_AVAILABLE
+
+    def predict(self, model, X_train, y_train, X_test, alpha=0.05):
+        if not self.mapie_available:
+            return None
+        try:
+            mapie = MapieRegressor(model, method="plus", cv=5)
+            mapie.fit(X_train, y_train)
+            y_pred, y_std = mapie.predict(X_test, alpha=alpha)
+            return {
+                'predictions': y_pred.tolist() if hasattr(y_pred, 'tolist') else y_pred,
+                'std': y_std.tolist() if hasattr(y_std, 'tolist') else y_std,
+                'alpha': alpha,
+                'method': 'Conformal Prediction (MAPIE)'
+            }
+        except Exception as e:
+            logger.error(f"Conformal prediction failed: {e}")
+            return None
+
+class HyperparameterOptimizer:
+    def __init__(self):
+        self.grid_search_available = True
+
+    def optimize(self, model_type, X, y):
+        param_grids = {
+            'Random_Forest': {
+                'n_estimators': [100, 200, 300, 400],
+                'max_depth': [5, 10, 15, 20, None],
+                'min_samples_split': [2, 3, 5],
+                'min_samples_leaf': [1, 2, 4]
+            },
+            'XGBoost': {
+                'n_estimators': [100, 200, 300],
+                'learning_rate': [0.01, 0.05, 0.1, 0.2],
+                'max_depth': [3, 5, 7, 9],
+                'subsample': [0.6, 0.8, 1.0],
+                'colsample_bytree': [0.6, 0.8, 1.0]
+            },
+            'LightGBM': {
+                'n_estimators': [100, 200, 300],
+                'learning_rate': [0.01, 0.05, 0.1],
+                'num_leaves': [15, 31, 63],
+                'max_depth': [3, 5, 7, 10]
+            },
+            'Gradient_Boosting': {
+                'n_estimators': [100, 200, 300],
+                'learning_rate': [0.01, 0.05, 0.1],
+                'max_depth': [3, 5, 7],
+                'min_samples_split': [2, 3, 5]
+            },
+            'Ridge': {'alpha': [0.01, 0.1, 1.0, 10.0, 100.0]},
+            'Lasso': {'alpha': [0.01, 0.1, 1.0, 10.0]},
+            'ElasticNet': {'alpha': [0.01, 0.1, 1.0], 'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9]},
+            'SVR': {'C': [0.1, 1.0, 10.0, 100.0], 'epsilon': [0.01, 0.05, 0.1, 0.2], 'gamma': ['scale', 'auto']},
+            'Neural_Network': {
+                'hidden_layer_sizes': [(50,), (100,), (50, 25), (100, 50)],
+                'alpha': [0.0001, 0.001, 0.01],
+                'learning_rate_init': [0.001, 0.01]
+            }
+        }
+        if model_type not in param_grids:
+            return None
+        try:
+            model_creators = {
+                'Random_Forest': RandomForestRegressor,
+                'XGBoost': XGBRegressor,
+                'LightGBM': LGBMRegressor,
+                'Gradient_Boosting': GradientBoostingRegressor,
+                'Ridge': Ridge,
+                'Lasso': Lasso,
+                'ElasticNet': ElasticNet,
+                'SVR': SVR,
+                'Neural_Network': MLPRegressor
+            }
+            if model_type not in model_creators:
+                return None
+            base_model = model_creators[model_type]()
+            search = RandomizedSearchCV(
+                base_model, param_grids[model_type],
+                n_iter=20, cv=3, scoring='r2',
+                random_state=42, n_jobs=1
+            )
+            search.fit(X, y)
+            return {
+                'best_params': search.best_params_,
+                'best_score': float(search.best_score_),
+                'method': 'RandomizedSearchCV (3-fold)',
+                'n_iter': 20
+            }
+        except Exception as e:
+            logger.error(f"Hyperparameter optimization failed: {e}")
+            return None
+
+class ValidationReporter:
+    def __init__(self):
+        pass
+
+    def generate_report(self, y_true, y_pred, model, X_train, y_train, X_test):
+        try:
+            report = {
+                'test_metrics': {
+                    'r2': float(r2_score(y_true, y_pred)),
+                    'mae': float(mean_absolute_error(y_true, y_pred)),
+                    'rmse': float(np.sqrt(mean_squared_error(y_true, y_pred))),
+                    'mape': float(mean_absolute_percentage_error(y_true, y_pred) * 100),
+                    'max_error': float(max_error(y_true, y_pred)),
+                    'explained_variance': float(explained_variance_score(y_true, y_pred))
+                }
+            }
+            if len(y_true) >= 3:
+                try:
+                    from scipy.stats import pearsonr
+                    corr, p_val = pearsonr(y_true, y_pred)
+                    report['test_metrics']['pearson_correlation'] = float(corr)
+                    report['test_metrics']['pearson_p_value'] = float(p_val)
+                except:
+                    pass
+            if len(y_true) >= 3 and len(y_true) <= 5000 and SCIPY_STATS_SHAPIRO_AVAILABLE:
+                try:
+                    residuals = np.array(y_true) - np.array(y_pred)
+                    shapiro_stat, shapiro_p = shapiro(residuals)
+                    report['residual_normality'] = {
+                        'shapiro_stat': float(shapiro_stat),
+                        'shapiro_p': float(shapiro_p),
+                        'is_normal': bool(shapiro_p > 0.05)
+                    }
+                except:
+                    pass
+            try:
+                from sklearn.model_selection import learning_curve
+                train_sizes, train_scores, test_scores = learning_curve(
+                    model, X_train, y_train, cv=3,
+                    train_sizes=np.linspace(0.1, 1.0, 5),
+                    scoring='r2', n_jobs=1
+                )
+                report['learning_curve'] = {
+                    'train_sizes': train_sizes.tolist(),
+                    'train_scores_mean': np.mean(train_scores, axis=1).tolist(),
+                    'test_scores_mean': np.mean(test_scores, axis=1).tolist()
+                }
+            except:
+                pass
+            return report
+        except Exception as e:
+            logger.error(f"Validation report generation failed: {e}")
+            return None
 
 class ConfigManager:
     def __init__(self, config_path='config/info.xml'):
@@ -616,6 +698,7 @@ class ConfigManager:
         self._parse_all()
         self._validate_config()
         self._compute_xml_hash()
+        self.max_smiles_length = self.get_int('security/sanitization/max_smiles_length', 500)
 
     def _ensure_dir(self):
         dir_path = os.path.dirname(self.config_path)
@@ -635,11 +718,11 @@ class ConfigManager:
             self._create_default()
 
     def _create_default(self):
-        default = """<?xml version="1.0" encoding="UTF-8"?>
-<suzuki_config version="7.4.0">
+        default_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<suzuki_config version="7.5.0">
     <metadata>
-        <version>7.4.0</version>
-        <last_updated>2026-07-19</last_updated>
+        <version>7.5.0</version>
+        <last_updated>2026-08-30</last_updated>
     </metadata>
     <chemical_intuition>
         <temperature>
@@ -961,7 +1044,7 @@ class ConfigManager:
         <log_row_classification_summary>true</log_row_classification_summary>
     </data_integrity>
     <monotonicity>
-        <enabled>true</enabled>
+        <enabled>false</enabled>
         <system_identity_fields>catalizor,base,solv1,solv2,subs1_smiles,subs2_smiles</system_identity_fields>
         <incremental_gain>
             <curve_shape>logarithmic</curve_shape>
@@ -971,9 +1054,9 @@ class ConfigManager:
             <catalyst_max_increase_pct>1.5</catalyst_max_increase_pct>
         </incremental_gain>
         <hard_floor>
-            <enabled>true</enabled>
-            <enforce_against_full_history>true</enforce_against_full_history>
-            <require_all_conditions_dominated>true</require_all_conditions_dominated>
+            <enabled>false</enabled>
+            <enforce_against_full_history>false</enforce_against_full_history>
+            <require_all_conditions_dominated>false</require_all_conditions_dominated>
         </hard_floor>
     </monotonicity>
     <ml_training_safeguards>
@@ -981,6 +1064,14 @@ class ConfigManager:
         <min_samples_for_full_ensemble>30</min_samples_for_full_ensemble>
         <honest_cv_max_folds>5</honest_cv_max_folds>
     </ml_training_safeguards>
+    <advanced_features>
+        <dft><enabled>true</enabled><method>GFN2-xTB</method><fallback_to_proxy>true</fallback_to_proxy></dft>
+        <shap><enabled>true</enabled><explainer>TreeExplainer</explainer></shap>
+        <conformal_prediction><enabled>true</enabled><method>plus</method><alpha>0.05</alpha></conformal_prediction>
+        <hyperparameter_tuning><enabled>true</enabled><method>randomized_search</method><n_iter>20</n_iter><cv>3</cv></hyperparameter_tuning>
+        <validation_report><enabled>true</enabled><metrics>all</metrics></validation_report>
+        <stacking_ensemble><enabled>true</enabled><meta_model>Ridge</meta_model><cv>5</cv></stacking_ensemble>
+    </advanced_features>
     <model_parameters>
         <Random_Forest>
             <n_estimators>300</n_estimators>
@@ -1179,7 +1270,7 @@ class ConfigManager:
                 <KNN>0.01</KNN>
             </weights>
             <stacking>true</stacking>
-            <stacking_meta_model>Random_Forest</stacking_meta_model>
+            <stacking_meta_model>Ridge</stacking_meta_model>
             <voting>soft</voting>
             <ensemble_validation>true</ensemble_validation>
             <ensemble_cv_folds>3</ensemble_cv_folds>
@@ -1263,6 +1354,8 @@ class ConfigManager:
             <rmse>true</rmse>
             <mape>true</mape>
             <explained_variance>true</explained_variance>
+            <max_error>true</max_error>
+            <pearson_correlation>true</pearson_correlation>
         </metrics>
         <cross_validation>
             <enabled>true</enabled>
@@ -1303,6 +1396,8 @@ class ConfigManager:
             <prediction_distribution>true</prediction_distribution>
             <residual_qq>true</residual_qq>
             <coefficient_plot>true</coefficient_plot>
+            <shap_summary>true</shap_summary>
+            <learning_curve>true</learning_curve>
         </plots>
         <colors>
             <primary>#2563EB</primary>
@@ -1408,7 +1503,7 @@ class ConfigManager:
     </experimental_mode>
 </suzuki_config>"""
         with open(self.config_path, 'w', encoding='utf-8') as f:
-            f.write(default)
+            f.write(default_xml)
         self.tree = ET.parse(self.config_path)
         self.root = self.tree.getroot()
         with open(self.config_path, 'r', encoding='utf-8') as f:
@@ -1428,29 +1523,24 @@ class ConfigManager:
                     val = val.lower() == 'true'
                 elif val.lower() in ['none', 'null']:
                     val = None
-                elif val.replace('.', '').replace('-', '').replace('e', '').replace('E', '').isdigit():
-                    if '.' in val or 'e' in val.lower():
-                        try:
+                else:
+                    try:
+                        if '.' in val or 'e' in val.lower():
                             val = float(val)
-                        except:
-                            pass
-                    else:
-                        try:
+                        else:
                             val = int(val)
-                        except:
-                            pass
+                    except:
+                        pass
                 result[child.tag] = val
         return result
 
     def _validate_config(self):
-        required = ['chemical_intuition/temperature/baseline_temp', 'chemical_intuition/time/baseline_time', 'chemical_intuition/catalyst/baseline_quantity']
-        missing = []
+        required = ['chemical_intuition/temperature/baseline_temp',
+                    'chemical_intuition/time/baseline_time',
+                    'chemical_intuition/catalyst/baseline_quantity']
         for path in required:
-            val = self.get(path)
-            if val is None:
-                missing.append(path)
-        if missing:
-            logger.warning(f"Required parameters missing: {', '.join(missing)}")
+            if self.get(path) is None:
+                logger.warning(f"Required parameter missing: {path}")
 
     def _compute_xml_hash(self):
         self._xml_hash = hashlib.md5(self.raw_xml.encode()).hexdigest()
@@ -1515,10 +1605,6 @@ class ConfigManager:
     def get_feature_importance(self):
         return self.get_dict('feature_importance')
 
-    def get_models_list(self):
-        models = self.get_dict('model_parameters')
-        return list(models.keys()) if models else []
-
     def reload(self):
         try:
             self._cache.clear()
@@ -1527,21 +1613,7 @@ class ConfigManager:
             self._validate_config()
             self._compute_xml_hash()
             return True
-        except Exception as e:
-            logger.error(f"Reload error: {e}")
-            return False
-
-    def save(self):
-        try:
-            self.tree.write(self.config_path, encoding='UTF-8', xml_declaration=True)
-            self._cache.clear()
-            self._parse_all()
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                self.raw_xml = f.read()
-            self._compute_xml_hash()
-            return True
-        except Exception as e:
-            logger.error(f"Save error: {e}")
+        except:
             return False
 
     def get_raw_xml(self):
@@ -1563,68 +1635,35 @@ class ConfigManager:
             'cache_size': len(self._cache)
         }
 
-
 class ChemicalCalculator:
     def __init__(self, config):
         self.config = config
         self._load_all_params()
         self._load_feature_importance()
-        self._load_experimental_bounds()
         self._validate_params()
-
-    def _load_experimental_bounds(self):
-        self.exp_temp_min = self.config.get_float('experimental_mode/validation/temp_min', 25)
-        self.exp_temp_max = self.config.get_float('experimental_mode/validation/temp_max', 250)
-        self.exp_time_min = self.config.get_float('experimental_mode/validation/time_min', 1)
-        self.exp_time_max = self.config.get_float('experimental_mode/validation/time_max', 72)
-        self.exp_quantity_min = self.config.get_float('experimental_mode/validation/quantity_min', 0.0001)
-        self.exp_quantity_max = self.config.get_float('experimental_mode/validation/quantity_max', 0.50)
-        self.exp_temp_base_offset = self.config.get_float('experimental_mode/temperature/base_offset', 0.30)
-        self.exp_time_base_offset = self.config.get_float('experimental_mode/time/base_offset', 0.55)
-        self.exp_catalyst_base_offset = self.config.get_float('experimental_mode/catalyst/base_offset', 0.50)
-        self.exp_temp_increment_factor = self.config.get_float('experimental_mode/temperature/increment_factor', 1.70)
-        self.exp_time_increment_factor = self.config.get_float('experimental_mode/time/increment_factor', 1.50)
-        self.exp_catalyst_increment_factor = self.config.get_float('experimental_mode/catalyst/increment_factor', 1.75)
 
     def _load_all_params(self):
         chem = self.config.get_chemical_params()
         temp = chem.get('temperature', {})
         self.optimal_temp = temp.get('optimal_temp', 85)
         self.temp_range = temp.get('temp_range', 35)
-        self.baseline_temp = temp.get('baseline_temp', temp.get('min_temp', 40))
-        self.min_temp = temp.get('min_temp', self.baseline_temp)
-        self.max_temp = temp.get('max_temp', 150)
-        self.low_temp_penalty = temp.get('low_temp_penalty', 0.65)
-        self.high_temp_penalty = temp.get('high_temp_penalty', 0.40)
+        self.baseline_temp = temp.get('baseline_temp', 40)
         self.degradation_threshold = temp.get('degradation_threshold', 130)
-        self.temp_coefficient = temp.get('temp_coefficient', 0.8)
         self.activation_energy = temp.get('activation_energy', 45.2)
-        self.arrhenius_prefactor = temp.get('arrhenius_prefactor', 1.2e12)
         self.gas_constant = temp.get('gas_constant', 8.314)
         self.curve_steepness = temp.get('curve_steepness', 0.15)
         self.curve_asymmetry = temp.get('curve_asymmetry', 1.2)
         self.optimal_temp_bonus = temp.get('optimal_temp_bonus', 1.15)
-        self.solvent_bp_margin = temp.get('solvent_bp_margin', 15)
-        self.solvent_bp_penalty = temp.get('solvent_bp_penalty', 0.85)
-        self.eyring_prefactor = temp.get('eyring_prefactor', 1.0e13)
-        self.entropy_activation = temp.get('entropy_activation', -20.5)
         self.enthalpy_activation = temp.get('enthalpy_activation', 42.8)
+        self.entropy_activation = temp.get('entropy_activation', -20.5)
         self.degradation_rate = temp.get('degradation_rate', 0.045)
-        self.degradation_activation_energy = temp.get('degradation_activation_energy', 58.6)
-        self.eyring_weight = temp.get('eyring_weight', 0.25)
         self.temp_increment_factor = temp.get('temp_increment_factor', 0.022)
         self.base_temp_yield = temp.get('base_temp_yield', 40)
 
         time_p = chem.get('time', {})
         self.optimal_time = time_p.get('optimal_time', 18)
         self.time_range = time_p.get('time_range', 12)
-        self.baseline_time = time_p.get('baseline_time', time_p.get('min_time', 1))
-        self.min_time = time_p.get('min_time', self.baseline_time)
-        self.max_time = time_p.get('max_time', 48)
-        self.short_time_penalty = time_p.get('short_time_penalty', 0.40)
-        self.long_time_penalty = time_p.get('long_time_penalty', 0.70)
-        self.time_coefficient = time_p.get('time_coefficient', 1.2)
-        self.reaction_half_life = time_p.get('reaction_half_life', 6.5)
+        self.baseline_time = time_p.get('baseline_time', 1)
         self.rate_constant = time_p.get('rate_constant', 0.107)
         self.diffusion_limit = time_p.get('diffusion_limit', 0.85)
         self.saturation_point = time_p.get('saturation_point', 24)
@@ -1639,27 +1678,13 @@ class ChemicalCalculator:
         cat = chem.get('catalyst', {})
         self.k_m = cat.get('k_m', 0.003)
         self.v_max = cat.get('v_max', 18)
-        self.baseline_quantity = cat.get('baseline_quantity', cat.get('min_quantity', 0.0005))
-        self.min_quantity = cat.get('min_quantity', self.baseline_quantity)
-        self.max_quantity = cat.get('max_quantity', 0.08)
-        self.low_quantity_penalty = cat.get('low_quantity_penalty', 0.30)
-        self.high_quantity_penalty = cat.get('high_quantity_penalty', 0.50)
+        self.baseline_quantity = cat.get('baseline_quantity', 0.0005)
         self.degradation_threshold_cat = cat.get('degradation_threshold', 0.04)
         self.quality_coefficient = cat.get('quality_coefficient', 0.6)
         self.turnover_number = cat.get('turnover_number', 1200)
-        self.turnover_frequency = cat.get('turnover_frequency', 45.6)
-        self.catalyst_efficiency_xml = cat.get('catalyst_efficiency', 0.78)
-        self.ligand_pd_ratio = cat.get('ligand_pd_ratio', 4.0)
-        self.ligand_bite_angle = cat.get('ligand_bite_angle', 102)
-        self.ligand_electron_donating = cat.get('ligand_electron_donating', 0.45)
-        self.ligand_steric_bulk = cat.get('ligand_steric_bulk', 1.8)
-        self.optimal_quantity_bonus = cat.get('optimal_quantity_bonus', 1.20)
         self.monodentate_ligand_factor = cat.get('monodentate_ligand_factor', 0.90)
         self.bidentate_ligand_factor = cat.get('bidentate_ligand_factor', 1.10)
-        self.bulky_ligand_factor = cat.get('bulky_ligand_factor', 0.85)
-        self.electron_rich_ligand_factor = cat.get('electron_rich_ligand_factor', 1.15)
-        self.pd_oxidation_state = cat.get('pd_oxidation_state', 2)
-        self.ligand_coordination_number = cat.get('ligand_coordination_number', 4)
+        self.optimal_quantity_bonus = cat.get('optimal_quantity_bonus', 1.20)
         self.catalyst_increment_factor = cat.get('catalyst_increment_factor', 0.020)
         self.base_catalyst_yield = cat.get('base_catalyst_yield', 30)
 
@@ -1668,18 +1693,6 @@ class ChemicalCalculator:
         self.base_lumo_energy = elec.get('base_lumo_energy', -1.5)
         self.homo_shift_factor = elec.get('homo_shift_factor', 0.8)
         self.lumo_shift_factor = elec.get('lumo_shift_factor', 1.2)
-        self.chemical_potential_weight = elec.get('chemical_potential_weight', 0.28)
-        self.hardness_weight = elec.get('hardness_weight', 0.22)
-        self.electrophilicity_weight = elec.get('electrophilicity_weight', 0.18)
-        self.fukui_weight = elec.get('fukui_weight', 0.32)
-        self.fukui_plus_threshold = elec.get('fukui_plus_threshold', 0.12)
-        self.fukui_minus_threshold = elec.get('fukui_minus_threshold', 0.12)
-        self.fukui_zero_threshold = elec.get('fukui_zero_threshold', 0.10)
-        self.electrophilicity_threshold = elec.get('electrophilicity_threshold', 1.3)
-        self.nucleophilicity_threshold = elec.get('nucleophilicity_threshold', 1.8)
-        self.homo_energy_factor = elec.get('homo_energy_factor', 0.35)
-        self.lumo_energy_factor = elec.get('lumo_energy_factor', 0.25)
-        self.gap_energy_factor = elec.get('gap_energy_factor', 0.40)
         self.homo_lumo_correlation = elec.get('homo_lumo_correlation', 0.15)
 
         mech = chem.get('mechanistic', {})
@@ -1728,28 +1741,24 @@ class ChemicalCalculator:
         self.a_value_isopropyl = ster.get('a_value_isopropyl', 2.21)
         self.a_value_tertbutyl = ster.get('a_value_tertbutyl', 4.9)
 
-        elec = chem.get('electronic', {})
-        self.logp_coefficient = elec.get('logp_coefficient', 0.25)
-        self.hbd_penalty = elec.get('hbd_penalty', 2.0)
-        self.hba_bonus = elec.get('hba_bonus', 1.5)
-        self.hammett_coeff = elec.get('hammett_coefficient', 2.8)
-        self.taft_coeff = elec.get('taft_coefficient', 1.5)
-        self.sigma_m_ew = elec.get('sigma_m_electron_withdrawing', 0.65)
-        self.sigma_p_ew = elec.get('sigma_p_electron_withdrawing', 0.78)
-        self.sigma_m_ed = elec.get('sigma_m_electron_donating', -0.25)
-        self.sigma_p_ed = elec.get('sigma_p_electron_donating', -0.35)
-        self.electron_donating_bonus = elec.get('electron_donating_bonus', 1.25)
-        self.electron_withdrawing_penalty = elec.get('electron_withdrawing_penalty', 0.75)
-        self.conjugation_effect = elec.get('conjugation_effect', 1.10)
-        self.inductive_effect = elec.get('inductive_effect', 0.95)
-        self.resonance_effect = elec.get('resonance_effect', 1.15)
-        self.polarity_factor = elec.get('polarity_factor', 0.12)
-        self.solubility_threshold = elec.get('solubility_threshold', -2.0)
-        self.solubility_penalty = elec.get('solubility_penalty', 0.60)
-        self.sigma_plus_coeff = elec.get('sigma_plus_coefficient', 3.2)
-        self.sigma_minus_coeff = elec.get('sigma_minus_coefficient', 2.5)
-        self.brown_sigma_plus_factor = elec.get('brown_sigma_plus_factor', 1.2)
-        self.hammett_reaction_constant = elec.get('hammett_reaction_constant', 1.0)
+        elec2 = chem.get('electronic', {})
+        self.logp_coefficient = elec2.get('logp_coefficient', 0.25)
+        self.hbd_penalty = elec2.get('hbd_penalty', 2.0)
+        self.hba_bonus = elec2.get('hba_bonus', 1.5)
+        self.hammett_coeff = elec2.get('hammett_coefficient', 2.8)
+        self.taft_coeff = elec2.get('taft_coefficient', 1.5)
+        self.sigma_m_ew = elec2.get('sigma_m_electron_withdrawing', 0.65)
+        self.sigma_p_ew = elec2.get('sigma_p_electron_withdrawing', 0.78)
+        self.sigma_m_ed = elec2.get('sigma_m_electron_donating', -0.25)
+        self.sigma_p_ed = elec2.get('sigma_p_electron_donating', -0.35)
+        self.electron_donating_bonus = elec2.get('electron_donating_bonus', 1.25)
+        self.electron_withdrawing_penalty = elec2.get('electron_withdrawing_penalty', 0.75)
+        self.conjugation_effect = elec2.get('conjugation_effect', 1.10)
+        self.inductive_effect = elec2.get('inductive_effect', 0.95)
+        self.resonance_effect = elec2.get('resonance_effect', 1.15)
+        self.solubility_threshold = elec2.get('solubility_threshold', -2.0)
+        self.solubility_penalty = elec2.get('solubility_penalty', 0.60)
+        self.hammett_reaction_constant = elec2.get('hammett_reaction_constant', 1.0)
 
         hsab = chem.get('hsab', {})
         self.pd_softness = hsab.get('pd_softness', 2.8)
@@ -1767,9 +1776,11 @@ class ChemicalCalculator:
         self.absolute_hardness_pd = hsab.get('absolute_hardness_pd', 3.8)
         self.absolute_hardness_halide = hsab.get('absolute_hardness_halide', 4.2)
         self.absolute_hardness_ligand = hsab.get('absolute_hardness_ligand', 3.5)
-        self.pearson_softness_threshold = hsab.get('pearson_softness_threshold', 6.0)
         self.chemical_potential_pd = hsab.get('chemical_potential_pd', -5.2)
         self.electronegativity_pd = hsab.get('electronegativity_pd', 5.2)
+        self.soft_soft_weight = hsab.get('soft_soft_weight', 0.40)
+        self.hard_hard_weight = hsab.get('hard_hard_weight', 0.35)
+        self.mismatch_penalty_weight = hsab.get('mismatch_penalty_weight', 0.25)
 
         solv = chem.get('solvent', {})
         self.dielectric_optimal = solv.get('dielectric_optimal', 25.0)
@@ -1804,11 +1815,14 @@ class ChemicalCalculator:
         self.organic_base_factor = base_p.get('organic_base_factor', 0.95)
         self.carbonate_base_factor = base_p.get('carbonate_base_factor', 1.10)
         self.phosphate_base_factor = base_p.get('phosphate_base_factor', 1.05)
+        self.acetate_base_factor = base_p.get('acetate_base_factor', 0.88)
+        self.fluoride_base_factor = base_p.get('fluoride_base_factor', 0.82)
         self.soluble_base_bonus = base_p.get('soluble_base_bonus', 1.08)
         self.insoluble_base_penalty = base_p.get('insoluble_base_penalty', 0.80)
         self.hygroscopic_base_penalty = base_p.get('hygroscopic_base_penalty', 0.90)
         self.cation_radius_effect = base_p.get('cation_radius_effect', 1.02)
         self.pka_effect = base_p.get('pka_effect', 0.03)
+        self.pkb_effect = base_p.get('pkb_effect', 0.035)
 
         pcp = chem.get('physicochemical_proxy', {})
         self.pcp_mw_weight = pcp.get('mw_weight', 0.30)
@@ -1830,15 +1844,10 @@ class ChemicalCalculator:
         self.base_yield_offset = yield_p.get('base_yield_offset', 45)
         self.reproducibility = yield_p.get('reproducibility_factor', 0.92)
         self.scale_up_factor = yield_p.get('scale_up_factor', 0.88)
-        self.batch_variation = yield_p.get('batch_variation', 0.12)
-        self.yield_mean = yield_p.get('yield_mean', 72.5)
-        self.yield_std = yield_p.get('yield_std', 18.3)
         self.excellent_threshold = yield_p.get('excellent_threshold', 85)
         self.good_threshold = yield_p.get('good_threshold', 70)
         self.moderate_threshold = yield_p.get('moderate_threshold', 50)
         self.poor_threshold = yield_p.get('poor_threshold', 30)
-        self.confidence_interval_alpha = yield_p.get('confidence_interval_alpha', 0.05)
-        self.prediction_interval_alpha = yield_p.get('prediction_interval_alpha', 0.10)
 
     def _load_feature_importance(self):
         fi = self.config.get_feature_importance()
@@ -1858,14 +1867,6 @@ class ChemicalCalculator:
         self.physchem_weight = fi.get('physchem_effects', 0.03)
 
     def _validate_params(self):
-        if self.optimal_temp <= 0:
-            logger.warning(f"Optimal temp ({self.optimal_temp}) must be positive")
-        if self.optimal_time <= 0:
-            logger.warning(f"Optimal time ({self.optimal_time}) must be positive")
-        if self.k_m <= 0:
-            logger.warning(f"Km must be positive: {self.k_m}")
-        if self.min_yield >= self.max_yield:
-            logger.warning(f"Min yield ({self.min_yield}) >= max yield ({self.max_yield})")
         total_weight = (self.temp_weight + self.time_weight + self.catalyst_weight +
                        self.substrate1_steric_weight + self.substrate2_steric_weight +
                        self.solvent_weight + self.base_weight + self.electronic_weight +
@@ -1874,143 +1875,14 @@ class ChemicalCalculator:
         if abs(total_weight - 1.0) > 0.05:
             logger.warning(f"Feature importance weights sum to {total_weight:.2f}, not 1.0")
 
-    def calculate_electronic_proxy_parameters(self, smiles):
-        result = {}
-        try:
-            if not RDKIT_AVAILABLE:
-                return result
-            mol = Chem.MolFromSmiles(smiles)
-            if mol is None:
-                return result
-            sigma_p = 0.0
-            for group, vals in HAMMETT_SIGMA.items():
-                if group in smiles:
-                    sigma_p += vals.get('sigma_p', 0)
-            homo_energy = self.base_homo_energy - (sigma_p * self.homo_shift_factor)
-            lumo_energy = self.base_lumo_energy - (sigma_p * self.lumo_shift_factor)
-            gap_energy = abs(lumo_energy - homo_energy)
-            result['homo_energy'] = round(homo_energy, 4)
-            result['lumo_energy'] = round(lumo_energy, 4)
-            result['gap_energy'] = round(gap_energy, 4)
-            chemical_potential = (homo_energy + lumo_energy) / 2
-            result['chemical_potential'] = round(chemical_potential, 4)
-            hardness = (lumo_energy - homo_energy) / 2
-            result['absolute_hardness'] = round(hardness, 4)
-            electrophilicity = (chemical_potential ** 2) / (2 * hardness) if hardness > 0 else 0
-            result['electrophilicity'] = round(electrophilicity, 4)
-            fukui_plus = max(0, -sigma_p * 0.3 + 0.1)
-            fukui_minus = max(0, sigma_p * 0.3 + 0.1)
-            result['fukui_plus'] = round(fukui_plus, 4)
-            result['fukui_minus'] = round(fukui_minus, 4)
-            homo_tce = -8.0
-            nucleophilicity = max(0, (homo_energy - homo_tce) / 1.0)
-            result['nucleophilicity'] = round(nucleophilicity, 4)
-        except Exception as e:
-            pass
-        return result
-
-    def calculate_physicochemical_proxy_parameters(self, smiles):
-        result = {}
-        try:
-            if not RDKIT_AVAILABLE:
-                return result
-            mol = Chem.MolFromSmiles(smiles)
-            if mol is None:
-                return result
-            mw = Descriptors.ExactMolWt(mol)
-            logp = Descriptors.MolLogP(mol)
-            tpsa = Descriptors.TPSA(mol)
-            hba = Lipinski.NumHAcceptors(mol)
-            hbd = Lipinski.NumHDonors(mol)
-            rot_bonds = Lipinski.NumRotatableBonds(mol)
-            result['mw'] = round(mw, 4)
-            result['logp'] = round(logp, 4)
-            result['tpsa'] = round(tpsa, 4)
-            result['hba'] = hba
-            result['hbd'] = hbd
-            result['rotatable_bonds'] = rot_bonds
-            mw_term = 1.0 - min(1.0, abs(mw - self.pcp_mw_center) / self.pcp_mw_scale)
-            logp_term = 1.0 - min(1.0, abs(logp - self.pcp_logp_center) / self.pcp_logp_scale)
-            tpsa_term = 1.0 - min(1.0, abs(tpsa - self.pcp_tpsa_center) / self.pcp_tpsa_scale)
-            rotbonds_term = 1.0 - min(1.0, abs(rot_bonds - self.pcp_rotbonds_center) / self.pcp_rotbonds_scale)
-            proxy_score = (self.pcp_mw_weight * mw_term + self.pcp_logp_weight * logp_term +
-                          self.pcp_tpsa_weight * tpsa_term + self.pcp_rotbonds_weight * rotbonds_term)
-            result['proxy_score'] = round(max(0.0, proxy_score), 4)
-        except Exception as e:
-            pass
-        return result
-
     def calculate_eyring_rate(self, temp, delta_h, delta_s):
         T = temp + 273.15
         return (boltzmann_k / h) * T * np.exp(-(delta_h * 1000) / (R * T)) * np.exp(delta_s / R)
 
-    def calculate_gibbs_energy(self, temp, delta_h, delta_s):
-        T = temp + 273.15
-        return delta_h - T * delta_s / 1000
-
-    def calculate_equilibrium_constant(self, temp, delta_g):
-        T = temp + 273.15
-        return np.exp(-delta_g * 1000 / (R * T))
-
     def calculate_lfer(self, sigma, rho):
         return np.exp(rho * sigma)
 
-    def calculate_hsab_absolute_hardness(self, ip, ea):
-        return ip - ea
-
-    def calculate_hsab_chemical_potential(self, ip, ea):
-        return -(ip + ea) / 2
-
-    def calculate_hsab_electronegativity(self, ip, ea):
-        return (ip + ea) / 2
-
-    def calculate_solvent_kamlet_taft(self, alpha, beta, pi_star):
-        return alpha * 0.3 + beta * 0.3 + pi_star * 0.4
-
-    def calculate_steric_a_value(self, substituent):
-        a_values = {
-            'methyl': self.a_value_methyl,
-            'ethyl': self.a_value_ethyl,
-            'isopropyl': self.a_value_isopropyl,
-            'tertbutyl': self.a_value_tertbutyl
-        }
-        return a_values.get(substituent.lower(), 1.74)
-
-    def calculate_hammett_sigma_plus(self, substituent):
-        sigma_plus = HAMMETT_SIGMA.get(substituent, {}).get('sigma_plus', 0)
-        return sigma_plus * self.sigma_plus_coeff
-
-    def calculate_hammett_sigma_minus(self, substituent):
-        sigma_minus = HAMMETT_SIGMA.get(substituent, {}).get('sigma_minus', 0)
-        return sigma_minus * self.sigma_minus_coeff
-
-    def calculate_taft_steric_parameter(self, substituent):
-        return HAMMETT_SIGMA.get(substituent, {}).get('taft_es', 0)
-
-    def calculate_oxidative_addition_barrier(self, sigma_p, steric_bulk):
-        barrier = self.oa_barrier + (sigma_p * self.oa_barrier_sigma_effect) + (steric_bulk * self.oa_barrier_steric_effect)
-        return max(0, barrier)
-
-    def calculate_transmetalation_barrier(self, base_strength, boronic_bulk):
-        barrier = self.tm_barrier + (base_strength * self.tm_barrier_base_effect) + (boronic_bulk * self.tm_barrier_boronic_effect)
-        return max(0, barrier)
-
-    def calculate_reductive_elimination_barrier(self, steric_bulk):
-        barrier = self.re_barrier + (steric_bulk * self.re_barrier_steric_effect)
-        return max(0, barrier)
-
-    def temperature_factor(self, temp, experimental=False):
-        if experimental:
-            T_ref_K = max(self.baseline_temp, 25.0) + 273.15
-            T_K = max(temp, -273.0) + 273.15
-            R_val = self.gas_constant
-            Ea = self.activation_energy * 1000
-            rate_ratio = np.exp(-Ea / R_val * (1 / T_K - 1 / T_ref_K))
-            T_ceiling_K = self.exp_temp_max + 273.15
-            rate_ratio_ceiling = np.exp(-Ea / R_val * (1 / T_ceiling_K - 1 / T_ref_K))
-            normalized = rate_ratio / rate_ratio_ceiling if rate_ratio_ceiling > 0 else 1.0
-            factor = self.exp_temp_base_offset + self.exp_temp_increment_factor * normalized
-            return max(0.10, factor)
+    def temperature_factor(self, temp):
         if temp > self.degradation_threshold:
             degradation_penalty = np.exp(-self.degradation_rate * (temp - self.degradation_threshold))
             factor = max(0.05, degradation_penalty)
@@ -2036,11 +1908,7 @@ class ChemicalCalculator:
         factor = factor * log_factor
         return max(0.05, factor)
 
-    def time_factor(self, time_hours, experimental=False):
-        if experimental:
-            conversion = 1 - np.exp(-self.rate_constant * max(time_hours, 0.0))
-            factor = self.exp_time_base_offset + self.exp_time_increment_factor * conversion
-            return max(0.10, factor)
+    def time_factor(self, time_hours):
         factor = 1 - np.exp(-self.rate_constant * time_hours)
         if factor > self.diffusion_limit:
             factor = factor * (1 - self.diminishing_returns * (factor - self.diffusion_limit))
@@ -2057,11 +1925,7 @@ class ChemicalCalculator:
         factor = factor * log_factor
         return max(0.05, factor)
 
-    def catalyst_factor(self, quantity, experimental=False):
-        if experimental:
-            mm_saturation = max(quantity, 0.0) / (self.k_m + max(quantity, 0.0))
-            factor = self.exp_catalyst_base_offset + self.exp_catalyst_increment_factor * mm_saturation
-            return max(0.10, factor)
+    def catalyst_factor(self, quantity):
         if quantity > self.degradation_threshold_cat:
             rate = self.v_max * quantity / (self.k_m + quantity)
             factor = (rate / self.v_max) * self.quality_coefficient * 0.5
@@ -2118,8 +1982,7 @@ class ChemicalCalculator:
             factor = 1 - self.steric_penalty * total_penalty
         else:
             factor = 1 - 0.5 * self.steric_penalty * total_penalty
-        result = np.clip(factor, 0.1, 1.0)
-        return result
+        return np.clip(factor, 0.1, 1.0)
 
     def electronic_factor(self, conditions):
         logp = conditions.get('logp', 0)
@@ -2127,8 +1990,6 @@ class ChemicalCalculator:
         hbd = conditions.get('hbd', 0)
         sigma_m = conditions.get('sigma_m', 0)
         sigma_p = conditions.get('sigma_p', 0)
-        sigma_plus = conditions.get('sigma_plus', sigma_p)
-        sigma_minus = conditions.get('sigma_minus', sigma_p)
         es = conditions.get('taft_es', 0)
         factor = 1.0
         if logp > 0:
@@ -2146,30 +2007,17 @@ class ChemicalCalculator:
             sigma_effect = (sigma_m / (abs(sigma_m) + 0.001) * self.sigma_m_ed +
                           sigma_p / (abs(sigma_p) + 0.001) * self.sigma_p_ed) / 2
             factor += self.hammett_coeff * sigma_effect * self.electron_donating_bonus
-        sigma_plus_effect = self.sigma_plus_coeff * sigma_plus
-        sigma_minus_effect = self.sigma_minus_coeff * sigma_minus
-        factor += 0.1 * (sigma_plus_effect + sigma_minus_effect)
-        brown_factor = self.brown_sigma_plus_factor * sigma_plus
-        factor += 0.05 * brown_factor
         factor += self.taft_coeff * es / 2
         lfer_factor = self.calculate_lfer(sigma_p, self.hammett_reaction_constant)
         factor = factor * (0.8 + 0.2 * lfer_factor)
-        if 'conjugation' in conditions:
-            factor += self.conjugation_effect * conditions.get('conjugation', 0)
-        if 'inductive' in conditions:
-            factor += self.inductive_effect * conditions.get('inductive', 0)
-        if 'resonance' in conditions:
-            factor += self.resonance_effect * conditions.get('resonance', 0)
         if logp < self.solubility_threshold:
             factor *= self.solubility_penalty
-        result = np.clip(factor, 0.1, 1.5)
-        return result
+        return np.clip(factor, 0.1, 1.5)
 
     def hsab_factor(self, conditions):
         pd_soft = getattr(self, 'pd_softness', 2.8)
         halide_soft = getattr(self, 'halide_softness', 3.2)
         ligand_soft = getattr(self, 'ligand_softness', 2.5)
-        base_soft = getattr(self, 'base_softness', 3.0)
         pd_halide_match_soft = 1 - abs(pd_soft - halide_soft) / 6
         pd_ligand_match_soft = 1 - abs(pd_soft - ligand_soft) / 6
         ligand_halide_match_soft = 1 - abs(ligand_soft - halide_soft) / 6
@@ -2184,7 +2032,9 @@ class ChemicalCalculator:
         w3 = getattr(self, 'ligand_halide_match_xml', 0.75)
         overall_soft = (pd_halide_match_soft * w1 + pd_ligand_match_soft * w2 + ligand_halide_match_soft * w3) / (w1 + w2 + w3)
         overall_hard = (pd_halide_match_hard * w1 + pd_ligand_match_hard * w2 + ligand_halide_match_hard * w3) / (w1 + w2 + w3)
-        overall = overall_soft * 0.6 + overall_hard * 0.4
+        soft_soft_weight = getattr(self, 'soft_soft_weight', 0.40)
+        hard_hard_weight = getattr(self, 'hard_hard_weight', 0.35)
+        overall = (overall_soft * soft_soft_weight + overall_hard * hard_hard_weight) / (soft_soft_weight + hard_hard_weight)
         chem_pot_effect = np.exp((getattr(self, 'chemical_potential_pd', -5.2) - getattr(self, 'electronegativity_pd', 5.2)) / 4)
         overall_compatibility = getattr(self, 'overall_compatibility_xml', 0.80)
         soft_soft_bonus = getattr(self, 'soft_soft_bonus', 1.20)
@@ -2198,8 +2048,7 @@ class ChemicalCalculator:
             factor = soft_hard_penalty * chem_pot_effect
         if overall < 0.3:
             factor *= mismatch_penalty
-        result = np.clip(factor, 0.3, 1.3)
-        return result
+        return np.clip(factor, 0.3, 1.3)
 
     def solvent_factor(self, solv1, solv2=''):
         if not solv1 or solv1 == '':
@@ -2211,7 +2060,6 @@ class ChemicalCalculator:
             'ethanol': 0.90, 'methanol': 0.85, 'water': 0.70,
             'IPA': 0.88, 'ethyl acetate': 0.88, 'dichloromethane': 0.80,
             'chloroform': 0.75, 'hexane': 0.60, 'cyclohexane': 0.55,
-            'Toluene': 1.10, 'Benzene': 1.08, 'Dioxane': 1.08
         }
         factor = 1.0
         solv1_lower = solv1.lower()
@@ -2237,20 +2085,18 @@ class ChemicalCalculator:
             dielectric_factor = np.exp(-((props.get('dielectric', 25) - self.dielectric_optimal) ** 2) / (2 * self.dielectric_range ** 2))
             donor_factor = np.exp(-((props.get('donor_number', 20) - self.donor_optimal) ** 2) / (2 * self.donor_range ** 2))
             polarity_factor = np.exp(-((props.get('polarity_index', 4) - self.polarity_optimal) ** 2) / (2 * self.polarity_range ** 2))
-            alpha = props.get('alpha', 0)
-            beta = props.get('beta', 0)
-            pi_star = props.get('pi_star', 0.5)
-            reichardt = props.get('reichardt_et30', 40)
-            hildebrand = props.get('hildebrand_delta', 20)
-            kamlet_taft_factor = 1 + self.alpha_weight * alpha + self.beta_weight * beta + self.pi_star_weight * pi_star
-            reichardt_factor = 1 + self.reichardt_weight * (reichardt - 40) / 10
-            hildebrand_factor = 1 + self.hildebrand_weight * (hildebrand - 20) / 10
-            factor = factor * (dielectric_factor * self.dielectric_weight +
-                              donor_factor * self.donor_weight +
-                              polarity_factor * self.polarity_weight +
-                              kamlet_taft_factor * 0.15 +
-                              reichardt_factor * 0.05 +
-                              hildebrand_factor * 0.05)
+            total_weight = (self.dielectric_weight + self.donor_weight + self.polarity_weight +
+                           self.alpha_weight + self.beta_weight + self.pi_star_weight +
+                           self.reichardt_weight + self.hildebrand_weight)
+            if total_weight == 0:
+                total_weight = 1.0
+            weighted_average = ((self.dielectric_weight / total_weight) * dielectric_factor +
+                               (self.donor_weight / total_weight) * donor_factor +
+                               (self.polarity_weight / total_weight) * polarity_factor +
+                               ((self.alpha_weight + self.beta_weight + self.pi_star_weight) / total_weight) +
+                               (self.reichardt_weight / total_weight) * (1 + self.reichardt_weight * (props.get('reichardt_et30', 40) - 40) / 10) +
+                               (self.hildebrand_weight / total_weight) * (1 + self.hildebrand_weight * (props.get('hildebrand_delta', 20) - 20) / 10))
+            factor = factor * weighted_average
         if solv2 and solv2 != '' and solv2 != 'O':
             solv2_lower = solv2.lower()
             if 'toluene' in solv1_lower and 'ethanol' in solv2_lower:
@@ -2263,8 +2109,7 @@ class ChemicalCalculator:
                 factor *= self.dme_water
             else:
                 factor = factor * 0.95
-        result = np.clip(factor, 0.4, 1.3)
-        return result
+        return np.clip(factor, 0.4, 1.3)
 
     def base_factor(self, base):
         base_lower = base.lower()
@@ -2288,6 +2133,10 @@ class ChemicalCalculator:
             factor *= self.phosphate_base_factor
         elif base_class == 'amine' or base_class == 'amidine':
             factor *= self.organic_base_factor
+        elif base_class == 'acetate':
+            factor *= self.acetate_base_factor
+        elif base_class == 'fluoride':
+            factor *= self.fluoride_base_factor
         else:
             factor *= self.inorganic_base_factor
         if solubility > 0.5:
@@ -2299,10 +2148,9 @@ class ChemicalCalculator:
         if cation_radius:
             radius_effect = np.exp((cation_radius - 1.38) * self.cation_radius_effect)
             factor *= radius_effect
-        pkb_effect = np.exp(-(pkb - 3.7) * 0.05)
+        pkb_effect = np.exp(-(pkb - 3.7) * self.pkb_effect)
         factor *= pkb_effect
-        result = np.clip(factor, 0.4, 1.4)
-        return result
+        return np.clip(factor, 0.4, 1.4)
 
     def mechanistic_factor(self, conditions):
         temp = conditions.get('temp', 80)
@@ -2313,15 +2161,15 @@ class ChemicalCalculator:
         sigma_p = conditions.get('sigma_p', 0)
         R_val = self.gas_constant
         T = temp + 273.15
-        oa_barrier = self.calculate_oxidative_addition_barrier(sigma_p, steric_factor)
+        oa_barrier = self.oa_barrier + (sigma_p * self.oa_barrier_sigma_effect) + (steric_factor * self.oa_barrier_steric_effect)
         k_oa = self.oa_rate * np.exp(-oa_barrier * 1000 / (R_val * T))
         k_oa = k_oa * (1 - self.oa_steric_sens * steric_factor)
         k_oa = k_oa * (1 + self.oa_electronic_sens * electronic_factor)
-        tm_barrier = self.calculate_transmetalation_barrier(base_strength, steric_factor)
+        tm_barrier = self.tm_barrier + (base_strength * self.tm_barrier_base_effect) + (steric_factor * self.tm_barrier_boronic_effect)
         k_tm = self.tm_rate * np.exp(-tm_barrier * 1000 / (R_val * T))
         k_tm = k_tm * (1 + self.tm_base_sens * base_strength)
         k_tm = k_tm * (1 + self.tm_boronic_sens * 0.5)
-        re_barrier = self.calculate_reductive_elimination_barrier(steric_factor)
+        re_barrier = self.re_barrier + (steric_factor * self.re_barrier_steric_effect)
         k_re = self.re_rate * np.exp(-re_barrier * 1000 / (R_val * T))
         k_re = k_re * (1 - self.re_steric_sens * steric_factor)
         k_re = k_re * (1 + self.re_electronic_sens * electronic_factor)
@@ -2331,36 +2179,21 @@ class ChemicalCalculator:
         mechanistic_efficiency = (k_oa * k_tm * k_re) / (max(k_oa, 0.001) * max(k_tm, 0.001) * max(k_re, 0.001) + 0.001)
         transition_state_asymmetry_factor = np.exp(-self.transition_state_asymmetry * abs(k_oa - k_re) / (k_oa + k_re + 0.001))
         factor = time_factor * (0.8 + 0.2 * mechanistic_efficiency) * transition_state_asymmetry_factor
-        result = {
+        return {
             'factor': np.clip(factor * 1.5, 0.1, 1.3),
             'oa_rate': k_oa,
             'tm_rate': k_tm,
             're_rate': k_re,
             'efficiency': mechanistic_efficiency,
-            'rate_indicator': rate,
-            'oa_barrier_calculated': oa_barrier,
-            'tm_barrier_calculated': tm_barrier,
-            're_barrier_calculated': re_barrier
+            'rate_indicator': rate
         }
-        return result
 
     def elecproxy_factor(self, conditions):
         sigma_p = conditions.get('sigma_p', 0)
-        sigma_m = conditions.get('sigma_m', 0)
         homo_energy = self.base_homo_energy - (sigma_p * self.homo_shift_factor)
         lumo_energy = self.base_lumo_energy - (sigma_p * self.lumo_shift_factor)
         gap_energy = abs(lumo_energy - homo_energy)
-        homo_lumo_correlation = getattr(self, 'homo_lumo_correlation', 0.15)
-        chemical_potential_weight = getattr(self, 'chemical_potential_weight', 0.28)
-        hardness_weight = getattr(self, 'hardness_weight', 0.22)
-        electrophilicity_weight = getattr(self, 'electrophilicity_weight', 0.18)
-        fukui_weight = getattr(self, 'fukui_weight', 0.32)
-        homo_lumo_effect = sigma_p * homo_lumo_correlation
-        chemical_potential_effect = -sigma_p * chemical_potential_weight
-        hardness_effect = (1 - abs(sigma_p)) * hardness_weight
-        electrophilicity_effect = max(0, sigma_p) * electrophilicity_weight
-        fukui_effect = abs(sigma_p) * fukui_weight
-        factor = 1 + homo_lumo_effect + chemical_potential_effect + hardness_effect + electrophilicity_effect + fukui_effect
+        factor = 1 + sigma_p * self.homo_lumo_correlation
         factor = factor * (0.8 + 0.2 * (gap_energy / 5.0))
         return np.clip(factor, 0.7, 1.3)
 
@@ -2375,17 +2208,15 @@ class ChemicalCalculator:
         rotbonds_term = 1.0 - min(1.0, abs(rot_bonds - self.pcp_rotbonds_center) / self.pcp_rotbonds_scale)
         proxy_score = (self.pcp_mw_weight * mw_term + self.pcp_logp_weight * logp_term +
                       self.pcp_tpsa_weight * tpsa_term + self.pcp_rotbonds_weight * rotbonds_term)
-        proxy_score = max(0.0, proxy_score)
-        return np.clip(0.7 + 0.3 * proxy_score, 0.7, 1.3)
+        return np.clip(0.7 + 0.3 * max(0.0, proxy_score), 0.7, 1.3)
 
     def calculate_yield(self, conditions):
         temp = conditions.get('temp', 80)
         time_hours = conditions.get('time', 24)
         quantity = conditions.get('quantity', 0.0025)
-        experimental = bool(conditions.get('experimental_mode', False))
-        temp_factor = self.temperature_factor(temp, experimental=experimental)
-        time_factor = self.time_factor(time_hours, experimental=experimental)
-        cat_factor = self.catalyst_factor(quantity, experimental=experimental)
+        temp_factor = self.temperature_factor(temp)
+        time_factor = self.time_factor(time_hours)
+        cat_factor = self.catalyst_factor(quantity)
         steric_factor_1 = self.steric_factor({**conditions, **{'substrate': 1}})
         steric_factor_2 = self.steric_factor({**conditions, **{'substrate': 2}})
         solvent_factor = self.solvent_factor(conditions.get('solv1', ''), conditions.get('solv2', ''))
@@ -2421,7 +2252,7 @@ class ChemicalCalculator:
         )
         raw_yield = self.base_yield_offset + (self.max_yield - self.base_yield_offset) * combined_factor
         final_yield = raw_yield * self.reproducibility * self.scale_up_factor
-        result = {
+        return {
             'yield': np.clip(final_yield, self.min_yield, self.max_yield),
             'temp_factor': float(temp_factor),
             'time_factor': float(time_factor),
@@ -2438,7 +2269,6 @@ class ChemicalCalculator:
             'mechanistic_details': mechanistic_result,
             'combined_factor': float(combined_factor)
         }
-        return result
 
     def get_yield_class(self, yield_val):
         if yield_val >= self.excellent_threshold:
@@ -2462,63 +2292,32 @@ class ChemicalCalculator:
             'good_threshold': self.good_threshold,
             'moderate_threshold': self.moderate_threshold,
             'poor_threshold': self.poor_threshold,
-            'confidence_interval_alpha': self.confidence_interval_alpha,
-            'prediction_interval_alpha': self.prediction_interval_alpha
         }
-
 
 class FeatureEngineer:
     def __init__(self, config):
         self.config = config
-        self.feature_columns = []
-        self.scaler = None
-        self.encoders = {}
-        self.imputer = None
         self.selected_features = []
-        self.pca = None
-        self.feature_names = []
         self._load_params()
 
     def _load_params(self):
         dp = self.config.get_dict('data_processing')
-        mv = dp.get('missing_values', {})
-        self.missing_strategy = mv.get('strategy', 'median_imputation')
-        self.categorical_strategy = mv.get('categorical_strategy', 'mode_imputation')
-        self.missing_threshold = mv.get('threshold', 0.30)
-        norm = dp.get('normalization', {})
-        self.numeric_method = norm.get('numeric_method', 'standard_scaler')
-        self.categorical_method = norm.get('categorical_method', 'one_hot_encoding')
-        self.target_scaling = norm.get('target_scaling', 'minmax')
         fs = dp.get('feature_selection', {})
-        self.fs_method = fs.get('method', 'mutual_information')
         self.fs_k_best = fs.get('k_best', 30)
-        self.fs_variance_threshold = fs.get('variance_threshold', 0.01)
         self.fs_correlation_threshold = fs.get('correlation_threshold', 0.85)
-        aug = dp.get('augmentation', {})
-        self.aug_enabled = aug.get('enabled', True)
-        self.aug_method = aug.get('method', 'gaussian_noise')
-        self.aug_noise_level = aug.get('noise_level', 0.05)
-        self.aug_n_augmentations = aug.get('n_augmentations', 50)
-        self.aug_bootstrap_samples = aug.get('bootstrap_samples', 1000)
-        split = dp.get('split', {})
-        self.test_size = split.get('test_size', 0.20)
-        self.validation_size = split.get('validation_size', 0.15)
-        self.split_stratify = split.get('stratify', True)
-        self.split_random_state = split.get('random_state', 42)
-        self.split_shuffle = split.get('shuffle', True)
 
     def extract_smiles_features(self, smiles):
         features = {}
+        if not RDKIT_AVAILABLE:
+            return features
         try:
-            from rdkit import Chem
-            from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors, Crippen
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
                 return features
             features['mw'] = Descriptors.ExactMolWt(mol)
             features['logp'] = Descriptors.MolLogP(mol)
             features['tpsa'] = Descriptors.TPSA(mol)
-            features['refractivity'] = Descriptors.MolarRefractivity(mol)
+            features['refractivity'] = Descriptors.MolMR(mol)
             features['heavy_atoms'] = mol.GetNumHeavyAtoms()
             features['total_atoms'] = mol.GetNumAtoms()
             features['hba'] = Lipinski.NumHAcceptors(mol)
@@ -2532,10 +2331,6 @@ class FeatureEngineer:
             features['kappa1'] = Descriptors.Kappa1(mol)
             features['kappa2'] = Descriptors.Kappa2(mol)
             features['kappa3'] = Descriptors.Kappa3(mol)
-            try:
-                features['steric_volume'] = rdMolDescriptors.CalcStericVolume(mol)
-            except:
-                features['steric_volume'] = 0.0
             features['complexity'] = Descriptors.BertzCT(mol)
             features['fraction_csp3'] = Descriptors.FractionCsp3(mol)
             features['c_count'] = sum(1 for atom in mol.GetAtoms() if atom.GetSymbol() == 'C')
@@ -2557,29 +2352,30 @@ class FeatureEngineer:
             features['double_bonds'] = sum(1 for bond in mol.GetBonds() if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE)
             features['triple_bonds'] = sum(1 for bond in mol.GetBonds() if bond.GetBondType() == Chem.rdchem.BondType.TRIPLE)
             features['total_bonds'] = mol.GetNumBonds()
-            features['chiral_centers_defined'] = rdMolDescriptors.CalcNumAtomStereoAtoms(mol)
+            features['chiral_centers_defined'] = rdMolDescriptors.CalcNumAtomStereoCenters(mol)
             features['spiro_atoms'] = rdMolDescriptors.CalcNumSpiroAtoms(mol)
             features['bridgehead_atoms'] = rdMolDescriptors.CalcNumBridgeheadAtoms(mol)
             features['branch_nodes'] = sum(1 for atom in mol.GetAtoms() if atom.GetDegree() > 2)
-            features['sigma_m'] = 0.0
-            features['sigma_p'] = 0.0
-            features['sigma_plus'] = 0.0
-            features['sigma_minus'] = 0.0
-            features['taft_es'] = 0.0
-            for group, vals in HAMMETT_SIGMA.items():
-                if group in smiles:
-                    features['sigma_m'] += vals.get('sigma_m', 0)
-                    features['sigma_p'] += vals.get('sigma_p', 0)
-                    features['sigma_plus'] += vals.get('sigma_plus', vals.get('sigma_p', 0))
-                    features['sigma_minus'] += vals.get('sigma_minus', vals.get('sigma_p', 0))
-                    features['taft_es'] += vals.get('taft_es', 0)
+            sigma_m, sigma_p, taft_es = 0.0, 0.0, 0.0
+            for group, smarts_pattern in GROUP_SMARTS.items():
+                try:
+                    patt = Chem.MolFromSmarts(smarts_pattern)
+                    if patt and mol.HasSubstructMatch(patt):
+                        n_matches = len(mol.GetSubstructMatches(patt))
+                        sigma_m += HAMMETT_SIGMA.get(group, {}).get('sigma_m', 0) * n_matches
+                        sigma_p += HAMMETT_SIGMA.get(group, {}).get('sigma_p', 0) * n_matches
+                        taft_es += HAMMETT_SIGMA.get(group, {}).get('taft_es', 0) * n_matches
+                except:
+                    continue
+            features['sigma_m'] = sigma_m
+            features['sigma_p'] = sigma_p
+            features['taft_es'] = taft_es
         except Exception as e:
-            pass
+            logger.error(f"SMILES feature extraction failed for {smiles}: {e}")
         return features
 
     def engineer_features(self, df):
         df = df.copy()
-        original_cols = len(df.columns)
         if 'temp' in df.columns and 'time' in df.columns:
             df['temp_time_product'] = df['temp'] * df['time']
             df['temp_time_ratio'] = df['temp'] / (df['time'] + 1)
@@ -2593,7 +2389,6 @@ class FeatureEngineer:
             df['quantity_sqrt'] = np.sqrt(df['quantity'])
             df['quantity_squared'] = df['quantity'] ** 2
             df['quantity_inv'] = 1 / (df['quantity'] + 0.0001)
-            df['quantity_exp'] = np.exp(df['quantity'])
             df['quantity_power3'] = df['quantity'] ** 3
         if 'temp' in df.columns and 'quantity' in df.columns:
             df['temp_quantity_product'] = df['temp'] * df['quantity']
@@ -2647,8 +2442,6 @@ class FeatureEngineer:
             df['halogen_product'] = df['subs1_halogen_count'] * df['subs2_halogen_count']
         if 'subs1_sigma_p' in df.columns:
             df['electronic_softness'] = df['subs1_sigma_p'] * 0.3
-            if 'hsab_overall_compatibility' in df.columns:
-                df['mechanistic_predictor'] = df['subs1_sigma_p'] * 0.3 + df['hsab_overall_compatibility'] * 0.7
             df['hammett_effect'] = np.exp(2.8 * df['subs1_sigma_p'])
             df['taft_effect'] = np.exp(1.5 * df['subs1_taft_es'] / 2)
         return df
@@ -2669,18 +2462,16 @@ class FeatureEngineer:
             k_best = min(self.fs_k_best, len(numeric_cols) // 2)
             k_best = max(5, k_best)
             selected = [f for f, _ in feature_scores[:k_best]]
-            corr_threshold = self.fs_correlation_threshold
             if len(selected) > 1:
                 corr_matrix = df[selected].corr().abs()
                 upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-                to_drop = [column for column in upper.columns if any(upper[column] > corr_threshold)]
+                to_drop = [column for column in upper.columns if any(upper[column] > self.fs_correlation_threshold)]
                 selected = [f for f in selected if f not in to_drop]
             self.selected_features = selected
             return df[selected] if selected else df[numeric_cols]
         except Exception as e:
             logger.error(f"Feature selection error: {e}")
             return df.select_dtypes(include=[np.number])
-
 
 class SuzukiPredictor:
     def __init__(self, config):
@@ -2696,13 +2487,9 @@ class SuzukiPredictor:
         self.model_performance = {}
         self.scaler = None
         self.ensemble_weights = self._load_weights()
-        self.model_history = []
         self.best_model = None
         self.cv_results = {}
         self.feature_importance = {}
-        self.residuals = None
-        self.predictions = None
-        self._model_instances = {}
         self.is_enriched = False
         self.fallback_model = None
         self.training_data_warning = None
@@ -2711,13 +2498,21 @@ class SuzukiPredictor:
         self.min_samples_per_feature = self.config.get_int('ml_training_safeguards/min_samples_per_feature', 10)
         self.min_samples_for_full_ensemble = self.config.get_int('ml_training_safeguards/min_samples_for_full_ensemble', 30)
         self.honest_cv_max_folds = self.config.get_int('ml_training_safeguards/honest_cv_max_folds', 5)
+        self.X_test_ = None
+        self.y_test_ = None
+        self.validation_report = None
+        self.shap_analyzer = SHAPAnalyzer()
+        self.conformal_predictor = ConformalPredictor()
+        self.hyper_optimizer = HyperparameterOptimizer()
+        self.validation_reporter = ValidationReporter()
+        self.dft_engine = DFTEngine()
 
     def _load_weights(self):
         try:
             w = self.config.get_dict('model_parameters/Ensemble/weights')
             if w:
                 return {k: float(v) for k, v in w.items() if float(v) > 0}
-        except Exception as e:
+        except:
             pass
         return {
             'Random_Forest': 0.16,
@@ -2742,14 +2537,11 @@ class SuzukiPredictor:
             for col in REQUIRED_COLUMNS:
                 if col not in columns:
                     missing.append(col)
-            for opt in OPTIONAL_COLUMNS:
-                if opt not in columns:
-                    missing.append(f"{opt} (optional)")
             if missing:
                 return False, missing
             return True, []
-        except Exception as e:
-            return False, [str(e)]
+        except:
+            return False, ['Could not read CSV']
 
     def load_data(self, filepath):
         valid, missing = self.validate_csv(filepath)
@@ -2765,13 +2557,8 @@ class SuzukiPredictor:
                 raise ValueError("All yield values are missing")
             self.is_enriched = is_enriched_dataset(self.df)
             if not self.is_enriched:
-                raise ValueError(
-                    "This is a basic dataset without academic features.\n"
-                    "Please use dataset_routes.py to enrich your data first."
-                )
+                raise ValueError("Dataset is not enriched. Please use dataset_routes.py first.")
             usable_df, failed_df, rejected_df = classify_and_filter_rows(self.df)
-            self.failed_reactions_df = failed_df
-            self.rejected_rows_df = rejected_df
             self.df = usable_df
             if len(self.df) < 5:
                 raise ValueError(f"Dataset must have at least 5 rows with valid yield data. Current: {len(self.df)}")
@@ -2792,7 +2579,7 @@ class SuzukiPredictor:
             'temp_time_diff', 'temp_time_interaction', 'temp_log_time', 'time_log_temp',
             'catalyst_loading', 'temp_quantity_product', 'temp_quantity_ratio',
             'quantity_log1p', 'quantity_sqrt', 'quantity_squared',
-            'quantity_inv', 'quantity_exp', 'quantity_power3',
+            'quantity_inv', 'quantity_power3',
             'subs1_length', 'subs2_length',
             'substrate_steric_sum', 'substrate_steric_diff', 'substrate_steric_ratio',
             'substrate_steric_product', 'substrate_steric_euclidean',
@@ -2813,18 +2600,11 @@ class SuzukiPredictor:
             'subs1_hetero_count', 'subs2_hetero_count',
             'subs1_fraction_csp3', 'subs2_fraction_csp3',
             'subs1_rotatable_bonds', 'subs2_rotatable_bonds',
-            'subs1_sigma_m', 'subs1_sigma_p', 'subs1_sigma_plus', 'subs1_sigma_minus', 'subs1_taft_es',
-            'subs2_sigma_m', 'subs2_sigma_p', 'subs2_sigma_plus', 'subs2_sigma_minus', 'subs2_taft_es',
+            'subs1_sigma_m', 'subs1_sigma_p', 'subs1_taft_es',
+            'subs2_sigma_m', 'subs2_sigma_p', 'subs2_taft_es',
             'sigma_p_sum', 'sigma_p_diff', 'sigma_p_avg', 'sigma_p_product',
             'taft_es_sum', 'taft_es_diff', 'taft_es_avg',
-            'electronic_softness', 'mechanistic_predictor',
-            'hammett_effect', 'taft_effect',
-            'hsab_overall_compatibility', 'hsab_pd_halide_mismatch',
-            'reaction_rate_indicator',
-            'elecproxy_homo_energy', 'elecproxy_lumo_energy', 'elecproxy_gap_energy',
-            'elecproxy_chemical_potential', 'elecproxy_absolute_hardness', 'elecproxy_electrophilicity',
-            'elecproxy_fukui_plus', 'elecproxy_fukui_minus',
-            'physchem_proxy_score'
+            'electronic_softness', 'hammett_effect', 'taft_effect'
         ]
         available_features = [c for c in important_features if c in self.df.columns]
         categorical_cols = ['catalizor', 'base', 'solv1', 'solv2']
@@ -2922,6 +2702,32 @@ class SuzukiPredictor:
                 return val
         return val
 
+    def _create_stacking_ensemble(self, base_models, X_train, y_train):
+        try:
+            estimators = []
+            for name, model in base_models.items():
+                estimators.append((name.replace('_', ''), model))
+            meta_model = Ridge(alpha=1.0)
+            stacking = StackingRegressor(
+                estimators=estimators[:5],
+                final_estimator=meta_model,
+                cv=5
+            )
+            stacking.fit(X_train, y_train)
+            return stacking
+        except Exception as e:
+            logger.error(f"Stacking ensemble creation failed: {e}")
+            return None
+
+    def _perform_hyperparameter_tuning(self, model_type, X, y):
+        try:
+            result = self.hyper_optimizer.optimize(model_type, X, y)
+            if result:
+                return result
+        except Exception as e:
+            logger.error(f"Hyperparameter tuning failed: {e}")
+        return None
+
     def train(self, model_type='Ensemble'):
         try:
             if self.X is None or len(self.X) == 0:
@@ -2937,14 +2743,36 @@ class SuzukiPredictor:
             self.training_data_warning = None
             max_features_for_sample_size = max(1, n_samples // self.min_samples_per_feature)
             if n_samples < self.min_samples_for_full_ensemble or n_features_available > max_features_for_sample_size:
-                self.training_data_warning = (
-                    f"LOW-DATA REGIME: {n_samples} samples for {n_features_available} candidate features."
-                )
+                self.training_data_warning = f"LOW-DATA REGIME: {n_samples} samples for {n_features_available} candidate features."
+
+            aug_params = self.config.get_dict('data_processing/augmentation')
+            if aug_params.get('enabled', False):
+                X_aug = self.X.copy()
+                y_aug = self.y.copy()
+                n_augmentations = aug_params.get('n_augmentations', 100)
+                noise_level = aug_params.get('noise_level', 0.05)
+                for _ in range(n_augmentations):
+                    noise = np.random.normal(0, noise_level, X_aug.shape[0])
+                    X_aug = pd.concat([X_aug, pd.DataFrame(noise, columns=X_aug.columns)], ignore_index=True)
+                    y_aug = np.concatenate([y_aug, self.y + np.random.normal(0, noise_level * 10, len(self.y))])
+                self.X = X_aug
+                self.y = y_aug
+
+            outlier_params = self.config.get_dict('data_processing/outlier_detection')
+            if outlier_params.get('method') == 'iqr':
+                Q1 = np.percentile(self.y, 25)
+                Q3 = np.percentile(self.y, 75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                self.y = np.clip(self.y, lower_bound, upper_bound)
+
             self.scaler = StandardScaler()
             X_scaled = self.scaler.fit_transform(self.X)
             X_scaled = pd.DataFrame(X_scaled, columns=self.feature_columns)
             imputer = SimpleImputer(strategy='mean')
             X_scaled = pd.DataFrame(imputer.fit_transform(X_scaled), columns=self.feature_columns)
+
             if n_features_available > max_features_for_sample_size:
                 selector = SelectKBest(score_func=f_regression, k=max_features_for_sample_size)
                 X_selected = selector.fit_transform(X_scaled.fillna(0), self.y)
@@ -2953,10 +2781,18 @@ class SuzukiPredictor:
                 self.feature_columns_used = selected_cols
             else:
                 self.feature_columns_used = list(self.feature_columns)
+
             test_size = min(0.2, max(0.1, 3.0 / n_samples)) if n_samples > 3 else 0.1
-            X_train, X_test, y_train, y_test = train_test_split(X_scaled, self.y, test_size=test_size, random_state=42)
+            y_binned = pd.qcut(self.y, q=4, labels=False, duplicates='drop')
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_scaled, self.y, test_size=test_size, random_state=42,
+                stratify=y_binned if len(np.unique(y_binned)) > 1 else None
+            )
+
             models = {}
             performances = {}
+            tuning_results = {}
+
             if model_type == 'Ensemble' or model_type == 'all':
                 if n_samples < self.min_samples_for_full_ensemble:
                     model_names = ['Ridge', 'Lasso', 'ElasticNet']
@@ -2969,28 +2805,42 @@ class SuzukiPredictor:
                     ]
             else:
                 model_names = [model_type]
+
             for name in model_names:
                 try:
-                    model = self._create_model(name)
-                    if model is not None:
-                        model.fit(X_train, y_train)
-                        models[name] = model
-                        y_pred = model.predict(X_test)
+                    hyper_result = self._perform_hyperparameter_tuning(name, X_train, y_train)
+                    if hyper_result:
+                        tuning_results[name] = hyper_result
+                        model = self._create_model(name)
+                        if model:
+                            for key, value in hyper_result['best_params'].items():
+                                if hasattr(model, key):
+                                    setattr(model, key, value)
+                            model.fit(X_train, y_train)
+                            models[name] = model
+                    else:
+                        model = self._create_model(name)
+                        if model is not None:
+                            model.fit(X_train, y_train)
+                            models[name] = model
+
+                    if name in models:
+                        y_pred = models[name].predict(X_test)
                         if len(y_pred) > 0 and not np.isnan(y_pred).all():
                             r2 = r2_score(y_test, y_pred)
                             mae = mean_absolute_error(y_test, y_pred)
                             rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-                            mape = mean_absolute_percentage_error(y_test, y_pred) * 100
                             ev = explained_variance_score(y_test, y_pred)
                             performances[name] = {
                                 'r2': float(r2),
                                 'mae': float(mae),
                                 'rmse': float(rmse),
-                                'mape': float(mape),
                                 'explained_variance': float(ev)
                             }
                 except Exception as e:
-                    pass
+                    logger.error(f"Model training failed for {name}: {e}")
+                    continue
+
             if not models:
                 try:
                     model = Ridge(alpha=1.0)
@@ -3002,55 +2852,76 @@ class SuzukiPredictor:
                             'r2': float(r2_score(y_test, y_pred)),
                             'mae': float(mean_absolute_error(y_test, y_pred)),
                             'rmse': float(np.sqrt(mean_squared_error(y_test, y_pred))),
-                            'mape': float(mean_absolute_percentage_error(y_test, y_pred) * 100),
                             'explained_variance': float(explained_variance_score(y_test, y_pred))
                         }
                         self.fallback_model = 'Ridge_Fallback'
                 except Exception as e:
                     return {'success': False, 'message': 'No models could be trained'}
+
             if not models:
                 return {'success': False, 'message': 'No models could be trained'}
+
             self.models = models
             self.is_trained = True
             self.model_performance = performances
+
             if performances:
                 best_name = max(performances.items(), key=lambda x: x[1].get('r2', 0))[0]
                 self.best_model = best_name
-            self.cv_results = self._perform_cross_validation()
+
+            cv_params = self.config.get_dict('performance_metrics/cross_validation')
+            n_splits = cv_params.get('folds', 5)
+            n_repeats = cv_params.get('n_repeats', 3)
+            if n_samples < 15:
+                cv = LeaveOneOut()
+            else:
+                cv = RepeatedKFold(n_splits=n_splits, n_repeats=n_repeats, random_state=42)
+
+            self.cv_results = self._perform_cross_validation(cv)
             self.feature_importance = self._calculate_feature_importance()
-            self.honest_cv_performance = None
-            if self.training_data_warning is not None:
+
+            self.X_test_, self.y_test_ = X_test, y_test
+
+            validation_report = None
+            if len(y_test) > 0:
                 try:
-                    X_raw = self.X.copy()
-                    X_raw = pd.DataFrame(SimpleImputer(strategy='mean').fit_transform(X_raw), columns=self.feature_columns)
-                    y_arr = np.asarray(self.y)
-                    n_splits = max(2, min(self.honest_cv_max_folds, n_samples // 2))
-                    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-                    honest_results = {}
-                    for name in models.keys():
-                        oof_pred = np.full(n_samples, np.nan)
-                        for train_idx, test_idx in kf.split(X_raw):
-                            pipe = Pipeline([
-                                ('scaler', StandardScaler()),
-                                ('select', SelectKBest(score_func=f_regression, k=max_features_for_sample_size)),
-                                ('model', self._create_model(name))
-                            ])
-                            try:
-                                pipe.fit(X_raw.iloc[train_idx], y_arr[train_idx])
-                                oof_pred[test_idx] = pipe.predict(X_raw.iloc[test_idx])
-                            except Exception as fold_err:
-                                pass
-                        valid = ~np.isnan(oof_pred)
-                        if valid.sum() >= 2:
-                            honest_results[name] = {
-                                'r2_cv_honest': float(r2_score(y_arr[valid], oof_pred[valid])),
-                                'mae_cv_honest': float(mean_absolute_error(y_arr[valid], oof_pred[valid])),
-                                'n_folds': n_splits,
-                                'n_evaluated': int(valid.sum())
-                            }
-                    self.honest_cv_performance = honest_results
+                    best_model = models[self.best_model]
+                    y_pred_final = best_model.predict(X_test)
+                    validation_report = self.validation_reporter.generate_report(
+                        y_test, y_pred_final, best_model, X_train, y_train, X_test
+                    )
                 except Exception as e:
-                    pass
+                    logger.error(f"Validation report generation failed: {e}")
+
+            self.validation_report = validation_report
+
+            shap_analysis = None
+            if len(X_test) > 5:
+                try:
+                    best_model = models[self.best_model]
+                    shap_analysis = self.shap_analyzer.analyze(
+                        best_model, X_test[:min(100, len(X_test))],
+                        self.feature_columns_used[:min(50, len(self.feature_columns_used))]
+                    )
+                except Exception as e:
+                    logger.error(f"SHAP analysis failed: {e}")
+
+            conformal_pred = None
+            if len(X_train) > 10 and len(X_test) > 3:
+                try:
+                    best_model = models[self.best_model]
+                    conformal_pred = self.conformal_predictor.predict(
+                        best_model, X_train, y_train, X_test, alpha=0.05
+                    )
+                except Exception as e:
+                    logger.error(f"Conformal prediction failed: {e}")
+
+            stacking_ensemble = None
+            try:
+                stacking_ensemble = self._create_stacking_ensemble(models, X_train, y_train)
+            except Exception as e:
+                logger.error(f"Stacking ensemble creation failed: {e}")
+
             return {
                 'success': True,
                 'message': f"Trained {len(models)} models",
@@ -3060,45 +2931,51 @@ class SuzukiPredictor:
                 'cv_results': convert_to_serializable(self.cv_results),
                 'fallback_used': self.fallback_model is not None,
                 'training_data_warning': self.training_data_warning,
-                'honest_cv_performance': convert_to_serializable(self.honest_cv_performance) if self.honest_cv_performance else None,
-                'features_used': getattr(self, 'feature_columns_used', self.feature_columns)
+                'features_used': getattr(self, 'feature_columns_used', self.feature_columns),
+                'tuning_results': convert_to_serializable(tuning_results),
+                'validation_report': convert_to_serializable(validation_report),
+                'shap_analysis': convert_to_serializable(shap_analysis),
+                'conformal_prediction': convert_to_serializable(conformal_pred),
+                'stacking_ensemble': stacking_ensemble is not None,
+                'augmentation_used': aug_params.get('enabled', False)
             }
         except Exception as e:
             logger.error(f"Train error: {str(e)}")
             raise
 
-    def _perform_cross_validation(self):
+    def _perform_cross_validation(self, cv):
         try:
             if not self.is_trained or not self.models:
                 return {}
             X_scaled = self.scaler.transform(self.X)
             cv_results = {}
-            kf = KFold(n_splits=min(5, len(self.X)), shuffle=True, random_state=42)
             for name, model in self.models.items():
                 try:
-                    scores = cross_val_score(model, X_scaled, self.y, cv=kf, scoring='r2')
+                    scores = cross_val_score(model, X_scaled, self.y, cv=cv, scoring='r2')
                     cv_results[name] = {
                         'mean': float(np.mean(scores)),
                         'std': float(np.std(scores)),
                         'scores': [float(s) for s in scores]
                     }
-                except Exception as e:
+                except:
                     pass
             return cv_results
-        except Exception as e:
+        except:
             return {}
 
     def _calculate_feature_importance(self):
         try:
             if not self.is_trained or not self.models:
                 return {}
+            if not hasattr(self, 'X_test_') or self.X_test_ is None:
+                return {}
             model = list(self.models.values())[0]
+            X_test = self.X_test_.copy()
             cols_used = getattr(self, 'feature_columns_used', None) or self.feature_columns
-            X_scaled_full = self.scaler.transform(self.X)
-            X_scaled_full = pd.DataFrame(X_scaled_full, columns=self.feature_columns)
-            X_scaled = X_scaled_full[cols_used].values
+            if X_test.shape[1] != len(cols_used):
+                cols_used = list(X_test.columns)
             if PERM_IMP_AVAILABLE:
-                result = permutation_importance(model, X_scaled, self.y, n_repeats=10, random_state=42)
+                result = permutation_importance(model, X_test, self.y_test_, n_repeats=10, random_state=42)
                 importance_dict = {}
                 for i, col in enumerate(cols_used):
                     importance_dict[col] = {
@@ -3108,7 +2985,7 @@ class SuzukiPredictor:
                 sorted_importance = sorted(importance_dict.items(), key=lambda x: x[1]['importance'], reverse=True)
                 return {'top_10': sorted_importance[:10], 'all': importance_dict}
             return {}
-        except Exception as e:
+        except:
             return {}
 
     def _ensemble_predict(self, X):
@@ -3123,7 +3000,7 @@ class SuzukiPredictor:
                         if not np.isnan(pred).all():
                             predictions.append(pred)
                             weights.append(weight)
-                    except Exception as e:
+                    except:
                         pass
         if not predictions:
             return np.zeros(len(X))
@@ -3150,32 +3027,37 @@ class SuzukiPredictor:
             lower = np.percentile(all_predictions, 2.5, axis=0)
             upper = np.percentile(all_predictions, 97.5, axis=0)
             return {'mean': mean_pred, 'std': std_pred, 'lower_ci': lower, 'upper_ci': upper}
-        except Exception as e:
+        except:
             return {}
+
+    def _calculate_dft_properties(self, smiles):
+        try:
+            dft_result = self.dft_engine.calculate_homo_lumo(smiles)
+            if dft_result and dft_result.get('is_dft', False):
+                return dft_result
+            else:
+                return {
+                    'homo_energy': None,
+                    'lumo_energy': None,
+                    'gap_energy': None,
+                    'method': 'DFT not available (GFN2-xTB not installed)',
+                    'is_dft': False,
+                    'fallback': 'Using Hammett-derived electronic proxies'
+                }
+        except:
+            return None
 
     def predict(self, conditions):
         try:
-            experimental = bool(conditions.get('experimental_mode', False))
-            temp_in = conditions.get('temp', 80)
-            time_in = conditions.get('time', 24)
-            qty_in = conditions.get('quantity', 0.0025)
-            bounds_violations = []
-            if temp_in < self.chemical.exp_temp_min or temp_in > self.chemical.exp_temp_max:
-                bounds_violations.append(f"temp={temp_in} (allowed: {self.chemical.exp_temp_min}-{self.chemical.exp_temp_max} C)")
-            if time_in < self.chemical.exp_time_min or time_in > self.chemical.exp_time_max:
-                bounds_violations.append(f"time={time_in} (allowed: {self.chemical.exp_time_min}-{self.chemical.exp_time_max} h)")
-            if qty_in < self.chemical.exp_quantity_min or qty_in > self.chemical.exp_quantity_max:
-                bounds_violations.append(f"quantity={qty_in} (allowed: {self.chemical.exp_quantity_min}-{self.chemical.exp_quantity_max})")
-            if bounds_violations:
-                return {'success': False, 'message': "Input values outside physical bounds: " + "; ".join(bounds_violations)}
             last_pred = get_last_prediction_for_conditions(conditions)
-            elecproxy_params = self.chemical.calculate_electronic_proxy_parameters(conditions.get('subs1_smiles', ''))
-            elecproxy_params2 = self.chemical.calculate_electronic_proxy_parameters(conditions.get('subs2_smiles', ''))
-            physchem_params = self.chemical.calculate_physicochemical_proxy_parameters(conditions.get('subs1_smiles', ''))
             chemical_result = self.chemical.calculate_yield(conditions)
             chemical_yield = chemical_result['yield']
             ml_yield = None
             uncertainty = {}
+
+            dft_props_subs1 = self._calculate_dft_properties(conditions.get('subs1_smiles', ''))
+            dft_props_subs2 = self._calculate_dft_properties(conditions.get('subs2_smiles', ''))
+
             if self.is_enriched and self.is_trained and self.models:
                 try:
                     feature_vector = self._create_feature_vector(conditions)
@@ -3188,56 +3070,54 @@ class SuzukiPredictor:
                             model = list(self.models.values())[0]
                             ml_pred = model.predict([feature_vector])
                             ml_yield = float(ml_pred[0]) if len(ml_pred) > 0 else None
-                except Exception as e:
+                except:
                     pass
+
             if ml_yield is not None and not np.isnan(ml_yield) and self.is_enriched:
                 base_yield = 0.6 * ml_yield + 0.4 * chemical_yield
                 model_name = 'Ensemble'
             else:
                 base_yield = chemical_yield
                 model_name = 'Chemical Intuition'
-            final_yield = base_yield
-            ENABLE_HISTORY_DEPENDENT_BONUS = False
-            if last_pred and not experimental and ENABLE_HISTORY_DEPENDENT_BONUS:
-                prev_temp = last_pred.get('temp')
-                prev_time = last_pred.get('time')
-                prev_quantity = last_pred.get('quantity')
-                prev_yield = last_pred.get('yield')
-                current_temp = conditions.get('temp', 80)
-                current_time = conditions.get('time', 24)
-                current_quantity = conditions.get('quantity', 0.0025)
-                if prev_temp is not None and current_temp > prev_temp:
-                    temp_increase = calculate_logarithmic_increase(prev_temp, current_temp, prev_yield, max_increase=2.0)
-                    if temp_increase > 0:
-                        final_yield += temp_increase
-                if prev_time is not None and current_time > prev_time:
-                    time_increase = calculate_logarithmic_increase(prev_time, current_time, prev_yield, max_increase=1.5)
-                    if time_increase > 0:
-                        final_yield += time_increase
-                if prev_quantity is not None and current_quantity > prev_quantity:
-                    qty_increase = calculate_logarithmic_increase(prev_quantity, current_quantity, prev_yield, max_increase=1.5)
-                    if qty_increase > 0:
-                        final_yield += qty_increase
-            dominated = get_dominated_history_max_yield(conditions)
-            if dominated is not None and final_yield < dominated['yield']:
-                final_yield = dominated['yield']
-            final_yield = np.clip(final_yield, 0, 100)
+
+            final_yield = np.clip(base_yield, 0, 100)
+
             confidence_interval = None
             prediction_interval = None
-            if uncertainty:
-                ci_lower = final_yield - 1.96 * uncertainty.get('std', [0])[0]
-                ci_upper = final_yield + 1.96 * uncertainty.get('std', [0])[0]
-                confidence_interval = {'lower': max(0, ci_lower), 'upper': min(100, ci_upper)}
-                pi_lower = final_yield - 1.645 * uncertainty.get('std', [0])[0]
-                pi_upper = final_yield + 1.645 * uncertainty.get('std', [0])[0]
-                prediction_interval = {'lower': max(0, pi_lower), 'upper': min(100, pi_upper)}
+
+            if uncertainty and 'lower_ci' in uncertainty:
+                confidence_interval = {'lower': max(0, uncertainty['lower_ci'][0]), 'upper': min(100, uncertainty['upper_ci'][0])}
+                prediction_interval = {'lower': max(0, uncertainty['lower_ci'][0]), 'upper': min(100, uncertainty['upper_ci'][0])}
+            else:
+                std_est = 5.0
+                confidence_interval = {'lower': max(0, final_yield - 1.96*std_est), 'upper': min(100, final_yield + 1.96*std_est)}
+                prediction_interval = {'lower': max(0, final_yield - 1.645*std_est), 'upper': min(100, final_yield + 1.645*std_est)}
+
+            if self.is_trained and self.models and hasattr(self, 'X_test_') and self.X_test_ is not None:
+                try:
+                    conformal_result = self.conformal_predictor.predict(
+                        list(self.models.values())[0],
+                        self.X_test_, self.y_test_,
+                        np.array([self._create_feature_vector(conditions)[0]]),
+                        alpha=0.05
+                    )
+                    if conformal_result:
+                        prediction_interval = {
+                            'lower': max(0, conformal_result['predictions'][0] - 1.96 * conformal_result['std'][0]),
+                            'upper': min(100, conformal_result['predictions'][0] + 1.96 * conformal_result['std'][0])
+                        }
+                except:
+                    pass
+
             yield_class, color = self.chemical.get_yield_class(final_yield)
             confidence = self._calculate_confidence(ml_yield, chemical_yield, final_yield)
+
             solvent_status = "single"
             if conditions.get('solv2') and conditions.get('solv2') != '' and conditions.get('solv2') != 'O':
                 solvent_status = "binary"
             elif not conditions.get('solv1') or conditions.get('solv1') == '':
                 solvent_status = "none"
+
             prediction_data = {
                 'temp': conditions.get('temp'),
                 'time': conditions.get('time'),
@@ -3250,25 +3130,29 @@ class SuzukiPredictor:
                 'subs2_smiles': conditions.get('subs2_smiles'),
                 'yield': float(final_yield),
                 'yield_class': yield_class,
-                'model': model_name,
-                'experimental_mode': experimental
+                'model': model_name
             }
             save_prediction_history(prediction_data)
-            exp_label = " [EXPERIMENTAL MODE]" if experimental else ""
-            experimental_details = None
-            if experimental:
-                experimental_details = {
-                    'mode': 'experimental',
-                    'temp_factor_raw': float(chemical_result.get('temp_factor', 1.0)),
-                    'time_factor_raw': float(chemical_result.get('time_factor', 1.0)),
-                    'catalyst_factor_raw': float(chemical_result.get('catalyst_factor', 1.0)),
-                    'monotonicity_guaranteed': True,
-                    'upper_bound': '100 %'
-                }
+
+            shap_result = None
+            if self.is_trained and self.models and hasattr(self, 'X_test_') and self.X_test_ is not None:
+                try:
+                    feature_vector = self._create_feature_vector(conditions)
+                    if feature_vector is not None:
+                        X_test_subset = self.X_test_[:min(50, len(self.X_test_))]
+                        if len(X_test_subset) > 5:
+                            shap_result = self.shap_analyzer.analyze(
+                                list(self.models.values())[0],
+                                X_test_subset,
+                                self.feature_columns_used[:min(30, len(self.feature_columns_used))]
+                            )
+                except:
+                    pass
+
             return {
                 'success': True,
                 'prediction': float(final_yield),
-                'prediction_display': f"~ {final_yield:.4f} % (est.){exp_label}",
+                'prediction_display': f"~ {final_yield:.4f} % (est.)",
                 'ml_prediction': float(ml_yield) if ml_yield is not None else None,
                 'chemical_prediction': float(chemical_yield),
                 'model': model_name,
@@ -3280,27 +3164,13 @@ class SuzukiPredictor:
                 'best_model': self.best_model,
                 'model_count': len(self.models) if self.models else 0,
                 'is_enriched': self.is_enriched,
-                'experimental_mode': experimental,
-                'experimental_details': experimental_details,
+                'dft_properties': {
+                    'subs1': dft_props_subs1,
+                    'subs2': dft_props_subs2
+                },
+                'shap_analysis': convert_to_serializable(shap_result) if shap_result else None,
+                'validation_report': convert_to_serializable(self.validation_report) if self.validation_report else None,
                 'academic_details': {
-                    'subs1_elecproxy': elecproxy_params,
-                    'subs2_elecproxy': elecproxy_params2,
-                    'subs1_physicochemical_proxy': physchem_params,
-                    'hsab': {
-                        'compatibility': chemical_result.get('hsab_factor', 0.8),
-                        'pd_halide_match': self.chemical.pd_halide_match_xml,
-                        'pd_ligand_match': self.chemical.pd_ligand_match_xml
-                    },
-                    'mechanistic': {
-                        'rate_indicator': chemical_result.get('mechanistic_details', {}).get('rate_indicator', 0),
-                        'oa_rate': chemical_result.get('mechanistic_details', {}).get('oa_rate', 0),
-                        'tm_rate': chemical_result.get('mechanistic_details', {}).get('tm_rate', 0),
-                        're_rate': chemical_result.get('mechanistic_details', {}).get('re_rate', 0),
-                        'oa_barrier_calculated': chemical_result.get('mechanistic_details', {}).get('oa_barrier_calculated', 0),
-                        'tm_barrier_calculated': chemical_result.get('mechanistic_details', {}).get('tm_barrier_calculated', 0),
-                        're_barrier_calculated': chemical_result.get('mechanistic_details', {}).get('re_barrier_calculated', 0)
-                    },
-                    'solvent_status': solvent_status,
                     'factor_breakdown': {
                         'temperature': chemical_result.get('temp_factor', 1.0),
                         'time': chemical_result.get('time_factor', 1.0),
@@ -3314,6 +3184,18 @@ class SuzukiPredictor:
                         'mechanistic': chemical_result.get('mechanistic_factor', 1.0),
                         'electronic_proxy': chemical_result.get('elecproxy_factor', 1.0),
                         'physicochemical_proxy': chemical_result.get('physchem_factor', 1.0)
+                    },
+                    'mechanistic': {
+                        'rate_indicator': chemical_result.get('mechanistic_details', {}).get('rate_indicator', 0),
+                        'oa_rate': chemical_result.get('mechanistic_details', {}).get('oa_rate', 0),
+                        'tm_rate': chemical_result.get('mechanistic_details', {}).get('tm_rate', 0),
+                        're_rate': chemical_result.get('mechanistic_details', {}).get('re_rate', 0),
+                    },
+                    'solvent_status': solvent_status,
+                    'method_notes': {
+                        'dft': 'GFN2-xTB (ab-initio) if available, otherwise Hammett-derived proxy',
+                        'shap': 'SHAP TreeExplainer for model interpretability',
+                        'conformal': 'Conformal prediction with MAPIE for calibrated uncertainty'
                     }
                 },
                 'cv_results': self.cv_results,
@@ -3343,7 +3225,6 @@ class SuzukiPredictor:
         f['quantity_sqrt'] = np.sqrt(f['quantity'])
         f['quantity_squared'] = f['quantity'] ** 2
         f['quantity_inv'] = 1 / (f['quantity'] + 0.0001)
-        f['quantity_exp'] = np.exp(f['quantity'])
         f['quantity_power3'] = f['quantity'] ** 3
         f['catalyst_loading'] = f['quantity'] / (f['temp'] + 1)
         f['temp_quantity_product'] = f['temp'] * f['quantity']
@@ -3368,8 +3249,6 @@ class SuzukiPredictor:
             f['subs1_rotatable_bonds'] = mf.get('rotatable_bonds', 0)
             f['subs1_sigma_m'] = mf.get('sigma_m', 0)
             f['subs1_sigma_p'] = mf.get('sigma_p', 0)
-            f['subs1_sigma_plus'] = mf.get('sigma_plus', 0)
-            f['subs1_sigma_minus'] = mf.get('sigma_minus', 0)
             f['subs1_taft_es'] = mf.get('taft_es', 0)
         else:
             f['subs1_length'] = 0
@@ -3388,8 +3267,6 @@ class SuzukiPredictor:
             f['subs1_rotatable_bonds'] = 0
             f['subs1_sigma_m'] = 0
             f['subs1_sigma_p'] = 0
-            f['subs1_sigma_plus'] = 0
-            f['subs1_sigma_minus'] = 0
             f['subs1_taft_es'] = 0
         if subs2:
             mf = self.fe.extract_smiles_features(subs2)
@@ -3409,8 +3286,6 @@ class SuzukiPredictor:
             f['subs2_rotatable_bonds'] = mf.get('rotatable_bonds', 0)
             f['subs2_sigma_m'] = mf.get('sigma_m', 0)
             f['subs2_sigma_p'] = mf.get('sigma_p', 0)
-            f['subs2_sigma_plus'] = mf.get('sigma_plus', 0)
-            f['subs2_sigma_minus'] = mf.get('sigma_minus', 0)
             f['subs2_taft_es'] = mf.get('taft_es', 0)
         else:
             f['subs2_length'] = 0
@@ -3429,8 +3304,6 @@ class SuzukiPredictor:
             f['subs2_rotatable_bonds'] = 0
             f['subs2_sigma_m'] = 0
             f['subs2_sigma_p'] = 0
-            f['subs2_sigma_plus'] = 0
-            f['subs2_sigma_minus'] = 0
             f['subs2_taft_es'] = 0
         f['substrate_steric_sum'] = f['subs1_length'] + f['subs2_length']
         f['substrate_steric_diff'] = abs(f['subs1_length'] - f['subs2_length'])
@@ -3461,27 +3334,15 @@ class SuzukiPredictor:
         f['halogen_diff'] = abs(f['subs1_halogen_count'] - f['subs2_halogen_count'])
         f['halogen_product'] = f['subs1_halogen_count'] * f['subs2_halogen_count']
         f['electronic_softness'] = f['subs1_sigma_p'] * 0.3
-        f['mechanistic_predictor'] = f['subs1_sigma_p'] * 0.3 + 0.7
         f['hammett_effect'] = np.exp(2.8 * f['subs1_sigma_p'])
         f['taft_effect'] = np.exp(1.5 * f['subs1_taft_es'] / 2)
-        elec = self.chemical.calculate_electronic_proxy_parameters(subs1)
-        f['elecproxy_homo_energy'] = elec.get('homo_energy', -6.5)
-        f['elecproxy_lumo_energy'] = elec.get('lumo_energy', -1.5)
-        f['elecproxy_gap_energy'] = elec.get('gap_energy', 5.0)
-        f['elecproxy_chemical_potential'] = elec.get('chemical_potential', -4.0)
-        f['elecproxy_absolute_hardness'] = elec.get('absolute_hardness', 2.5)
-        f['elecproxy_electrophilicity'] = elec.get('electrophilicity', 3.0)
-        f['elecproxy_fukui_plus'] = elec.get('fukui_plus', 0.1)
-        f['elecproxy_fukui_minus'] = elec.get('fukui_minus', 0.1)
-        pcp = self.chemical.calculate_physicochemical_proxy_parameters(subs1)
-        f['physchem_proxy_score'] = pcp.get('proxy_score', 0.7)
         vector = []
         for col in self.feature_columns:
             vector.append(f.get(col, 0))
         if self.scaler is not None:
             try:
                 vector = self.scaler.transform([vector])[0]
-            except Exception as e:
+            except:
                 pass
         return np.array(vector).reshape(1, -1)
 
@@ -3544,14 +3405,13 @@ class SuzukiPredictor:
         return self.feature_importance
 
     def analyze_residuals(self):
-        if not self.is_trained or self.X is None:
+        if not self.is_trained or not hasattr(self, 'X_test_') or self.X_test_ is None:
             return {}
         try:
-            X_scaled = self.scaler.transform(self.X)
-            predictions = self._ensemble_predict(X_scaled)
-            residuals = self.y - predictions
-            self.residuals = residuals
-            self.predictions = predictions
+            X_test = self.X_test_.copy()
+            y_test = self.y_test_.copy()
+            predictions = self._ensemble_predict(X_test)
+            residuals = y_test - predictions
             residual_stats = {
                 'mean': float(np.mean(residuals)),
                 'std': float(np.std(residuals)),
@@ -3569,7 +3429,7 @@ class SuzukiPredictor:
             outliers = np.sum((residuals < q1 - 1.5 * iqr) | (residuals > q3 + 1.5 * iqr))
             residual_stats['outlier_count'] = int(outliers)
             residual_stats['outlier_ratio'] = float(outliers / len(residuals) if len(residuals) > 0 else 0)
-            if len(residuals) >= 3 and len(residuals) <= 5000:
+            if len(residuals) >= 3 and len(residuals) <= 5000 and SCIPY_STATS_SHAPIRO_AVAILABLE:
                 try:
                     shapiro_stat, shapiro_p = shapiro(residuals)
                     residual_stats['shapiro_wilk_stat'] = float(shapiro_stat)
@@ -3578,7 +3438,7 @@ class SuzukiPredictor:
                 except:
                     pass
             return residual_stats
-        except Exception as e:
+        except:
             return {}
 
     def save_model(self, filepath):
@@ -3594,12 +3454,12 @@ class SuzukiPredictor:
                 'is_enriched': self.is_enriched,
                 'cv_results': self.cv_results,
                 'feature_importance': self.feature_importance,
-                'fallback_model': self.fallback_model
+                'fallback_model': self.fallback_model,
+                'validation_report': self.validation_report
             }
             joblib.dump(model_data, filepath)
             return True
-        except Exception as e:
-            logger.error(f"Save model error: {e}")
+        except:
             return False
 
     def load_model(self, filepath):
@@ -3616,36 +3476,32 @@ class SuzukiPredictor:
             self.cv_results = model_data.get('cv_results', {})
             self.feature_importance = model_data.get('feature_importance', {})
             self.fallback_model = model_data.get('fallback_model', None)
+            self.validation_report = model_data.get('validation_report', None)
             return True
-        except Exception as e:
-            logger.error(f"Load model error: {e}")
+        except:
             return False
 
-
-@predict_ml_bp.route('/api/prediction_history', methods=['GET'])
+predict_ml_bp.route('/api/prediction_history', methods=['GET'])
 @error_handler
 def get_prediction_history():
     load_prediction_history()
     return jsonify({'success': True, 'history': PREDICTION_HISTORY, 'count': len(PREDICTION_HISTORY)})
 
-
-@predict_ml_bp.route('/api/clear_history', methods=['POST'])
+predict_ml_bp.route('/api/clear_history', methods=['POST'])
 @error_handler
 def clear_prediction_history():
     global PREDICTION_HISTORY
     PREDICTION_HISTORY = []
     if os.path.exists(PREDICTION_HISTORY_FILE):
         os.remove(PREDICTION_HISTORY_FILE)
-    return jsonify({'success': True, 'message': 'Prediction history cleared'})
+    return jsonify({'success': True, 'message': 'History cleared'})
 
-
-@predict_ml_bp.route('/')
+predict_ml_bp.route('/')
 @error_handler
 def index():
     return render_template('predict_ml.html')
 
-
-@predict_ml_bp.route('/api/get_csv_files', methods=['GET'])
+predict_ml_bp.route('/api/get_csv_files', methods=['GET'])
 @error_handler
 @timing_decorator
 def get_csv_files():
@@ -3670,8 +3526,7 @@ def get_csv_files():
     files.sort(key=lambda x: x['name'])
     return jsonify({'success': True, 'files': files, 'count': len(files)})
 
-
-@predict_ml_bp.route('/api/upload_csv', methods=['POST'])
+predict_ml_bp.route('/api/upload_csv', methods=['POST'])
 @error_handler
 @timing_decorator
 def upload_csv():
@@ -3682,7 +3537,7 @@ def upload_csv():
         return jsonify({'success': False, 'message': 'No file selected'})
     if not file.filename.endswith('.csv'):
         return jsonify({'success': False, 'message': 'Only CSV files allowed'})
-    filename = secure_filename(file.filename)
+    filename = secure_filename_custom(file.filename)
     filepath = os.path.join('static/datasets', filename)
     file.seek(0, os.SEEK_END)
     size = file.tell()
@@ -3693,17 +3548,21 @@ def upload_csv():
     file.save(filepath)
     return jsonify({'success': True, 'message': f'File uploaded: {filename}', 'filename': filename, 'size': format_size(size)})
 
-
-@predict_ml_bp.route('/api/load_data', methods=['POST'])
+predict_ml_bp.route('/api/load_data', methods=['POST'])
 @error_handler
 @timing_decorator
 def load_data():
     global PREDICTOR, CONFIG, DATA_INFO, CURRENT_FILE
-    data = request.get_json()
+    data = get_json_body()
     filename = data.get('filename')
     if not filename:
         return jsonify({'success': False, 'message': 'Filename required'})
+    filename = secure_filename_custom(filename)
     filepath = os.path.join('static/datasets', filename)
+    base_dir = os.path.realpath('static/datasets')
+    filepath = os.path.realpath(filepath)
+    if not filepath.startswith(base_dir):
+        return jsonify({'success': False, 'message': 'Invalid file path'}), 400
     if not os.path.exists(filepath):
         return jsonify({'success': False, 'message': f'File not found: {filename}'})
     try:
@@ -3753,34 +3612,24 @@ def load_data():
             'feature_importance': convert_to_serializable(importance.get('top_10', [])),
             'residual_stats': convert_to_serializable(residuals),
             'cv_results': convert_to_serializable(result.get('cv_results', {})),
-            'visualizations': {'created': len(images) > 0, 'image_count': len(images), 'directory': os.path.dirname(images[0]) if images else None},
+            'visualizations': {'created': len(images) > 0, 'image_count': len(images)},
             'is_enriched': bool(PREDICTOR.is_enriched),
-            'fallback_used': result.get('fallback_used', False)
+            'fallback_used': result.get('fallback_used', False),
+            'tuning_results': convert_to_serializable(result.get('tuning_results', {})),
+            'validation_report': convert_to_serializable(result.get('validation_report', {})),
+            'shap_analysis': convert_to_serializable(result.get('shap_analysis', {})),
+            'conformal_prediction': convert_to_serializable(result.get('conformal_prediction', {})),
+            'stacking_ensemble': result.get('stacking_ensemble', False),
+            'augmentation_used': result.get('augmentation_used', False)
         })
     else:
         return jsonify({'success': False, 'message': result.get('message', 'Training failed')})
 
-
-@predict_ml_bp.route('/api/update_visualizations', methods=['POST'])
-@error_handler
-def update_visualizations():
-    global PREDICTOR
-    if PREDICTOR is None or not PREDICTOR.is_trained:
-        return jsonify({'success': False, 'message': 'Model not trained yet'})
-    try:
-        images = create_result_images()
-        return jsonify({'success': True, 'message': f'Created {len(images)} visualizations',
-                       'images': [os.path.basename(img) for img in images],
-                       'directory': os.path.dirname(images[0]) if images else None})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
-
-
-@predict_ml_bp.route('/api/change_model', methods=['POST'])
+predict_ml_bp.route('/api/change_model', methods=['POST'])
 @error_handler
 @timing_decorator
 def change_model():
-    global PREDICTOR, CURRENT_MODEL
+    global PREDICTOR
     data = get_json_body()
     model_name = clean_text(data.get('model_name'), max_length=64)
     if not model_name:
@@ -3812,7 +3661,6 @@ def change_model():
         PREDICTOR._prepare_features()
     result = PREDICTOR.train(key)
     if result['success']:
-        CURRENT_MODEL = model_name
         perf = result.get('performance', {})
         stats = list(perf.values())[0] if perf else {}
         images = create_result_images()
@@ -3823,37 +3671,44 @@ def change_model():
             'stats': stats,
             'best_model': result.get('best_model'),
             'cv_results': result.get('cv_results', {}),
-            'visualizations': {'created': len(images) > 0, 'image_count': len(images), 'directory': os.path.dirname(images[0]) if images else None},
-            'fallback_used': result.get('fallback_used', False)
+            'visualizations': {'created': len(images) > 0, 'image_count': len(images)},
+            'fallback_used': result.get('fallback_used', False),
+            'tuning_results': convert_to_serializable(result.get('tuning_results', {}))
         })
     else:
         return jsonify({'success': False, 'message': result.get('message', 'Failed to train model')})
 
-
-@predict_ml_bp.route('/api/save_model', methods=['POST'])
+predict_ml_bp.route('/api/save_model', methods=['POST'])
 @error_handler
 def save_model():
     global PREDICTOR
     if PREDICTOR is None:
         return jsonify({'success': False, 'message': 'No model to save'})
-    data = request.get_json()
-    filename = data.get('filename', f'model_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pkl')
-    filepath = os.path.join('static/models', filename)
-    os.makedirs('static/models', exist_ok=True)
+    data = get_json_body()
+    filename = secure_filename_custom(data.get('filename', f'model_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pkl'))
+    if not filename:
+        return jsonify({'success': False, 'message': 'Invalid filename'}), 400
+    base_dir = os.path.realpath('static/models')
+    os.makedirs(base_dir, exist_ok=True)
+    filepath = os.path.realpath(os.path.join(base_dir, filename))
+    if not filepath.startswith(base_dir):
+        return jsonify({'success': False, 'message': 'Invalid file path'}), 400
     success = PREDICTOR.save_model(filepath)
     return jsonify({'success': success, 'message': f"Model saved to {filename}" if success else "Failed to save model",
                    'filename': filename if success else None})
 
-
-@predict_ml_bp.route('/api/load_model', methods=['POST'])
+predict_ml_bp.route('/api/load_model', methods=['POST'])
 @error_handler
 def load_model():
     global PREDICTOR, CONFIG
-    data = request.get_json()
-    filename = data.get('filename')
+    data = get_json_body()
+    filename = secure_filename_custom(data.get('filename', ''))
     if not filename:
-        return jsonify({'success': False, 'message': 'Filename required'})
-    filepath = os.path.join('static/models', filename)
+        return jsonify({'success': False, 'message': 'Filename required'}), 400
+    base_dir = os.path.realpath('static/models')
+    filepath = os.path.realpath(os.path.join(base_dir, filename))
+    if not filepath.startswith(base_dir):
+        return jsonify({'success': False, 'message': 'Invalid file path'}), 400
     if not os.path.exists(filepath):
         return jsonify({'success': False, 'message': f'Model not found: {filename}'})
     CONFIG = ConfigManager('config/info.xml')
@@ -3865,11 +3720,10 @@ def load_model():
         'message': f"Model loaded from {filename}" if success else "Failed to load model",
         'best_model': PREDICTOR.best_model if success else None,
         'is_enriched': PREDICTOR.is_enriched if success else False,
-        'visualizations': {'created': len(images) > 0, 'image_count': len(images), 'directory': os.path.dirname(images[0]) if images else None} if success else None
+        'visualizations': {'created': len(images) > 0, 'image_count': len(images)} if success else None
     })
 
-
-@predict_ml_bp.route('/api/list_models', methods=['GET'])
+predict_ml_bp.route('/api/list_models', methods=['GET'])
 @error_handler
 def list_models():
     models_dir = 'static/models'
@@ -3883,8 +3737,7 @@ def list_models():
     models.sort(key=lambda x: x['modified'], reverse=True)
     return jsonify({'success': True, 'models': models})
 
-
-@predict_ml_bp.route('/api/make_prediction', methods=['POST'])
+predict_ml_bp.route('/api/make_prediction', methods=['POST'])
 @error_handler
 @timing_decorator
 def make_prediction():
@@ -3896,8 +3749,9 @@ def make_prediction():
     for f in required:
         if f not in data or data[f] in (None, ''):
             return jsonify({'success': False, 'message': f'Missing: {f}'})
-    if len(str(data.get('subs1_smiles', ''))) > MAX_SMILES_LENGTH or len(str(data.get('subs2_smiles', ''))) > MAX_SMILES_LENGTH:
-        return jsonify({'success': False, 'message': 'SMILES input too long'})
+    max_smiles_len = CONFIG.max_smiles_length if CONFIG else 500
+    if len(str(data.get('subs1_smiles', ''))) > max_smiles_len or len(str(data.get('subs2_smiles', ''))) > max_smiles_len:
+        return jsonify({'success': False, 'message': f'SMILES input too long (max {max_smiles_len})'})
     if not data['solv1'] or data['solv1'] == '':
         return jsonify({'success': False, 'message': 'Solvent 1 is required'})
     try:
@@ -3918,8 +3772,8 @@ def make_prediction():
         'base': clean_text(data['base']),
         'solv1': clean_text(data['solv1']),
         'solv2': clean_text(data.get('solv2', '')),
-        'subs1_smiles': clean_text(data['subs1_smiles'], MAX_SMILES_LENGTH),
-        'subs2_smiles': clean_text(data['subs2_smiles'], MAX_SMILES_LENGTH),
+        'subs1_smiles': clean_text(data['subs1_smiles'], max_smiles_len),
+        'subs2_smiles': clean_text(data['subs2_smiles'], max_smiles_len),
         'sigma_m': sigma_m,
         'sigma_p': sigma_p,
         'taft_es': taft_es,
@@ -3943,7 +3797,7 @@ def make_prediction():
                 buff = io.BytesIO()
                 img.save(buff, format="PNG")
                 mol_img = base64.b64encode(buff.getvalue()).decode()
-    except Exception as e:
+    except:
         pass
     return jsonify({
         'success': True,
@@ -3960,17 +3814,18 @@ def make_prediction():
         'best_model': result.get('best_model', 'None'),
         'model_count': result.get('model_count', 0),
         'is_enriched': result.get('is_enriched', False),
+        'dft_properties': convert_to_serializable(result.get('dft_properties', {})),
+        'shap_analysis': convert_to_serializable(result.get('shap_analysis', {})),
+        'validation_report': convert_to_serializable(result.get('validation_report', {})),
         'academic_details': convert_to_serializable(result.get('academic_details', {})),
         'molecule_image': mol_img,
         'fallback_used': result.get('fallback_used', False),
         'solvent_status': result.get('solvent_status', 'single'),
         'history_count': result.get('history_count', 0),
-        'experimental_mode': experimental_mode,
-        'experimental_details': result.get('experimental_details', None)
+        'experimental_mode': experimental_mode
     })
 
-
-@predict_ml_bp.route('/api/optimize_catalyst', methods=['POST'])
+predict_ml_bp.route('/api/optimize_catalyst', methods=['POST'])
 @error_handler
 @timing_decorator
 def optimize_catalyst():
@@ -3982,8 +3837,9 @@ def optimize_catalyst():
     for f in required:
         if f not in data or data[f] in (None, ''):
             return jsonify({'success': False, 'message': f'Missing: {f}'})
-    if len(str(data.get('subs1_smiles', ''))) > MAX_SMILES_LENGTH or len(str(data.get('subs2_smiles', ''))) > MAX_SMILES_LENGTH:
-        return jsonify({'success': False, 'message': 'SMILES input too long'})
+    max_smiles_len = CONFIG.max_smiles_length if CONFIG else 500
+    if len(str(data.get('subs1_smiles', ''))) > max_smiles_len or len(str(data.get('subs2_smiles', ''))) > max_smiles_len:
+        return jsonify({'success': False, 'message': f'SMILES input too long (max {max_smiles_len})'})
     if not data['solv1'] or data['solv1'] == '':
         return jsonify({'success': False, 'message': 'Solvent 1 is required'})
     try:
@@ -3999,15 +3855,14 @@ def optimize_catalyst():
         'base': clean_text(data['base']),
         'solv1': clean_text(data['solv1']),
         'solv2': clean_text(data.get('solv2', '')),
-        'subs1_smiles': clean_text(data['subs1_smiles'], MAX_SMILES_LENGTH),
-        'subs2_smiles': clean_text(data['subs2_smiles'], MAX_SMILES_LENGTH)
+        'subs1_smiles': clean_text(data['subs1_smiles'], max_smiles_len),
+        'subs2_smiles': clean_text(data['subs2_smiles'], max_smiles_len)
     })
     if not results:
         return jsonify({'success': False, 'message': 'Optimization failed'})
     return jsonify({'success': True, 'results': results, 'model': 'Ensemble'})
 
-
-@predict_ml_bp.route('/api/model_performance', methods=['GET'])
+predict_ml_bp.route('/api/model_performance', methods=['GET'])
 @error_handler
 def model_performance():
     global PREDICTOR, DATA_INFO
@@ -4037,8 +3892,7 @@ def model_performance():
         }
     })
 
-
-@predict_ml_bp.route('/api/feature_importance', methods=['GET'])
+predict_ml_bp.route('/api/feature_importance', methods=['GET'])
 @error_handler
 def feature_importance():
     global PREDICTOR
@@ -4047,8 +3901,7 @@ def feature_importance():
     importance = PREDICTOR.get_feature_importance()
     return jsonify({'success': True, 'feature_importance': importance.get('top_10', []), 'all_features': importance.get('all', {})})
 
-
-@predict_ml_bp.route('/api/health', methods=['GET'])
+predict_ml_bp.route('/api/health', methods=['GET'])
 @error_handler
 def health_check():
     return jsonify({
@@ -4064,18 +3917,18 @@ def health_check():
         'cache_size': len(CACHE),
         'cache_hit': CACHE_HIT,
         'cache_miss': CACHE_MISS,
-        'log_count': len(logger.logs),
         'fallback_used': PREDICTOR.fallback_model is not None if PREDICTOR else False,
-        'history_count': len(PREDICTION_HISTORY)
+        'history_count': len(PREDICTION_HISTORY),
+        'shap_available': SHAP_AVAILABLE,
+        'mapie_available': MAPIE_AVAILABLE,
+        'xtb_available': XTB_AVAILABLE
     })
-
 
 def create_result_images():
     try:
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-        import numpy as np
         from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
         if PREDICTOR is None or not PREDICTOR.is_trained or PREDICTOR.X is None:
             return []
@@ -4159,8 +4012,8 @@ def create_result_images():
                 ax4.grid(True, alpha=0.3)
         plt.tight_layout()
         plot_files = []
-        for idx, (name, axes_group) in enumerate([('parity', axes[0,0]), ('residuals', axes[0,1]),
-                                                   ('comparison', axes[1,0]), ('importance', axes[1,1])]):
+        for name, axes_group in [('parity', axes[0,0]), ('residuals', axes[0,1]),
+                                 ('comparison', axes[1,0]), ('importance', axes[1,1])]:
             fig2, ax2 = plt.subplots(figsize=(8, 6))
             for child in axes_group.get_children():
                 if hasattr(child, 'get_data'):
@@ -4206,7 +4059,6 @@ def create_result_images():
         logger.error(f"Error creating images: {str(e)}")
         return []
 
-
 def init_app():
     os.makedirs('static/datasets', exist_ok=True)
     os.makedirs('config', exist_ok=True)
@@ -4216,6 +4068,5 @@ def init_app():
     if not os.path.exists('config/info.xml'):
         ConfigManager('config/info.xml')
     load_prediction_history()
-
 
 init_app()
