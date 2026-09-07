@@ -1,316 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<suzuki_config version="7.4.0">
+<suzuki_config>
     <metadata>
-        <version>7.4.0</version>
-        <last_updated>2026-07-19</last_updated>
+        <last_updated>2026-09-07</last_updated>
+        <description>Academic Suzuki ML predictor – full scientific stack</description>
     </metadata>
-    <chemical_intuition>
-        <temperature>
-            <baseline_temp>25</baseline_temp>
-            <min_temp>25</min_temp>
-            <max_temp>250</max_temp>
-            <low_temp_penalty>0.20</low_temp_penalty>
-            <high_temp_penalty>0.85</high_temp_penalty>
-            <optimal_temp>110</optimal_temp>
-            <temp_coefficient>0.85</temp_coefficient>
-            <arrhenius_prefactor>1.2e13</arrhenius_prefactor>
-            <activation_energy>63.0</activation_energy>
-            <gas_constant>8.314</gas_constant>
-            <temperature_effect_power>0.65</temperature_effect_power>
-            <temperature_scaling>0.5</temperature_scaling>
-            <logarithmic_gain>0.55</logarithmic_gain>
-            <linear_gain>0.30</linear_gain>
-            <sigmoidal_gain>0.15</sigmoidal_gain>
-            <sigmoidal_steepness>0.06</sigmoidal_steepness>
-            <sigmoidal_midpoint>70</sigmoidal_midpoint>
-            <enthalpy_activation>35.2</enthalpy_activation>
-            <entropy_activation>-16.5</entropy_activation>
-            <pre_exponential_factor>1.0e13</pre_exponential_factor>
-            <degradation_threshold>120</degradation_threshold>
-            <degradation_penalty>0.35</degradation_penalty>
-            <degradation_rate>0.045</degradation_rate>
-            <degradation_activation_energy>58.6</degradation_activation_energy>
-            <solvent_bp_margin>20</solvent_bp_margin>
-            <solvent_bp_penalty>0.70</solvent_bp_penalty>
-            <solvent_decomposition_threshold>15</solvent_decomposition_threshold>
-            <optimal_temp_bonus>1.18</optimal_temp_bonus>
-            <temp_range>40</temp_range>
-            <curve_steepness>0.08</curve_steepness>
-            <curve_asymmetry>1.1</curve_asymmetry>
-            <eyring_prefactor>1.0e13</eyring_prefactor>
-            <eyring_weight>0.25</eyring_weight>
-            <temp_increment_factor>0.55</temp_increment_factor>
-            <base_temp_yield>40</base_temp_yield>
-        </temperature>
-        <time>
-            <baseline_time>1</baseline_time>
-            <min_time>1</min_time>
-            <max_time>72</max_time>
-            <short_time_penalty>0.10</short_time_penalty>
-            <long_time_penalty>0.92</long_time_penalty>
-            <optimal_time>24</optimal_time>
-            <time_coefficient>0.75</time_coefficient>
-            <reaction_half_life>6.9</reaction_half_life>
-            <rate_constant>0.10</rate_constant>
-            <time_effect_power>0.40</time_effect_power>
-            <time_scaling>0.45</time_scaling>
-            <logarithmic_factor>0.65</logarithmic_factor>
-            <linear_factor>0.35</linear_factor>
-            <saturation_point>24</saturation_point>
-            <plateau_factor>0.93</plateau_factor>
-            <diminishing_returns>0.20</diminishing_returns>
-            <early_time_multiplier>2.0</early_time_multiplier>
-            <late_time_multiplier>0.5</late_time_multiplier>
-            <long_time_bonus>1.08</long_time_bonus>
-            <optimal_time_bonus>1.12</optimal_time_bonus>
-            <reaction_order>1.1</reaction_order>
-            <half_life_temperature_dependence>-0.06</half_life_temperature_dependence>
-            <diffusion_limited_rate>0.70</diffusion_limited_rate>
-            <time_range>12</time_range>
-            <time_increment_factor>0.22</time_increment_factor>
-            <base_time_yield>35</base_time_yield>
-        </time>
-        <catalyst>
-            <k_m>0.0008</k_m>
-            <v_max>22</v_max>
-            <baseline_quantity>0.0001</baseline_quantity>
-            <min_quantity>0.0001</min_quantity>
-            <max_quantity>0.50</max_quantity>
-            <low_quantity_penalty>0.10</low_quantity_penalty>
-            <catalyst_effect_power>0.55</catalyst_effect_power>
-            <catalyst_scaling>0.60</catalyst_scaling>
-            <mm_weight>0.50</mm_weight>
-            <linear_weight>0.30</linear_weight>
-            <logarithmic_weight>0.20</logarithmic_weight>
-            <turnover_number>4500</turnover_number>
-            <turnover_frequency>110.2</turnover_frequency>
-            <catalyst_efficiency>0.90</catalyst_efficiency>
-            <early_catalyst_multiplier>2.2</early_catalyst_multiplier>
-            <late_catalyst_multiplier>0.4</late_catalyst_multiplier>
-            <ligand_pd_ratio>2.5</ligand_pd_ratio>
-            <ligand_bite_angle>92</ligand_bite_angle>
-            <ligand_electron_donating>0.50</ligand_electron_donating>
-            <ligand_steric_bulk>1.4</ligand_steric_bulk>
-            <high_quantity_bonus>1.12</high_quantity_bonus>
-            <optimal_quantity_bonus>1.20</optimal_quantity_bonus>
-            <monodentate_ligand_factor>0.90</monodentate_ligand_factor>
-            <bidentate_ligand_factor>1.10</bidentate_ligand_factor>
-            <bulky_ligand_factor>0.85</bulky_ligand_factor>
-            <electron_rich_ligand_factor>1.15</electron_rich_ligand_factor>
-            <pd_oxidation_state>2</pd_oxidation_state>
-            <ligand_coordination_number>4</ligand_coordination_number>
-            <degradation_threshold>0.50</degradation_threshold>
-            <quality_coefficient>0.75</quality_coefficient>
-            <catalyst_increment_factor>0.090</catalyst_increment_factor>
-            <base_catalyst_yield>30</base_catalyst_yield>
-        </catalyst>
-        <electronic_proxy>
-            <base_homo_energy>-6.50</base_homo_energy>
-            <base_lumo_energy>-1.50</base_lumo_energy>
-            <homo_shift_factor>0.80</homo_shift_factor>
-            <lumo_shift_factor>1.20</lumo_shift_factor>
-            <chemical_potential_weight>0.28</chemical_potential_weight>
-            <hardness_weight>0.22</hardness_weight>
-            <electrophilicity_weight>0.18</electrophilicity_weight>
-            <fukui_weight>0.32</fukui_weight>
-            <fukui_plus_threshold>0.12</fukui_plus_threshold>
-            <fukui_minus_threshold>0.12</fukui_minus_threshold>
-            <fukui_zero_threshold>0.10</fukui_zero_threshold>
-            <electrophilicity_threshold>1.3</electrophilicity_threshold>
-            <nucleophilicity_threshold>1.8</nucleophilicity_threshold>
-            <homo_energy_factor>0.35</homo_energy_factor>
-            <lumo_energy_factor>0.25</lumo_energy_factor>
-            <gap_energy_factor>0.40</gap_energy_factor>
-            <homo_lumo_correlation>0.15</homo_lumo_correlation>
-        </electronic_proxy>
-        <mechanistic>
-            <oxidative_addition_barrier>26.5</oxidative_addition_barrier>
-            <oxidative_addition_barrier_sigma_effect>4.2</oxidative_addition_barrier_sigma_effect>
-            <oxidative_addition_barrier_steric_effect>3.8</oxidative_addition_barrier_steric_effect>
-            <oxidative_addition_rate>0.048</oxidative_addition_rate>
-            <oxidative_addition_steric_sensitivity>0.60</oxidative_addition_steric_sensitivity>
-            <oxidative_addition_electronic_sensitivity>0.80</oxidative_addition_electronic_sensitivity>
-            <oxidative_addition_pd_effect>1.08</oxidative_addition_pd_effect>
-            <transmetalation_barrier>20.8</transmetalation_barrier>
-            <transmetalation_barrier_base_effect>-3.2</transmetalation_barrier_base_effect>
-            <transmetalation_barrier_boronic_effect>-2.8</transmetalation_barrier_boronic_effect>
-            <transmetalation_rate>0.082</transmetalation_rate>
-            <transmetalation_base_sensitivity>0.70</transmetalation_base_sensitivity>
-            <transmetalation_boronic_sensitivity>0.65</transmetalation_boronic_sensitivity>
-            <transmetalation_halide_sensitivity>0.55</transmetalation_halide_sensitivity>
-            <reductive_elimination_barrier>17.2</reductive_elimination_barrier>
-            <reductive_elimination_barrier_steric_effect>5.6</reductive_elimination_barrier_steric_effect>
-            <reductive_elimination_rate>0.125</reductive_elimination_rate>
-            <reductive_elimination_steric_sensitivity>0.85</reductive_elimination_steric_sensitivity>
-            <reductive_elimination_electronic_sensitivity>0.55</reductive_elimination_electronic_sensitivity>
-            <reductive_elimination_ring_closure_bonus>1.12</reductive_elimination_ring_closure_bonus>
-            <transition_state_asymmetry>1.1</transition_state_asymmetry>
-            <reaction_coordinate_step>0.08</reaction_coordinate_step>
-            <intermediate_stability_factor>0.75</intermediate_stability_factor>
-            <pre_exponential_factor>1.0e13</pre_exponential_factor>
-            <oa_weight>0.35</oa_weight>
-            <tm_weight>0.35</tm_weight>
-            <re_weight>0.30</re_weight>
-        </mechanistic>
-        <steric>
-            <threshold>0.20</threshold>
-            <penalty_coefficient>7.5</penalty_coefficient>
-            <ring_penalty_factor>0.30</ring_penalty_factor>
-            <bulky_group_penalty>2.0</bulky_group_penalty>
-            <ortho_substituent_penalty>2.8</ortho_substituent_penalty>
-            <meta_substituent_penalty>1.3</meta_substituent_penalty>
-            <para_substituent_penalty>0.8</para_substituent_penalty>
-            <molecular_volume_threshold>180</molecular_volume_threshold>
-            <volume_penalty_factor>0.020</volume_penalty_factor>
-            <rotatable_bond_penalty>0.15</rotatable_bond_penalty>
-            <rotatable_bond_threshold>8</rotatable_bond_threshold>
-            <fused_ring_penalty>0.45</fused_ring_penalty>
-            <bridged_ring_penalty>0.65</bridged_ring_penalty>
-            <spiro_ring_penalty>0.55</spiro_ring_penalty>
-            <heavy_atom_steric_factor>0.08</heavy_atom_steric_factor>
-            <halogen_steric_factor>0.15</halogen_steric_factor>
-            <a_value_methyl>1.74</a_value_methyl>
-            <a_value_ethyl>1.75</a_value_ethyl>
-            <a_value_isopropyl>2.21</a_value_isopropyl>
-            <a_value_tertbutyl>4.9</a_value_tertbutyl>
-            <a_value_cyclohexyl>2.15</a_value_cyclohexyl>
-            <a_value_phenyl>2.8</a_value_phenyl>
-        </steric>
-        <electronic>
-            <logp_coefficient>0.25</logp_coefficient>
-            <hbd_penalty>2.2</hbd_penalty>
-            <hba_bonus>1.6</hba_bonus>
-            <hammett_coefficient>3.0</hammett_coefficient>
-            <taft_coefficient>1.6</taft_coefficient>
-            <sigma_m_electron_withdrawing>0.70</sigma_m_electron_withdrawing>
-            <sigma_p_electron_withdrawing>0.80</sigma_p_electron_withdrawing>
-            <sigma_m_electron_donating>-0.28</sigma_m_electron_donating>
-            <sigma_p_electron_donating>-0.40</sigma_p_electron_donating>
-            <sigma_plus_coefficient>3.2</sigma_plus_coefficient>
-            <sigma_minus_coefficient>2.6</sigma_minus_coefficient>
-            <brown_sigma_plus_factor>1.2</brown_sigma_plus_factor>
-            <hammett_reaction_constant>1.1</hammett_reaction_constant>
-            <lfer_weight>0.12</lfer_weight>
-            <electron_donating_bonus>1.25</electron_donating_bonus>
-            <electron_withdrawing_penalty>0.72</electron_withdrawing_penalty>
-            <conjugation_effect>1.12</conjugation_effect>
-            <inductive_effect>0.90</inductive_effect>
-            <resonance_effect>1.18</resonance_effect>
-            <polarity_factor>0.12</polarity_factor>
-            <solubility_threshold>-2.2</solubility_threshold>
-            <solubility_penalty>0.58</solubility_penalty>
-            <taft_es_methyl>0.00</taft_es_methyl>
-            <taft_es_ethyl>-0.07</taft_es_ethyl>
-            <taft_es_isopropyl>-0.47</taft_es_isopropyl>
-            <taft_es_tertbutyl>-1.54</taft_es_tertbutyl>
-            <taft_es_phenyl>-1.20</taft_es_phenyl>
-            <taft_es_benzyl>-0.45</taft_es_benzyl>
-        </electronic>
-        <hsab>
-            <pd_softness>2.8</pd_softness>
-            <halide_softness>3.2</halide_softness>
-            <ligand_softness>2.5</ligand_softness>
-            <base_softness>3.0</base_softness>
-            <absolute_hardness_pd>3.8</absolute_hardness_pd>
-            <absolute_hardness_halide>4.2</absolute_hardness_halide>
-            <absolute_hardness_ligand>3.5</absolute_hardness_ligand>
-            <chemical_potential_pd>-5.2</chemical_potential_pd>
-            <electronegativity_pd>5.2</electronegativity_pd>
-            <pearson_softness_threshold>6.0</pearson_softness_threshold>
-            <pd_halide_match>0.85</pd_halide_match>
-            <pd_ligand_match>0.90</pd_ligand_match>
-            <ligand_halide_match>0.75</ligand_halide_match>
-            <overall_compatibility>0.80</overall_compatibility>
-            <soft_soft_bonus>1.22</soft_soft_bonus>
-            <hard_hard_bonus>1.12</hard_hard_bonus>
-            <soft_hard_penalty>0.68</soft_hard_penalty>
-            <mismatch_penalty>0.48</mismatch_penalty>
-            <soft_soft_weight>0.40</soft_soft_weight>
-            <hard_hard_weight>0.35</hard_hard_weight>
-            <mismatch_penalty_weight>0.25</mismatch_penalty_weight>
-        </hsab>
-        <solvent>
-            <dielectric_optimal>28.0</dielectric_optimal>
-            <dielectric_range>18.0</dielectric_range>
-            <dielectric_weight>0.10</dielectric_weight>
-            <donor_optimal>20.0</donor_optimal>
-            <donor_range>16.0</donor_range>
-            <donor_weight>0.08</donor_weight>
-            <polarity_optimal>4.5</polarity_optimal>
-            <polarity_range>3.5</polarity_range>
-            <polarity_weight>0.06</polarity_weight>
-            <alpha_weight>0.08</alpha_weight>
-            <beta_weight>0.08</beta_weight>
-            <pi_star_weight>0.06</pi_star_weight>
-            <reichardt_weight>0.05</reichardt_weight>
-            <hildebrand_weight>0.04</hildebrand_weight>
-            <aprotic_solvent_bonus>1.10</aprotic_solvent_bonus>
-            <protic_solvent_penalty>0.88</protic_solvent_penalty>
-            <polar_solvent_bonus>1.06</polar_solvent_bonus>
-            <nonpolar_solvent_penalty>0.92</nonpolar_solvent_penalty>
-            <solvent_mixtures>
-                <toluene_ethanol>1.18</toluene_ethanol>
-                <dioxane_water>1.12</dioxane_water>
-                <thf_water>1.08</thf_water>
-                <dme_water>1.10</dme_water>
-                <acetonitrile_water>1.06</acetonitrile_water>
-                <dmso_water>1.15</dmso_water>
-            </solvent_mixtures>
-        </solvent>
-        <base>
-            <pka_threshold>18.0</pka_threshold>
-            <strong_base_bonus>1.18</strong_base_bonus>
-            <weak_base_penalty>0.82</weak_base_penalty>
-            <inorganic_base_factor>1.00</inorganic_base_factor>
-            <organic_base_factor>0.94</organic_base_factor>
-            <carbonate_base_factor>1.10</carbonate_base_factor>
-            <phosphate_base_factor>1.06</phosphate_base_factor>
-            <acetate_base_factor>0.88</acetate_base_factor>
-            <fluoride_base_factor>0.82</fluoride_base_factor>
-            <soluble_base_bonus>1.08</soluble_base_bonus>
-            <insoluble_base_penalty>0.78</insoluble_base_penalty>
-            <hygroscopic_base_penalty>0.86</hygroscopic_base_penalty>
-            <cation_radius_effect>1.02</cation_radius_effect>
-            <pka_effect>0.030</pka_effect>
-            <pkb_effect>0.035</pkb_effect>
-            <pka_weight>0.30</pka_weight>
-            <solubility_weight>0.25</solubility_weight>
-            <class_weight>0.20</class_weight>
-            <cation_radius_weight>0.25</cation_radius_weight>
-        </base>
-        <physicochemical_proxy>
-            <mw_weight>0.30</mw_weight>
-            <logp_weight>0.25</logp_weight>
-            <tpsa_weight>0.25</tpsa_weight>
-            <rotbonds_weight>0.20</rotbonds_weight>
-            <mw_center>300</mw_center>
-            <mw_scale>200</mw_scale>
-            <logp_center>2.5</logp_center>
-            <logp_scale>3.0</logp_scale>
-            <tpsa_center>60</tpsa_center>
-            <tpsa_scale>60</tpsa_scale>
-            <rotbonds_center>4</rotbonds_center>
-            <rotbonds_scale>6</rotbonds_scale>
-        </physicochemical_proxy>
-        <yield_parameters>
-            <max_yield>100</max_yield>
-            <min_yield>0</min_yield>
-            <base_yield_offset>25</base_yield_offset>
-            <reproducibility_factor>0.93</reproducibility_factor>
-            <scale_up_factor>0.90</scale_up_factor>
-            <yield_mean>70.5</yield_mean>
-            <yield_std>17.5</yield_std>
-            <excellent_threshold>85</excellent_threshold>
-            <good_threshold>70</good_threshold>
-            <moderate_threshold>50</moderate_threshold>
-            <poor_threshold>30</poor_threshold>
-            <very_poor_threshold>15</very_poor_threshold>
-            <confidence_interval_alpha>0.05</confidence_interval_alpha>
-            <prediction_interval_alpha>0.10</prediction_interval_alpha>
-            <yield_skewness>-0.40</yield_skewness>
-            <yield_kurtosis>0.28</yield_kurtosis>
-        </yield_parameters>
-    </chemical_intuition>
+
     <data_integrity>
         <forbid_random_or_synthetic_data>true</forbid_random_or_synthetic_data>
         <nullable_columns>solv1,solv2</nullable_columns>
@@ -323,27 +17,15 @@
         <minimum_usable_rows>5</minimum_usable_rows>
         <log_row_classification_summary>true</log_row_classification_summary>
     </data_integrity>
-    <monotonicity>
-        <enabled>true</enabled>
-        <system_identity_fields>catalizor,base,solv1,solv2,subs1_smiles,subs2_smiles</system_identity_fields>
-        <incremental_gain>
-            <curve_shape>logarithmic</curve_shape>
-            <curve_multiplier>0.35</curve_multiplier>
-            <temp_max_increase_pct>2.0</temp_max_increase_pct>
-            <time_max_increase_pct>1.5</time_max_increase_pct>
-            <catalyst_max_increase_pct>1.5</catalyst_max_increase_pct>
-        </incremental_gain>
-        <hard_floor>
-            <enabled>true</enabled>
-            <enforce_against_full_history>true</enforce_against_full_history>
-            <require_all_conditions_dominated>true</require_all_conditions_dominated>
-        </hard_floor>
-    </monotonicity>
+
     <ml_training_safeguards>
         <min_samples_per_feature>10</min_samples_per_feature>
         <min_samples_for_full_ensemble>30</min_samples_for_full_ensemble>
         <honest_cv_max_folds>5</honest_cv_max_folds>
+        <bootstrap_iterations>1000</bootstrap_iterations>
+        <confidence_level>0.95</confidence_level>
     </ml_training_safeguards>
+
     <model_parameters>
         <Random_Forest>
             <n_estimators>300</n_estimators>
@@ -357,6 +39,7 @@
             <n_jobs>1</n_jobs>
             <ccp_alpha>0.001</ccp_alpha>
         </Random_Forest>
+
         <Gradient_Boosting>
             <n_estimators>350</n_estimators>
             <max_depth>7</max_depth>
@@ -372,21 +55,7 @@
             <loss>squared_error</loss>
             <criterion>friedman_mse</criterion>
         </Gradient_Boosting>
-        <Hist_Gradient_Boosting>
-            <max_iter>350</max_iter>
-            <max_depth>8</max_depth>
-            <min_samples_leaf>2</min_samples_leaf>
-            <learning_rate>0.09</learning_rate>
-            <max_bins>255</max_bins>
-            <l2_regularization>0.01</l2_regularization>
-            <early_stopping>true</early_stopping>
-            <scoring>neg_mean_squared_error</scoring>
-            <validation_fraction>0.15</validation_fraction>
-            <n_iter_no_change>15</n_iter_no_change>
-            <random_state>42</random_state>
-            <loss>squared_error</loss>
-            <max_leaf_nodes>31</max_leaf_nodes>
-        </Hist_Gradient_Boosting>
+
         <XGBoost>
             <n_estimators>350</n_estimators>
             <max_depth>7</max_depth>
@@ -407,6 +76,7 @@
             <grow_policy>lossguide</grow_policy>
             <max_leaves>31</max_leaves>
         </XGBoost>
+
         <LightGBM>
             <n_estimators>400</n_estimators>
             <max_depth>10</max_depth>
@@ -428,6 +98,7 @@
             <cat_smooth>10.0</cat_smooth>
             <cat_l2>10.0</cat_l2>
         </LightGBM>
+
         <CatBoost>
             <iterations>400</iterations>
             <depth>7</depth>
@@ -441,6 +112,7 @@
             <od_type>Iter</od_type>
             <od_wait>20</od_wait>
         </CatBoost>
+
         <Extra_Trees>
             <n_estimators>250</n_estimators>
             <max_depth>12</max_depth>
@@ -452,6 +124,7 @@
             <n_jobs>1</n_jobs>
             <ccp_alpha>0.001</ccp_alpha>
         </Extra_Trees>
+
         <Gaussian_Process>
             <kernel>1.0 * RBF(1.0) + WhiteKernel(0.1)</kernel>
             <alpha>1e-10</alpha>
@@ -460,6 +133,7 @@
             <normalize_y>true</normalize_y>
             <random_state>42</random_state>
         </Gaussian_Process>
+
         <SVR>
             <kernel>rbf</kernel>
             <C>1.5</C>
@@ -472,6 +146,7 @@
             <max_iter>-1</max_iter>
             <cache_size>200</cache_size>
         </SVR>
+
         <Neural_Network>
             <hidden_layer_sizes>256,128,64,32</hidden_layer_sizes>
             <activation>relu</activation>
@@ -491,8 +166,9 @@
             <random_state>42</random_state>
             <warm_start>false</warm_start>
         </Neural_Network>
+
         <Ridge>
-            <alpha>0.8</alpha>
+            <alpha>1.0</alpha>
             <fit_intercept>true</fit_intercept>
             <copy_X>true</copy_X>
             <max_iter>None</max_iter>
@@ -500,14 +176,16 @@
             <solver>auto</solver>
             <random_state>42</random_state>
         </Ridge>
+
         <Lasso>
-            <alpha>0.8</alpha>
+            <alpha>1.0</alpha>
             <fit_intercept>true</fit_intercept>
             <max_iter>1000</max_iter>
             <tol>0.0001</tol>
             <selection>cyclic</selection>
             <random_state>42</random_state>
         </Lasso>
+
         <ElasticNet>
             <alpha>0.8</alpha>
             <l1_ratio>0.5</l1_ratio>
@@ -517,6 +195,7 @@
             <selection>cyclic</selection>
             <random_state>42</random_state>
         </ElasticNet>
+
         <KNN>
             <n_neighbors>5</n_neighbors>
             <weights>distance</weights>
@@ -525,11 +204,12 @@
             <p>2</p>
             <metric>minkowski</metric>
         </KNN>
+
         <Ensemble>
             <weights>
                 <Random_Forest>0.16</Random_Forest>
                 <Gradient_Boosting>0.10</Gradient_Boosting>
-                <Hist_Gradient_Boosting>0.16</Hist_Gradient_Boosting>
+                <Hist_Gradient_Boosting>0.10</Hist_Gradient_Boosting>
                 <XGBoost>0.10</XGBoost>
                 <LightGBM>0.07</LightGBM>
                 <CatBoost>0.07</CatBoost>
@@ -537,21 +217,23 @@
                 <Gaussian_Process>0.08</Gaussian_Process>
                 <SVR>0.02</SVR>
                 <Neural_Network>0.03</Neural_Network>
-                <Ridge>0.02</Ridge>
+                <Ridge>0.10</Ridge>
+                <Lasso>0.07</Lasso>
                 <ElasticNet>0.02</ElasticNet>
                 <KNN>0.01</KNN>
             </weights>
             <stacking>true</stacking>
-            <stacking_meta_model>Random_Forest</stacking_meta_model>
+            <stacking_meta_model>Ridge</stacking_meta_model>
             <voting>soft</voting>
             <ensemble_validation>true</ensemble_validation>
             <ensemble_cv_folds>3</ensemble_cv_folds>
         </Ensemble>
     </model_parameters>
+
     <feature_importance>
-        <temperature>0.18</temperature>
-        <time>0.14</time>
-        <catalyst_quantity>0.12</catalyst_quantity>
+        <temperature>0.16</temperature>
+        <time>0.13</temperature>
+        <catalyst_quantity>0.11</catalyst_quantity>
         <substrate1_steric>0.08</substrate1_steric>
         <substrate2_steric>0.08</substrate2_steric>
         <solvent_effect>0.07</solvent_effect>
@@ -563,7 +245,12 @@
         <mechanistic_effects>0.03</mechanistic_effects>
         <elecproxy_effects>0.02</elecproxy_effects>
         <physchem_effects>0.03</physchem_effects>
+        <electronegativity>0.03</electronegativity>
+        <flexibility>0.03</flexibility>
+        <molecular_volume>0.02</molecular_volume>
+        <tpsa_distribution>0.02</tpsa_distribution>
     </feature_importance>
+
     <data_processing>
         <missing_values>
             <strategy>median_imputation</strategy>
@@ -572,6 +259,7 @@
             <numeric_method>median</numeric_method>
             <knn_neighbors>5</knn_neighbors>
         </missing_values>
+
         <normalization>
             <numeric_method>standard_scaler</numeric_method>
             <categorical_method>one_hot_encoding</categorical_method>
@@ -579,6 +267,7 @@
             <robust_scaling>true</robust_scaling>
             <quantile_transform>true</quantile_transform>
         </normalization>
+
         <feature_selection>
             <method>mutual_information</method>
             <k_best>50</k_best>
@@ -587,14 +276,16 @@
             <select_from_model>true</select_from_model>
             <rfe_n_features>30</rfe_n_features>
         </feature_selection>
+
         <augmentation>
-            <enabled>true</enabled>
+            <enabled>false</enabled>
             <method>gaussian_noise</method>
             <noise_level>0.05</noise_level>
             <n_augmentations>100</n_augmentations>
             <bootstrap_samples>2000</bootstrap_samples>
             <smote_enabled>false</smote_enabled>
         </augmentation>
+
         <split>
             <test_size>0.20</test_size>
             <validation_size>0.15</validation_size>
@@ -602,13 +293,16 @@
             <random_state>42</random_state>
             <shuffle>true</shuffle>
         </split>
+
         <outlier_detection>
             <method>iqr</method>
             <threshold>1.5</threshold>
             <handle_method>clip</handle_method>
             <zscore_threshold>3.0</zscore_threshold>
+            <mahalanobis_threshold>3.5</mahalanobis_threshold>
         </outlier_detection>
     </data_processing>
+
     <optimization>
         <top_candidates>15</top_candidates>
         <catalyst_search>
@@ -618,7 +312,19 @@
             <n_candidates>20</n_candidates>
             <log_scale>true</log_scale>
         </catalyst_search>
+        <bayesian>
+            <n_calls>50</n_calls>
+            <n_initial_points>10</n_initial_points>
+            <acq_func>EI</acq_func>
+        </bayesian>
+        <genetic>
+            <population_size>50</population_size>
+            <generations>30</generations>
+            <mutation_rate>0.2</mutation_rate>
+            <crossover_rate>0.7</crossover_rate>
+        </genetic>
     </optimization>
+
     <performance_metrics>
         <metrics>
             <r2>true</r2>
@@ -626,7 +332,13 @@
             <rmse>true</rmse>
             <mape>true</mape>
             <explained_variance>true</explained_variance>
+            <max_error>true</max_error>
+            <pearson_correlation>true</pearson_correlation>
+            <aic>true</aic>
+            <bic>true</bic>
+            <shapiro_wilk>true</shapiro_wilk>
         </metrics>
+
         <cross_validation>
             <enabled>true</enabled>
             <folds>5</folds>
@@ -637,16 +349,25 @@
             <repeated_cv>true</repeated_cv>
             <n_repeats>3</n_repeats>
         </cross_validation>
+
         <statistical_tests>
             <shapiro_wilk>true</shapiro_wilk>
         </statistical_tests>
+
         <uncertainty>
             <method>bootstrap</method>
-            <n_bootstrap>100</n_bootstrap>
+            <n_bootstrap>1000</n_bootstrap>
             <confidence_level>0.95</confidence_level>
             <prediction_interval_level>0.90</prediction_interval_level>
         </uncertainty>
+
+        <learning_curve>
+            <enabled>true</enabled>
+            <cv_folds>5</cv_folds>
+            <train_sizes>10</train_sizes>
+        </learning_curve>
     </performance_metrics>
+
     <visualization>
         <molecule_images>
             <enabled>true</enabled>
@@ -658,6 +379,7 @@
             <show_hydrogens>false</show_hydrogens>
             <highlight_atoms>true</highlight_atoms>
         </molecule_images>
+
         <plots>
             <feature_importance>true</feature_importance>
             <actual_vs_predicted>true</actual_vs_predicted>
@@ -666,7 +388,12 @@
             <prediction_distribution>true</prediction_distribution>
             <residual_qq>true</residual_qq>
             <coefficient_plot>true</coefficient_plot>
+            <learning_curve>true</learning_curve>
+            <correlation_matrix>true</correlation_matrix>
+            <anomaly_plot>true</anomaly_plot>
+            <shap_summary>true</shap_summary>
         </plots>
+
         <colors>
             <primary>#2563EB</primary>
             <secondary>#10B981</secondary>
@@ -675,8 +402,11 @@
             <background>#F8FAFC</background>
             <text>#1E293B</text>
             <grid>#E2E8F0</grid>
+            <purple>#8B5CF6</purple>
+            <orange>#F97316</orange>
         </colors>
     </visualization>
+
     <logging>
         <log_level>INFO</log_level>
         <log_file>logs/predict_ml.log</log_file>
@@ -687,7 +417,7 @@
         <error_handling>
             <retry_attempts>3</retry_attempts>
             <retry_delay>1.0</retry_delay>
-            <fallback_model>Random_Forest</fallback_model>
+            <fallback_model>Ridge</fallback_model>
             <log_traceback>true</log_traceback>
             <email_alerts>false</email_alerts>
         </error_handling>
@@ -697,6 +427,7 @@
             <alert_threshold>0.05</alert_threshold>
         </monitoring>
     </logging>
+
     <security>
         <file_upload>
             <allowed_extensions>csv</allowed_extensions>
@@ -705,6 +436,7 @@
             <allowed_mime_types>text/csv,application/csv</allowed_mime_types>
             <virus_scan>false</virus_scan>
         </file_upload>
+
         <api>
             <rate_limit>100</rate_limit>
             <rate_limit_period>60</rate_limit_period>
@@ -713,6 +445,7 @@
             <allowed_origins>*</allowed_origins>
             <api_key_required>false</api_key_required>
         </api>
+
         <sanitization>
             <strip_xss>true</strip_xss>
             <strip_sql_injection>true</strip_sql_injection>
@@ -721,12 +454,14 @@
             <allowed_smiles_patterns>all</allowed_smiles_patterns>
             <sanitize_inputs>true</sanitize_inputs>
         </sanitization>
+
         <encryption>
             <model_encryption>false</model_encryption>
             <data_encryption>false</data_encryption>
             <ssl_enabled>false</ssl_enabled>
         </encryption>
     </security>
+
     <experimental_mode>
         <enabled>false</enabled>
         <temperature>
