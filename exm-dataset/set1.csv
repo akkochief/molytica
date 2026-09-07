@@ -1,0 +1,16 @@
+subs1,subs2,product,catalizor,base,solv1,solv2,quantity,temp,time,yield
+OB(O)c1ccccc1,Brc1ccccc1,c1ccc(-c2ccccc2)cc1,C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.[Pd],[K+].[K+].[O-]C([O-])=O,O,CCO,0.0025,40,120,92
+Cc1ccc(B(O)O)cc1,Cc1ccc(Br)cc1,Cc1ccc(-c2ccc(C)cc2)cc1,CC(=O)O[Pd]OC(C)=O,[Cs+].[Cs+].[O-]C([O-])=O,C1COCCO1,O,0.005,80,60,88
+COc1ccc(B(O)O)cc1,COc1ccc(Br)cc1,COc1ccc(-c2ccc(OC)cc2)cc1,Cl[Pd](Cl)(P(c1ccccc1)(c1ccccc1)c1ccccc1)P(c1ccccc1)(c1ccccc1)c1ccccc1,[K+].[K+].[K+].[O-]P([O-])([O-])=O,C1CCOC1,O,0.01,70,90,95
+OB(O)c1cccnc1,Brc1ccccn1,c1ccc(-c2cccnc2)nc1,[Pd].[Pd].O=C(/C=C/c1ccccc1)/C=C/c1ccccc1.O=C(/C=C/c1ccccc1)/C=C/c1ccccc1.O=C(/C=C/c1ccccc1)/C=C/c1ccccc1,[Na+].[OH-],CCO,O,0.02,100,180,45
+OB(O)c1ccc2ccccc2c1,Brc1ccc(C#N)cc1,N#Cc1ccc(-c2ccc3ccccc3c2)cc1,C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.[Pd],[K+].[K+].[O-]C([O-])=O,Cc1ccccc1,O,0.0025,90,120,78
+OB(O)c1ccc(F)cc1,Ic1ccccc1,Fc1ccc(-c2ccccc2)cc1,CC(=O)O[Pd]OC(C)=O,CCN(CC)CC,CN(C)C=O,O,0.005,60,45,99
+OB(O)c1cccs1,Clc1ccc([N+](=O)[O-])cc1,[O-][N+](=O)c1ccc(-c2cccs2)cc1,Cl[Pd](Cl)(P(C1CCCCC1)(C1CCCCC1)C1CCCCC1)P(C1CCCCC1)(C1CCCCC1)C1CCCCC1,[K+].[K+].[K+].[O-]P([O-])([O-])=O,C1COCCO1,O,0.02,100,150,31
+OB(O)c1ccc(C#N)cc1,Brc1cccs1,N#Cc1ccc(-c2cccs2)cc1,Cl[Pd](Cl)(P(c1ccccc1)(c1ccccc1)c1ccccc1)P(c1ccccc1)(c1ccccc1)c1ccccc1,[Cs+].[Cs+].[O-]C([O-])=O,CCO,O,0.0025,80,60,84
+OB(O)c1ccc([N+](=O)[O-])cc1,COc1ccc(I)cc1,COc1ccc(-c2ccc([N+](=O)[O-])cc2)cc1,C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.[Pd],[K+].[K+].[O-]C([O-])=O,C1CCOC1,O,0.005,70,90,90
+OB(O)c1ccco1,Brc1cccnc1,c1cc(-c2ccco2)cnc1,[Pd].[Pd].O=C(/C=C/c1ccccc1)/C=C/c1ccccc1.O=C(/C=C/c1ccccc1)/C=C/c1ccccc1.O=C(/C=C/c1ccccc1)/C=C/c1ccccc1,[Na+].[OH-],CC(C)O,O,0.01,50,120,66
+OB(O)c1ccc(C(F)(F)F)cc1,CC(=O)c1ccc(Br)cc1,CC(=O)c1ccc(-c2ccc(C(F)(F)F)cc2)cc1,CC(=O)O[Pd]OC(C)=O,[K+].[K+].[K+].[O-]P([O-])([O-])=O,Cc1ccccc1,O,0.0025,90,60,97
+COc1ccc(B(O)O)cc1OC,Brc1cccc2ccccc12,COc1ccc(-c2cccc3ccccc23)cc1OC,Cl[Pd](Cl)(P(c1ccccc1)(c1ccccc1)c1ccccc1)P(c1ccccc1)(c1ccccc1)c1ccccc1,CCN(CC)CC,CN(C)C=O,O,0.02,100,180,22
+CC(=O)c1ccc(B(O)O)cc1,Brc1ccc(-c2ccccc2)cc1,CC(=O)c1ccc(-c2ccc(-c3ccccc3)cc2)cc1,Cl[Pd](Cl)(P(C1CCCCC1)(C1CCCCC1)C1CCCCC1)P(C1CCCCC1)(C1CCCCC1)C1CCCCC1,[K+].[K+].[O-]C([O-])=O,C1COCCO1,O,0.005,80,90,73
+OB(O)c1cc2ccccc2o1,Ic1cccs1,c1ccc2c(c1)cc(-c3cccs3)o2,C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.C1=CC=C(C=C1)P(C2=CC=CC=C2)C3=CC=CC=C3.[Pd],[Cs+].[Cs+].[O-]C([O-])=O,CCO,O,0.0025,60,60,87
+OB(O)c1cccc2ccccc12,Clc1ccc(C=O)cc1,O=Cc1ccc(-c2cccc3ccccc23)cc1,CC(=O)O[Pd]OC(C)=O,[K+].[K+].[K+].[O-]P([O-])([O-])=O,C1CCOC1,O,0.01,100,120,15
