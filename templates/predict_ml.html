@@ -122,11 +122,6 @@
       100% { transform: rotate(360deg); }
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
     header {
       background: var(--bg-header);
       backdrop-filter: blur(16px);
@@ -720,7 +715,8 @@
       color: var(--text-muted);
       margin-top: 2px;
     }
-    .prediction-result .academic-details {
+
+    .academic-details {
       margin-top: 12px;
       padding-top: 12px;
       border-top: 1px solid var(--border-color);
@@ -731,12 +727,12 @@
       justify-content: center;
       gap: 16px;
     }
-    .prediction-result .academic-details span {
+    .academic-details span {
       display: inline-flex;
       align-items: center;
       gap: 4px;
     }
-    .prediction-result .academic-details .highlight {
+    .academic-details .highlight {
       color: var(--text-primary);
       font-weight: 500;
     }
@@ -789,6 +785,19 @@
       font-size: 0.7rem;
       color: var(--text-muted);
       white-space: nowrap;
+    }
+    .catalyst-result .temp-time {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .catalyst-result .method-badge {
+      font-size: 0.5rem;
+      background: var(--purple);
+      color: white;
+      padding: 1px 8px;
+      border-radius: var(--radius-xl);
+      font-weight: 600;
     }
 
     .molecule-display {
@@ -1049,7 +1058,6 @@
       border: 1px solid var(--success);
     }
 
-    /* ── Experimental Mode ── */
     .experimental-toggle-wrap {
       display: flex;
       align-items: center;
@@ -1251,7 +1259,7 @@
 <header>
   <div class="header-left">
     <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
-    <h1><span id="headerTitleText">Academic Predict</span> </h1>
+    <h1><span id="headerTitleText">Academic Predict</span></h1>
   </div>
   <div class="header-right">
     <div id="clock"></div>
@@ -1292,7 +1300,10 @@
         <span class="academic-badge"><i class="fas fa-bolt icon"></i> Eyring</span>
         <span class="academic-badge"><i class="fas fa-sigma icon"></i> Hammett</span>
         <span class="academic-badge"><i class="fas fa-arrow-up icon"></i> HSAB</span>
-        <span class="monotonicity-badge"><i class="fas fa-arrow-up"></i> Monotonicity Guarantee</span>
+        <span class="monotonicity-badge"><i class="fas fa-arrow-up"></i> Monotonicity</span>
+        <span class="academic-badge"><i class="fas fa-chart-bell icon"></i> Shapiro-Wilk</span>
+        <span class="academic-badge"><i class="fas fa-dice icon"></i> Bootstrap</span>
+        <span class="academic-badge"><i class="fas fa-balance-scale icon"></i> AIC/BIC</span>
       </div>
     </div>
 
@@ -1312,12 +1323,12 @@
     </div>
 
     <div class="card" id="modelCard" style="display: none;">
-      <h3 class="card-title"><span id="modelTitleText">Model Selection</span> <span class="sub" id="modelTitleSub">— 12 models ensemble</span></h3>
+      <h3 class="card-title"><span id="modelTitleText">Model Selection</span> <span class="sub" id="modelTitleSub">— 14 models ensemble</span></h3>
       <div class="form-row">
         <div class="form-group" style="grid-column: span 2;">
           <label for="modelSelect" id="modelLabel">Model:</label>
           <select id="modelSelect" class="form-control">
-            <option value="Ensemble">Ensemble (12 models)</option>
+            <option value="Ensemble">Ensemble (14 models)</option>
             <option value="Random_Forest">Random Forest</option>
             <option value="Gradient_Boosting">Gradient Boosting</option>
             <option value="Hist_Gradient_Boosting">Hist Gradient Boosting</option>
@@ -1343,15 +1354,15 @@
         <div class="form-row">
           <div class="form-group">
             <label for="temp" id="tempLabel">Temperature (°C)</label>
-            <input type="number" id="temp" class="form-control" value="80" min="25" step="1" required>
+            <input type="number" id="temp" class="form-control" value="80" min="25" max="250" step="1" required>
           </div>
           <div class="form-group">
             <label for="time" id="timeLabel">Time (hours)</label>
-            <input type="number" id="time" class="form-control" value="24" step="0.1" min="1" required>
+            <input type="number" id="time" class="form-control" value="24" step="0.1" min="1" max="72" required>
           </div>
           <div class="form-group">
             <label for="quantity" id="quantityLabel">Catalyst (mmol)</label>
-            <input type="number" id="quantity" class="form-control" value="0.0025" step="0.0001" min="0.0001" required>
+            <input type="number" id="quantity" class="form-control" value="0.0025" step="0.0001" min="0.0001" max="0.50" required>
           </div>
         </div>
 
@@ -1392,7 +1403,17 @@
           </div>
         </div>
 
-        <!-- Experimental Mode Toggle -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="optMethod" id="optMethodLabel">Optimization Method</label>
+            <select id="optMethod" class="form-control">
+              <option value="grid">Grid Search</option>
+              <option value="bayesian">Bayesian Optimization</option>
+              <option value="genetic">Genetic Algorithm</option>
+            </select>
+          </div>
+        </div>
+
         <div style="margin-bottom:14px;">
           <label class="experimental-toggle-wrap" id="expToggleWrap" for="experimentalModeCheck">
             <div class="exp-toggle-switch">
@@ -1522,7 +1543,7 @@
         headerTitleText: 'Akademik Tahmin',
         filesTitleText: 'CSV Dosyaları',
         modelTitleText: 'Model Seçimi',
-        modelTitleSub: '— 12 model topluluğu',
+        modelTitleSub: '— 14 model topluluğu',
         reactionTitleText: 'Reaksiyon Koşulları',
         reactionTitleSub: '— Akademik veri bütünlüğü zorunlu',
         loadingFiles: 'Dosyalar yükleniyor...',
@@ -1570,7 +1591,8 @@
         optimizationCompletedMsg: 'Optimizasyon tamamlandı',
         analysisCompletedMsg: 'Akademik analiz tamamlandı (DFT, QSAR, docking)',
         analysisNotAvailableMsg: 'Bu veri seti için akademik analiz mevcut değil',
-        loadFirstMsg: 'Lütfen önce bir veri dosyası yükleyin'
+        loadFirstMsg: 'Lütfen önce bir veri dosyası yükleyin',
+        optMethodLabel: 'Optimizasyon Yöntemi'
       },
       en: {
         headerTitle: 'Academic Predict',
@@ -1609,7 +1631,7 @@
         headerTitleText: 'Academic Predict',
         filesTitleText: 'CSV Files',
         modelTitleText: 'Model Selection',
-        modelTitleSub: '— 12 models ensemble',
+        modelTitleSub: '— 14 models ensemble',
         reactionTitleText: 'Reaction Conditions',
         reactionTitleSub: '— Academic data integrity enforced',
         loadingFiles: 'Loading files...',
@@ -1657,7 +1679,8 @@
         optimizationCompletedMsg: 'Optimization completed',
         analysisCompletedMsg: 'Academic analysis completed with DFT, QSAR, docking',
         analysisNotAvailableMsg: 'Academic analysis not available for this dataset',
-        loadFirstMsg: 'Please load a data file first'
+        loadFirstMsg: 'Please load a data file first',
+        optMethodLabel: 'Optimization Method'
       }
     };
 
@@ -1704,28 +1727,26 @@
     var tempInput = $('temp');
     var timeInput = $('time');
     var quantityInput = $('quantity');
+    var optMethod = $('optMethod');
 
     var API_BASE = '/predict_ml';
 
-    // Guards against non-JSON / non-OK responses (HTML error pages, network hiccups, empty bodies)
-    // so a single bad response can't throw an unhandled error and freeze the UI.
     function safeJson(resp) {
       return resp.text().then(function(text) {
         var data;
         try {
           data = text ? JSON.parse(text) : {};
         } catch (e) {
-          data = { success: false, message: 'Sunucudan geçersiz yanıt alındı (HTTP ' + resp.status + ')' };
+          data = { success: false, message: 'Invalid response from server (HTTP ' + resp.status + ')' };
         }
         if (!resp.ok && data.success === undefined) {
           data.success = false;
-          data.message = data.message || ('İstek başarısız oldu (HTTP ' + resp.status + ')');
+          data.message = data.message || ('Request failed (HTTP ' + resp.status + ')');
         }
         return data;
       });
     }
 
-    // ── Experimental Mode Toggle ──
     function setExperimentalMode(active) {
       if (experimentalModeCheck) experimentalModeCheck.checked = active;
       if (expToggleWrap) {
@@ -1736,7 +1757,6 @@
         if (active) experimentalBanner.classList.add('show');
         else experimentalBanner.classList.remove('show');
       }
-      // Remove max attribute on inputs when experimental, restore when not
       if (tempInput) {
         if (active) tempInput.removeAttribute('max');
         else tempInput.setAttribute('max', '250');
@@ -1813,7 +1833,8 @@
         'analysisPlaceholder': 'analysisPlaceholder',
         'historyDesc': 'historyDesc',
         'clearHistoryBtnText': 'clearHistoryBtnText',
-        'noHistoryText': 'noHistoryText'
+        'noHistoryText': 'noHistoryText',
+        'optMethodLabel': 'optMethodLabel'
       };
 
       Object.keys(map).forEach(function(id) {
@@ -1938,23 +1959,24 @@
       if (data.academic_details) {
         var ad = data.academic_details;
         html += '<div class="academic-details">';
-        if (ad.subs1_dft) {
-          html += '<span>DFT: <span class="highlight">HOMO ' + ad.subs1_dft.homo_energy + ' eV</span>, <span class="highlight">LUMO ' + ad.subs1_dft.lumo_energy + ' eV</span></span>';
+        if (ad.anomaly_score && ad.anomaly_score.length > 0) {
+          html += '<span>Anomaly: <span class="highlight">' + ad.anomaly_score[0].toFixed(2) + '</span></span>';
         }
-        if (ad.subs1_qsar) {
-          html += '<span>QSAR: <span class="highlight">QED ' + ad.subs1_qsar.qed.toFixed(2) + '</span></span>';
+        if (ad.normality_test && ad.normality_test.is_normal !== undefined) {
+          html += '<span>Normality: <span class="highlight">' + (ad.normality_test.is_normal ? '✓ Normal' : '✗ Non-normal') + '</span></span>';
         }
-        if (ad.subs1_docking) {
-          html += '<span>Docking: <span class="highlight">' + ad.subs1_docking.binding_affinity + ' kcal/mol</span></span>';
+        if (ad.aic_bic && ad.aic_bic.AIC) {
+          html += '<span>AIC: <span class="highlight">' + ad.aic_bic.AIC.toFixed(1) + '</span></span>';
         }
-        if (ad.hsab) {
-          html += '<span>HSAB: <span class="highlight">' + ad.hsab.compatibility.toFixed(2) + '</span></span>';
+        if (ad.bootstrap_ci && ad.bootstrap_ci.ci_lower !== undefined) {
+          html += '<span>Bootstrap CI: <span class="highlight">[' + ad.bootstrap_ci.ci_lower.toFixed(2) + ', ' + ad.bootstrap_ci.ci_upper.toFixed(2) + ']</span></span>';
         }
-        if (ad.mechanistic) {
-          html += '<span>Mechanism: <span class="highlight">' + ad.mechanistic.rate_indicator.toFixed(3) + '</span></span>';
+        if (ad.uncertainty && ad.uncertainty.relative_uncertainty !== undefined) {
+          var rel = typeof ad.uncertainty.relative_uncertainty === 'number' ? ad.uncertainty.relative_uncertainty : ad.uncertainty.relative_uncertainty[0];
+          html += '<span>Uncertainty: <span class="highlight">' + (rel * 100).toFixed(1) + '%</span></span>';
         }
-        if (ad.solvent_status) {
-          html += '<span>Solvent: <span class="highlight">' + ad.solvent_status + '</span></span>';
+        if (ad.correlation_analysis && ad.correlation_analysis.feature_count !== undefined) {
+          html += '<span>Features: <span class="highlight">' + ad.correlation_analysis.feature_count + '</span></span>';
         }
         html += '</div>';
       }
@@ -1981,12 +2003,17 @@
           var catalyst = item[0];
           var yieldVal = item[1];
           var qty = item[2] || '-';
+          var temp = item[3] || '-';
+          var time = item[4] || '-';
+          var method = item[5] || 'grid';
           var color = yieldVal > 85 ? 'var(--success)' : yieldVal > 70 ? 'var(--info)' : yieldVal > 50 ? 'var(--warning)' : 'var(--error)';
+          var methodLabels = { 'grid': 'Grid', 'bayesian': 'Bayesian', 'genetic': 'Genetic' };
           html += '<div class="catalyst-result">' +
             '<span class="rank">#' + (i + 1) + '</span>' +
-            '<span class="name">' + catalyst + '</span>' +
+            '<span class="name">' + catalyst + ' <span class="method-badge">' + (methodLabels[method] || 'Grid') + '</span></span>' +
             '<span class="yield" style="color:' + color + ';">' + yieldVal.toFixed(1) + '%</span>' +
-            '<span class="qty">' + qty + ' mmol</span>' +
+            '<span class="qty">' + (typeof qty === 'number' ? qty.toFixed(4) : qty) + ' mmol</span>' +
+            '<span class="temp-time">' + temp + '°C, ' + time + 'h</span>' +
             '</div>';
         });
       } else {
@@ -2001,90 +2028,71 @@
     function showAnalysisResult(data) {
       var html = '<div class="analysis-grid">';
 
-      // DFT
-      if (data.subs1_dft) {
-        var dft = data.subs1_dft;
+      if (data.normality_test) {
+        var nt = data.normality_test;
         html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-atom" style="color:var(--purple);"></i> DFT Analysis <span class="badge-academic">Conceptual DFT</span></h5>';
-        html += '<div class="value"><span>HOMO</span> <strong>' + dft.homo_energy + ' eV</strong></div>';
-        html += '<div class="value"><span>LUMO</span> <strong>' + dft.lumo_energy + ' eV</strong></div>';
-        html += '<div class="value"><span>HOMO-LUMO Gap</span> <strong>' + dft.gap_energy + ' eV</strong></div>';
-        html += '<div class="value"><span>Chemical Potential</span> <strong>' + dft.chemical_potential + ' eV</strong></div>';
-        html += '<div class="value"><span>Absolute Hardness</span> <strong>' + dft.absolute_hardness + ' eV</strong></div>';
-        html += '<div class="value"><span>Electrophilicity</span> <strong>' + dft.electrophilicity + '</strong></div>';
-        html += '<div class="value"><span>Fukui f⁺</span> <strong>' + dft.fukui_plus + '</strong></div>';
-        html += '<div class="value"><span>Fukui f⁻</span> <strong>' + dft.fukui_minus + '</strong></div>';
-        html += '</div>';
+          '<h5><i class="fas fa-chart-bell" style="color:var(--info);"></i> Normality Test <span class="badge-academic">Shapiro-Wilk</span></h5>' +
+          '<div class="value"><span>Statistic</span> <strong>' + nt.shapiro_statistic.toFixed(4) + '</strong></div>' +
+          '<div class="value"><span>P-Value</span> <strong>' + nt.shapiro_p_value.toFixed(4) + '</strong></div>' +
+          '<div class="value"><span>Status</span> <strong style="color:' + (nt.is_normal ? 'var(--success)' : 'var(--error)') + ';">' + nt.interpretation + '</strong></div>' +
+          '</div>';
       }
 
-      // QSAR
-      if (data.subs1_qsar) {
-        var qsar = data.subs1_qsar;
+      if (data.bootstrap_ci) {
+        var bc = data.bootstrap_ci;
         html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-chart-bar" style="color:var(--info);"></i> QSAR Analysis <span class="badge-academic">Drug-likeness</span></h5>';
-        html += '<div class="value"><span>Molecular Weight</span> <strong>' + qsar.mw + ' g/mol</strong></div>';
-        html += '<div class="value"><span>LogP</span> <strong>' + qsar.logp + '</strong></div>';
-        html += '<div class="value"><span>TPSA</span> <strong>' + qsar.tpsa + ' Å²</strong></div>';
-        html += '<div class="value"><span>HBA</span> <strong>' + qsar.hba + '</strong></div>';
-        html += '<div class="value"><span>HBD</span> <strong>' + qsar.hbd + '</strong></div>';
-        html += '<div class="value"><span>Rotatable Bonds</span> <strong>' + qsar.rotatable_bonds + '</strong></div>';
-        html += '<div class="value"><span>QED</span> <strong>' + qsar.qed.toFixed(3) + '</strong></div>';
-        html += '<div class="value"><span>Lipinski Violations</span> <strong>' + qsar.lipinski_violations + '</strong></div>';
-        html += '</div>';
+          '<h5><i class="fas fa-dice" style="color:var(--orange);"></i> Bootstrap CI <span class="badge-academic">Efron 1979</span></h5>' +
+          '<div class="value"><span>Mean Error</span> <strong>' + bc.mean_error.toFixed(3) + '</strong></div>' +
+          '<div class="value"><span>CI Lower</span> <strong>' + bc.ci_lower.toFixed(3) + '</strong></div>' +
+          '<div class="value"><span>CI Upper</span> <strong>' + bc.ci_upper.toFixed(3) + '</strong></div>' +
+          '<div class="value"><span>CI Width</span> <strong>' + bc.ci_width.toFixed(3) + '</strong></div>' +
+          '</div>';
       }
 
-      // Docking
-      if (data.subs1_docking) {
-        var dock = data.subs1_docking;
-        var affColor = dock.binding_affinity < -5.5 ? 'var(--success)' : 'var(--warning)';
+      if (data.aic_bic) {
+        var ab = data.aic_bic;
         html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-dna" style="color:var(--orange);"></i> Docking Analysis <span class="badge-academic">AutoDock Vina</span></h5>';
-        html += '<div class="value"><span>Binding Affinity</span> <strong style="color:' + affColor + ';">' + dock.binding_affinity + ' kcal/mol</strong></div>';
-        html += '<div class="value"><span>Hydrophobic Score</span> <strong>' + dock.hydrophobic + '</strong></div>';
-        html += '<div class="value"><span>Electrostatic Score</span> <strong>' + dock.electrostatic + '</strong></div>';
-        html += '<div class="value"><span>H-Bond Score</span> <strong>' + dock.hydrogen_bond + '</strong></div>';
-        html += '<div class="value"><span>Entropic Score</span> <strong>' + dock.entropic + '</strong></div>';
-        html += '<div class="value"><span>Binding Class</span> <strong>' + dock.binding_class + '</strong></div>';
-        html += '</div>';
+          '<h5><i class="fas fa-balance-scale" style="color:var(--purple);"></i> AIC / BIC <span class="badge-academic">Model Selection</span></h5>' +
+          '<div class="value"><span>AIC</span> <strong>' + ab.AIC.toFixed(1) + '</strong></div>' +
+          '<div class="value"><span>BIC</span> <strong>' + ab.BIC.toFixed(1) + '</strong></div>' +
+          '<div class="value"><span>Log-Likelihood</span> <strong>' + ab.log_likelihood.toFixed(1) + '</strong></div>' +
+          '</div>';
       }
 
-      // HSAB
-      if (data.hsab) {
-        var hsab = data.hsab;
-        var compatColor = hsab.compatibility > 0.8 ? 'var(--success)' : hsab.compatibility > 0.5 ? 'var(--warning)' : 'var(--error)';
+      if (data.learning_curve) {
+        var lc = data.learning_curve;
         html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-arrow-up" style="color:var(--success);"></i> HSAB Analysis <span class="badge-academic">Pearson</span></h5>';
-        html += '<div class="value"><span>Overall Compatibility</span> <strong style="color:' + compatColor + ';">' + hsab.compatibility.toFixed(3) + '</strong></div>';
-        html += '<div class="value"><span>Pd-Halide Match</span> <strong>' + hsab.pd_halide_match.toFixed(3) + '</strong></div>';
-        html += '<div class="value"><span>Pd-Ligand Match</span> <strong>' + hsab.pd_ligand_match.toFixed(3) + '</strong></div>';
-        html += '</div>';
+          '<h5><i class="fas fa-chart-line" style="color:var(--success);"></i> Learning Curve <span class="badge-academic">Hastie 2009</span></h5>' +
+          '<div class="value"><span>Overfitting Ratio</span> <strong style="color:' + (lc.is_overfitting ? 'var(--error)' : 'var(--success)') + ';">' + (lc.overfitting_ratio * 100).toFixed(1) + '%</strong></div>' +
+          '<div class="value"><span>Status</span> <strong>' + (lc.is_overfitting ? '⚠️ Overfitting' : '✓ Generalizing') + '</strong></div>' +
+          '<div class="value"><span>Train Score</span> <strong>' + (lc.train_scores_mean ? lc.train_scores_mean[lc.train_scores_mean.length-1].toFixed(3) : 'N/A') + '</strong></div>' +
+          '<div class="value"><span>Test Score</span> <strong>' + (lc.test_scores_mean ? lc.test_scores_mean[lc.test_scores_mean.length-1].toFixed(3) : 'N/A') + '</strong></div>' +
+          '</div>';
       }
 
-      // Mechanistic
-      if (data.mechanistic) {
-        var mech = data.mechanistic;
-        html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-bolt" style="color:var(--warning);"></i> Mechanistic Analysis <span class="badge-academic">DFT Barriers</span></h5>';
-        html += '<div class="value"><span>Rate Indicator</span> <strong>' + mech.rate_indicator.toFixed(3) + '</strong></div>';
-        html += '<div class="value"><span>OA Rate</span> <strong>' + (mech.oa_rate ? mech.oa_rate.toFixed(4) : 'N/A') + '</strong></div>';
-        html += '<div class="value"><span>TM Rate</span> <strong>' + (mech.tm_rate ? mech.tm_rate.toFixed(4) : 'N/A') + '</strong></div>';
-        html += '<div class="value"><span>RE Rate</span> <strong>' + (mech.re_rate ? mech.re_rate.toFixed(4) : 'N/A') + '</strong></div>';
-        html += '<div class="value"><span>Efficiency</span> <strong>' + (mech.efficiency ? mech.efficiency.toFixed(3) : 'N/A') + '</strong></div>';
-        html += '</div>';
-      }
-
-      // Factor Breakdown
-      if (data.factor_breakdown) {
-        var fb = data.factor_breakdown;
+      if (data.correlation_analysis && data.correlation_analysis.top_features) {
+        var ca = data.correlation_analysis;
         html += '<div class="analysis-card" style="grid-column:1/-1;">' +
-          '<h5><i class="fas fa-weight-hanging" style="color:var(--text-primary);"></i> Factor Breakdown</h5>';
-        html += '<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:4px;">';
-        Object.keys(fb).forEach(function(key) {
-          var val = fb[key];
-          var color = val > 1.1 ? 'var(--success)' : val > 0.9 ? 'var(--text-primary)' : 'var(--error)';
-          html += '<div class="value" style="border-bottom:none;font-size:0.75rem;"><span>' + key + '</span> <strong style="color:' + color + ';">' + val.toFixed(2) + '</strong></div>';
-        });
-        html += '</div></div>';
+          '<h5><i class="fas fa-arrows-left-right" style="color:var(--warning);"></i> Correlation Analysis <span class="badge-academic">Pearson 1895</span></h5>';
+        if (ca.top_features && ca.top_features.length > 0) {
+          ca.top_features.slice(0, 5).forEach(function(item) {
+            html += '<div class="value"><span>' + item[0] + '</span> <strong>' + item[1].toFixed(3) + '</strong></div>';
+          });
+        } else {
+          html += '<p style="color:var(--text-muted);font-size:0.8rem;">No significant correlations found</p>';
+        }
+        html += '</div>';
+      }
+
+      if (data.uncertainty) {
+        var uc = data.uncertainty;
+        var rel = typeof uc.relative_uncertainty === 'number' ? uc.relative_uncertainty : (Array.isArray(uc.relative_uncertainty) ? uc.relative_uncertainty[0] : 0);
+        html += '<div class="analysis-card">' +
+          '<h5><i class="fas fa-triangle-exclamation" style="color:var(--error);"></i> Uncertainty <span class="badge-academic">Ensemble</span></h5>' +
+          '<div class="value"><span>Relative Uncertainty</span> <strong>' + (rel * 100).toFixed(1) + '%</strong></div>' +
+          '<div class="value"><span>CI Lower</span> <strong>' + (typeof uc.ci_lower === 'number' ? uc.ci_lower.toFixed(2) : 'N/A') + '</strong></div>' +
+          '<div class="value"><span>CI Upper</span> <strong>' + (typeof uc.ci_upper === 'number' ? uc.ci_upper.toFixed(2) : 'N/A') + '</strong></div>' +
+          '</div>';
       }
 
       html += '</div>';
@@ -2231,6 +2239,12 @@
                 html += ' | CV: ' + cv[bestModel].mean.toFixed(3) + ' ± ' + cv[bestModel].std.toFixed(3);
               }
             }
+            if (data.normality_test && data.normality_test.is_normal !== undefined) {
+              html += ' | Normality: ' + (data.normality_test.is_normal ? '✓' : '✗');
+            }
+            if (data.aic_bic_results && data.aic_bic_results.AIC) {
+              html += ' | AIC: ' + data.aic_bic_results.AIC.toFixed(1);
+            }
             modelStats.innerHTML = html;
             modelStats.style.display = 'block';
 
@@ -2307,6 +2321,7 @@
 
     function getConditions() {
       var expMode = experimentalModeCheck ? experimentalModeCheck.checked : false;
+      var method = optMethod ? optMethod.value : 'grid';
 
       var cond = {
         temp: parseFloat($('temp').value),
@@ -2318,7 +2333,8 @@
         solv2: $('solv2').value.trim(),
         subs1_smiles: $('subs1_smiles').value.trim(),
         subs2_smiles: $('subs2_smiles').value.trim(),
-        experimental_mode: expMode
+        experimental_mode: expMode,
+        method: method
       };
 
       if (!cond.catalizor || !cond.base || !cond.solv1 || !cond.subs1_smiles || !cond.subs2_smiles) {
@@ -2326,7 +2342,6 @@
         return null;
       }
 
-      // Min-value validation applies in all modes; upper limits only in standard mode
       if (isNaN(cond.temp) || isNaN(cond.time) || isNaN(cond.quantity)) {
         showMessage(currentLang === 'tr' ? 'Sıcaklık, süre ve miktar sayısal olmalı' : 'Temperature, time and quantity must be numbers', 'error');
         return null;
@@ -2548,7 +2563,16 @@
     }
 
     if (optimizeBtn) {
-      optimizeBtn.addEventListener('click', optimizeCatalyst);
+      optimizeBtn.addEventListener('click', function() {
+        var method = optMethod ? optMethod.value : 'grid';
+        if (method === 'bayesian' && !window.SKOPT_AVAILABLE) {
+          showMessage('Bayesian optimization requires scikit-optimize. Falling back to grid search.', 'warning');
+        }
+        if (method === 'genetic' && !window.DEAP_AVAILABLE) {
+          showMessage('Genetic optimization requires DEAP. Falling back to grid search.', 'warning');
+        }
+        optimizeCatalyst();
+      });
     }
 
     if (analyzeBtn) {
@@ -2580,6 +2604,19 @@
     setInterval(updateClock, 1000);
     loadFileList();
     loadHistory();
+
+    window.SKOPT_AVAILABLE = false;
+    window.DEAP_AVAILABLE = false;
+
+    fetch(API_BASE + '/api/health')
+      .then(safeJson)
+      .then(function(data) {
+        if (data.success) {
+          window.SKOPT_AVAILABLE = data.skopt_available || false;
+          window.DEAP_AVAILABLE = data.deap_available || false;
+        }
+      })
+      .catch(function() {});
 
   })();
 </script>
