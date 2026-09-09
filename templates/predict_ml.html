@@ -1,2624 +1,2380 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Molytica - Suzuki Academic Predictor</title>
-  <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --bg-primary: #f6f7f9;
-      --bg-secondary: #ffffff;
-      --bg-card: #ffffff;
-      --bg-header: rgba(255, 255, 255, 0.88);
-      --bg-input: #f1f3f5;
-      --bg-panel: #f1f4f9;
-      --bg-hover: #e8eaef;
-      --text-primary: #0a0a0a;
-      --text-secondary: #4a4a4a;
-      --text-muted: #7a7a7a;
-      --border-color: rgba(0, 0, 0, 0.08);
-      --border-hover: rgba(0, 0, 0, 0.18);
-      --border-focus: rgba(0, 0, 0, 0.3);
-      --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
-      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
-      --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.06);
-      --shadow-xl: 0 30px 60px rgba(0, 0, 0, 0.08);
-      --btn-bg: #ffffff;
-      --btn-text: #0a0a0a;
-      --btn-hover: #0a0a0a;
-      --btn-hover-text: #ffffff;
-      --footer-bg: #0a0a0a;
-      --footer-text: #d0d0d0;
-      --clock-bg: #eef0f2;
-      --clock-text: #3a3a3a;
-      --radius-sm: 8px;
-      --radius-md: 16px;
-      --radius-lg: 20px;
-      --radius-xl: 100px;
-      --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      --font: 'Inter', -apple-system, system-ui, sans-serif;
-      --success: #4C9A82;
-      --success-bg: #e3f0ec;
-      --error: #C86464;
-      --error-bg: #f5e6e6;
-      --info: #6E8FB8;
-      --info-bg: #e6ecf3;
-      --warning: #C99A54;
-      --warning-bg: #f3ecdd;
-      --purple: #9788B0;
-      --purple-bg: #eeeaf3;
-      --orange: #C4855C;
-      --orange-bg: #f3e6dc;
-    }
-
-    [data-theme="dark"] {
-      --bg-primary: #0d0d0d;
-      --bg-secondary: #161616;
-      --bg-card: #1a1a1a;
-      --bg-header: rgba(20, 20, 20, 0.92);
-      --bg-input: #282828;
-      --bg-panel: #1a1a1a;
-      --bg-hover: #2a2a2a;
-      --text-primary: #f0f0f0;
-      --text-secondary: #b0b0b0;
-      --text-muted: #707070;
-      --border-color: rgba(255, 255, 255, 0.06);
-      --border-hover: rgba(255, 255, 255, 0.14);
-      --border-focus: rgba(255, 255, 255, 0.25);
-      --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
-      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-      --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
-      --shadow-xl: 0 30px 60px rgba(0, 0, 0, 0.6);
-      --btn-bg: #222222;
-      --btn-text: #f0f0f0;
-      --btn-hover: #f0f0f0;
-      --btn-hover-text: #0a0a0a;
-      --footer-bg: #0a0a0a;
-      --footer-text: #888888;
-      --clock-bg: #282828;
-      --clock-text: #c0c0c0;
-      --success-bg: #1b3a1b;
-      --error-bg: #3a1a1a;
-      --info-bg: #1a2a3a;
-      --warning-bg: #3a2a1a;
-      --purple-bg: #2a1a3a;
-      --orange-bg: #3a2a1a;
-    }
-
-    body {
-      background: var(--bg-primary);
-      font-family: var(--font);
-      color: var(--text-primary);
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      line-height: 1.6;
-      transition: background var(--transition), color var(--transition);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(24px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    header {
-      background: var(--bg-header);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border-color);
-      padding: 14px 48px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px 20px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      transition: background var(--transition), border-color var(--transition);
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .logo {
-      height: 38px;
-      cursor: pointer;
-      transition: transform 0.3s ease;
-      filter: brightness(0);
-    }
-    [data-theme="dark"] .logo {
-      filter: brightness(0) invert(1);
-    }
-    .logo:hover {
-      transform: scale(1.05) rotate(-1deg);
-    }
-
-    header h1 {
-      font-size: 1.2rem;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      color: var(--text-primary);
-      transition: color var(--transition);
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-
-    #clock {
-      font-size: 0.85rem;
-      font-weight: 450;
-      color: var(--clock-text);
-      background: var(--clock-bg);
-      padding: 4px 14px;
-      border-radius: var(--radius-xl);
-      letter-spacing: 0.4px;
-      font-variant-numeric: tabular-nums;
-      transition: all var(--transition);
-      white-space: nowrap;
-    }
-
-    .theme-toggle {
-      background: var(--clock-bg);
-      border: none;
-      border-radius: var(--radius-xl);
-      padding: 6px 12px;
-      font-size: 1rem;
-      cursor: pointer;
-      color: var(--text-primary);
-      transition: all var(--transition);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .theme-toggle:hover {
-      transform: scale(0.95);
-    }
-
-    .lang-btn {
-      background: transparent;
-      border: 1.5px solid var(--border-hover);
-      border-radius: var(--radius-xl);
-      padding: 5px 14px;
-      font-weight: 600;
-      font-size: 0.75rem;
-      color: var(--text-primary);
-      cursor: pointer;
-      transition: all var(--transition);
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-    .lang-btn:hover {
-      background: var(--text-primary);
-      color: var(--bg-primary);
-      transform: scale(0.95);
-    }
-
-    .app-container {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 0;
-      flex: 1;
-      animation: fadeUp 0.7s ease forwards;
-      min-height: 0;
-    }
-
-    .file-panel {
-      background: var(--bg-panel);
-      border-right: 1px solid var(--border-color);
-      padding: 20px 16px;
-      overflow-y: auto;
-      transition: background var(--transition), border-color var(--transition);
-      min-height: 0;
-      max-height: 72vh;
-    }
-
-    .panel-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border-color);
-      transition: color var(--transition), border-color var(--transition);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .panel-title .badge {
-      font-size: 0.6rem;
-      background: var(--text-muted);
-      color: var(--bg-primary);
-      padding: 1px 8px;
-      border-radius: var(--radius-xl);
-    }
-
-    .file-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .file-item {
-      padding: 10px 12px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: all var(--transition);
-      overflow: hidden;
-      word-break: break-word;
-      position: relative;
-    }
-    .file-item:hover {
-      border-color: var(--border-hover);
-      transform: translateX(4px);
-      box-shadow: var(--shadow-sm);
-      background: var(--bg-hover);
-    }
-    .file-item.active {
-      border-color: var(--text-primary);
-      background: var(--text-primary);
-      color: var(--bg-primary);
-    }
-    .file-item.active .file-size {
-      color: rgba(255,255,255,0.6);
-    }
-    .file-item .badge-enriched {
-      display: inline-block;
-      font-size: 0.5rem;
-      background: var(--success);
-      color: white;
-      padding: 1px 8px;
-      border-radius: var(--radius-xl);
-      margin-left: 6px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .file-item .badge-basic {
-      display: inline-block;
-      font-size: 0.5rem;
-      background: var(--warning);
-      color: white;
-      padding: 1px 8px;
-      border-radius: var(--radius-xl);
-      margin-left: 6px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .file-item .file-status {
-      font-size: 0.6rem;
-      margin-top: 2px;
-    }
-    .file-item .file-status .ok {
-      color: var(--success);
-    }
-    .file-item .file-status .err {
-      color: var(--error);
-    }
-
-    .file-name {
-      font-weight: 500;
-      font-size: 0.9rem;
-      margin-bottom: 2px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-
-    .file-size {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      font-family: 'Inter', monospace;
-      transition: color var(--transition);
-    }
-
-    .no-files {
-      text-align: center;
-      color: var(--text-muted);
-      padding: 20px 0;
-      font-size: 0.9rem;
-    }
-
-    .main-content {
-      background: var(--bg-primary);
-      padding: 28px 32px;
-      overflow-y: auto;
-      transition: background var(--transition);
-      min-height: 0;
-      max-height: 72vh;
-    }
-
-    .page-header {
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border-color);
-      transition: border-color var(--transition);
-    }
-    .page-header h1 {
-      font-size: 1.6rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--text-primary);
-      margin-bottom: 4px;
-      transition: color var(--transition);
-      word-break: break-word;
-    }
-    .page-header p {
-      color: var(--text-secondary);
-      font-size: 0.95rem;
-      transition: color var(--transition);
-      word-break: break-word;
-    }
-
-    .status-message {
-      padding: 12px 18px;
-      margin-bottom: 16px;
-      border-radius: var(--radius-sm);
-      display: none;
-      border-left: 4px solid;
-      font-size: 0.9rem;
-      animation: fadeIn 0.3s ease;
-      word-break: break-word;
-    }
-    .status-success {
-      background: var(--success-bg);
-      border-color: var(--success);
-      color: var(--success);
-    }
-    .status-error {
-      background: var(--error-bg);
-      border-color: var(--error);
-      color: var(--error);
-    }
-    .status-info {
-      background: var(--info-bg);
-      border-color: var(--info);
-      color: var(--info);
-    }
-    .status-warning {
-      background: var(--warning-bg);
-      border-color: var(--warning);
-      color: var(--warning);
-    }
-
-    .card {
-      background: var(--bg-card);
-      padding: 20px 24px;
-      margin-bottom: 20px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      transition: all var(--transition);
-      box-shadow: var(--shadow-sm);
-      overflow: hidden;
-    }
-    .card:hover {
-      box-shadow: var(--shadow-md);
-    }
-
-    .card-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: color var(--transition);
-    }
-    .card-title::before {
-      content: '';
-      width: 3px;
-      height: 16px;
-      background: var(--text-primary);
-      border-radius: 2px;
-      transition: background var(--transition);
-    }
-    .card-title .sub {
-      font-weight: 400;
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      text-transform: none;
-      letter-spacing: 0;
-    }
-
-    .form-group {
-      margin-bottom: 14px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 500;
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      transition: color var(--transition);
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      font-size: 0.9rem;
-      font-family: var(--font);
-      background: var(--bg-input);
-      color: var(--text-primary);
-      transition: all var(--transition);
-      outline: none;
-    }
-    .form-control:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
-    }
-    [data-theme="dark"] .form-control:focus {
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
-    }
-
-    .form-control::placeholder {
-      color: var(--text-muted);
-      font-size: 0.85rem;
-    }
-
-    select.form-control {
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a4a4a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      padding-right: 36px;
-    }
-    [data-theme="dark"] select.form-control {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23b0b0b0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 14px;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 6px;
-    }
-
-    .btn {
-      padding: 10px 24px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-xl);
-      font-family: var(--font);
-      font-weight: 600;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      text-decoration: none;
-      display: inline-block;
-      text-align: center;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      position: relative;
-      overflow: hidden;
-      white-space: nowrap;
-    }
-    .btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--btn-hover);
-      transform: translateX(-100%);
-      transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      z-index: -1;
-    }
-    .btn:hover::before {
-      transform: translateX(0);
-    }
-
-    .btn-primary {
-      background: var(--text-primary);
-      color: var(--bg-primary);
-      border-color: var(--text-primary);
-    }
-    .btn-primary::before {
-      background: var(--bg-primary);
-    }
-    .btn-primary:hover {
-      color: var(--text-primary);
-      border-color: var(--bg-primary);
-    }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--text-primary);
-      border: 1.5px solid var(--text-primary);
-    }
-    .btn-secondary::before {
-      background: var(--text-primary);
-    }
-    .btn-secondary:hover {
-      color: var(--bg-primary);
-      border-color: var(--text-primary);
-    }
-
-    .btn-success {
-      background: var(--success);
-      color: white;
-      border-color: var(--success);
-    }
-    .btn-success::before {
-      background: white;
-    }
-    .btn-success:hover {
-      color: var(--success);
-      border-color: white;
-    }
-
-    .btn-purple {
-      background: var(--purple);
-      color: white;
-      border-color: var(--purple);
-    }
-    .btn-purple::before {
-      background: white;
-    }
-    .btn-purple:hover {
-      color: var(--purple);
-      border-color: white;
-    }
-
-    .btn-orange {
-      background: var(--orange);
-      color: white;
-      border-color: var(--orange);
-    }
-    .btn-orange::before {
-      background: white;
-    }
-    .btn-orange:hover {
-      color: var(--orange);
-      border-color: white;
-    }
-
-    .btn:active {
-      transform: scale(0.97);
-    }
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 10px;
-    }
-    .info-item {
-      text-align: center;
-      padding: 12px;
-      background: var(--bg-input);
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-color);
-      transition: all var(--transition);
-    }
-    .info-item:hover {
-      border-color: var(--border-hover);
-      transform: translateY(-2px);
-    }
-    .info-value {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      transition: color var(--transition);
-    }
-    .info-label {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 2px;
-    }
-
-    .result-container {
-      display: none;
-      animation: fadeUp 0.5s ease;
-    }
-    .result-container.show {
-      display: block;
-    }
-
-    .prediction-result {
-      background: var(--bg-input);
-      padding: 24px;
-      text-align: center;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-color);
-      margin-bottom: 16px;
-      transition: all var(--transition);
-      position: relative;
-      overflow: hidden;
-    }
-    .prediction-result .yield-value {
-      font-size: 3.5rem;
-      font-weight: 800;
-      color: var(--text-primary);
-      line-height: 1.2;
-    }
-    .prediction-result .yield-label {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .prediction-result .yield-class {
-      display: inline-block;
-      padding: 4px 20px;
-      border-radius: var(--radius-xl);
-      font-weight: 700;
-      font-size: 0.75rem;
-      margin-top: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .prediction-result .model-info {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 10px;
-    }
-    .prediction-result .confidence-info {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-    .prediction-result .interval-info {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .academic-details {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border-color);
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 16px;
-    }
-    .academic-details span {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .academic-details .highlight {
-      color: var(--text-primary);
-      font-weight: 500;
-    }
-
-    .optimization-results {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .catalyst-result {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 14px;
-      background: var(--bg-input);
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-color);
-      transition: all var(--transition);
-      gap: 12px;
-    }
-    .catalyst-result:hover {
-      border-color: var(--border-hover);
-      transform: translateX(4px);
-    }
-    .catalyst-result .rank {
-      font-weight: 700;
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      min-width: 28px;
-    }
-    .catalyst-result .name {
-      font-weight: 500;
-      font-size: 0.9rem;
-      color: var(--text-primary);
-      transition: color var(--transition);
-      word-break: break-word;
-      flex: 1;
-    }
-    .catalyst-result .yield {
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--text-primary);
-      transition: color var(--transition);
-      white-space: nowrap;
-    }
-    .catalyst-result .qty {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-    }
-    .catalyst-result .temp-time {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-    }
-    .catalyst-result .method-badge {
-      font-size: 0.5rem;
-      background: var(--purple);
-      color: white;
-      padding: 1px 8px;
-      border-radius: var(--radius-xl);
-      font-weight: 600;
-    }
-
-    .molecule-display {
-      margin-top: 16px;
-      text-align: center;
-    }
-    .molecule-display h4 {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 10px;
-    }
-    .molecule-display img {
-      max-width: 100%;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-color);
-      background: var(--bg-card);
-      max-height: 300px;
-    }
-
-    .loading {
-      display: none;
-      text-align: center;
-      padding: 30px;
-    }
-    .spinner {
-      border: 3px solid var(--bg-input);
-      border-top: 3px solid var(--text-primary);
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 12px;
-    }
-    .loading-text {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    .academic-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--bg-input);
-      color: var(--text-secondary);
-      padding: 4px 12px;
-      border-radius: var(--radius-xl);
-      font-size: 0.6rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      border: 1px solid var(--border-color);
-    }
-    .academic-badge .icon {
-      font-size: 0.7rem;
-    }
-
-    .model-stats {
-      margin-top: 10px;
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      padding: 10px;
-      background: var(--bg-input);
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-color);
-    }
-    .model-stats .highlight {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-
-    .tab-group {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    .tab-btn {
-      padding: 8px 16px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-xl);
-      background: transparent;
-      color: var(--text-secondary);
-      font-family: var(--font);
-      font-size: 0.75rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all var(--transition);
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .tab-btn:hover {
-      border-color: var(--border-hover);
-      color: var(--text-primary);
-    }
-    .tab-btn.active {
-      background: var(--text-primary);
-      color: var(--bg-primary);
-      border-color: var(--text-primary);
-    }
-
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .analysis-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .analysis-card {
-      background: var(--bg-input);
-      padding: 16px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-color);
-      transition: all var(--transition);
-    }
-    .analysis-card:hover {
-      border-color: var(--border-hover);
-    }
-    .analysis-card h5 {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .analysis-card h5 .badge-academic {
-      font-size: 0.5rem;
-      background: var(--purple);
-      color: white;
-      padding: 1px 8px;
-      border-radius: var(--radius-xl);
-    }
-    .analysis-card .value {
-      font-size: 0.85rem;
-      padding: 2px 0;
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-color);
-    }
-    .analysis-card .value:last-child {
-      border-bottom: none;
-    }
-    .analysis-card .value strong {
-      color: var(--text-primary);
-    }
-
-    .history-section {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border-color);
-    }
-    .history-section h4 {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-    .history-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 8px;
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      border-radius: var(--radius-sm);
-    }
-    .history-item:hover {
-      background: var(--bg-hover);
-    }
-
-    footer {
-      background: var(--footer-bg);
-      color: var(--footer-text);
-      padding: 28px 24px 20px;
-      margin-top: auto;
-      border-top: 1px solid var(--border-color);
-      transition: background var(--transition), border-color var(--transition);
-    }
-    .footer-content {
-      max-width: 1060px;
-      margin: 0 auto;
-      text-align: center;
-    }
-    .footer-content .contact {
-      font-size: 0.85rem;
-      margin-bottom: 12px;
-      opacity: 0.7;
-      letter-spacing: 0.2px;
-      word-break: break-word;
-    }
-    .footer-content .contact strong {
-      opacity: 1;
-      color: #fff;
-      font-weight: 500;
-    }
-    .social-icons {
-      display: flex;
-      justify-content: center;
-      gap: 24px;
-      margin: 14px 0 16px;
-      flex-wrap: wrap;
-    }
-    .social-icons a {
-      color: #888;
-      font-size: 1.2rem;
-      transition: all 0.3s ease;
-      opacity: 0.5;
-    }
-    .social-icons a:hover {
-      color: #fff;
-      transform: translateY(-2px);
-      opacity: 1;
-    }
-    .copyright {
-      font-size: 0.75rem;
-      opacity: 0.35;
-      margin-top: 8px;
-      letter-spacing: 0.3px;
-    }
-
-    .scrollable {
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .version-tag {
-      font-size: 0.55rem;
-      background: var(--purple);
-      color: white;
-      padding: 2px 10px;
-      border-radius: var(--radius-xl);
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      margin-left: 8px;
-    }
-
-    .monotonicity-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.55rem;
-      background: var(--success-bg);
-      color: var(--success);
-      padding: 2px 10px;
-      border-radius: var(--radius-xl);
-      font-weight: 600;
-      border: 1px solid var(--success);
-    }
-
-    .experimental-toggle-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      border-radius: var(--radius-sm);
-      border: 1.5px solid var(--border-color);
-      background: var(--bg-input);
-      transition: all var(--transition);
-      cursor: pointer;
-      user-select: none;
-    }
-    .experimental-toggle-wrap:hover {
-      border-color: var(--purple);
-    }
-    .experimental-toggle-wrap.active {
-      border-color: var(--purple);
-      background: var(--purple-bg);
-    }
-
-    .exp-toggle-switch {
-      position: relative;
-      width: 40px;
-      height: 22px;
-      flex-shrink: 0;
-    }
-    .exp-toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-    .exp-toggle-slider {
-      position: absolute;
-      inset: 0;
-      background: var(--border-hover);
-      border-radius: 22px;
-      transition: background 0.3s;
-      cursor: pointer;
-    }
-    .exp-toggle-slider::before {
-      content: '';
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      left: 3px;
-      top: 3px;
-      background: white;
-      border-radius: 50%;
-      transition: transform 0.3s;
-    }
-    input:checked + .exp-toggle-slider {
-      background: var(--purple);
-    }
-    input:checked + .exp-toggle-slider::before {
-      transform: translateX(18px);
-    }
-
-    .exp-toggle-label {
-      flex: 1;
-    }
-    .exp-toggle-label .exp-title {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .exp-toggle-label .exp-desc {
-      font-size: 0.68rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-    .exp-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.5rem;
-      background: var(--purple);
-      color: white;
-      padding: 1px 8px;
-      border-radius: var(--radius-xl);
-      font-weight: 700;
-      letter-spacing: 0.4px;
-    }
-
-    .experimental-banner {
-      display: none;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 12px 16px;
-      background: var(--purple-bg);
-      border: 1.5px solid var(--purple);
-      border-radius: var(--radius-sm);
-      margin-top: 12px;
-      font-size: 0.78rem;
-      color: var(--purple);
-      animation: fadeIn 0.3s ease;
-    }
-    .experimental-banner.show {
-      display: flex;
-    }
-    .experimental-banner i {
-      margin-top: 2px;
-      flex-shrink: 0;
-    }
-
-    .result-experimental-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      background: var(--purple);
-      color: white;
-      font-size: 0.62rem;
-      font-weight: 700;
-      padding: 3px 12px;
-      border-radius: var(--radius-xl);
-      letter-spacing: 0.4px;
-      margin-bottom: 8px;
-    }
-
-    @media (max-width: 992px) {
-      .app-container {
-        grid-template-columns: 220px 1fr;
-      }
-      header {
-        padding: 12px 24px;
-      }
-      .analysis-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 768px) {
-      header { padding: 12px 20px; }
-      .logo { height: 30px; }
-      header h1 { font-size: 1rem; }
-      #clock { display: none; }
-      .theme-toggle { padding: 4px 10px; font-size: 0.85rem; }
-      .lang-btn { padding: 4px 10px; font-size: 0.65rem; }
-
-      .app-container {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
-      }
-
-      .file-panel {
-        max-height: 160px;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-        padding: 12px 16px;
-      }
-
-      .main-content {
-        padding: 16px 20px;
-        max-height: none;
-        min-height: 0;
-      }
-
-      .page-header h1 { font-size: 1.3rem; }
-      .page-header p { font-size: 0.85rem; }
-
-      .card { padding: 16px 18px; }
-      .card-title { font-size: 0.75rem; }
-
-      .form-row { grid-template-columns: 1fr; gap: 10px; }
-      .info-grid { grid-template-columns: 1fr 1fr; }
-
-      .btn-group { flex-direction: column; }
-      .btn { width: 100%; text-align: center; white-space: normal; }
-
-      .prediction-result .yield-value { font-size: 2.4rem; }
-
-      footer { padding: 20px 16px 16px; }
-      .social-icons { gap: 18px; }
-      .social-icons a { font-size: 1rem; }
-
-      .tab-group { flex-wrap: wrap; }
-      .tab-btn { font-size: 0.65rem; padding: 6px 12px; }
-
-      .analysis-grid { grid-template-columns: 1fr; }
-    }
-
-    @media (max-width: 480px) {
-      header h1 { font-size: 0.85rem; }
-      .lang-btn { font-size: 0.6rem; padding: 3px 8px; }
-      .page-header h1 { font-size: 1.1rem; }
-      .info-grid { grid-template-columns: 1fr; }
-      .card { padding: 12px 14px; }
-      .main-content { padding: 12px 14px; }
-      .file-panel { max-height: 140px; }
-      .prediction-result .yield-value { font-size: 2rem; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Molytica - Suzuki-Miyaura Yield Predictor</title>
+    <link rel="icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f6f7f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-header: rgba(255, 255, 255, 0.88);
+            --bg-input: #f1f3f5;
+            --bg-panel: #f1f4f9;
+            --bg-hover: #e8eaef;
+            --text-primary: #0a0a0a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #7a7a7a;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.18);
+            --border-focus: rgba(0, 0, 0, 0.3);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.06);
+            --btn-bg: #ffffff;
+            --btn-text: #0a0a0a;
+            --btn-hover: #0a0a0a;
+            --btn-hover-text: #ffffff;
+            --footer-bg: #0a0a0a;
+            --footer-text: #d0d0d0;
+            --clock-bg: #eef0f2;
+            --clock-text: #3a3a3a;
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 20px;
+            --radius-xl: 100px;
+            --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            --font: 'Inter', -apple-system, system-ui, sans-serif;
+            --success: #4C9A82;
+            --success-bg: #e3f0ec;
+            --error: #C86464;
+            --error-bg: #f5e6e6;
+            --info: #6E8FB8;
+            --info-bg: #e6ecf3;
+            --warning: #C99A54;
+            --warning-bg: #f3ecdd;
+            --purple: #9788B0;
+            --purple-bg: #eeeaf3;
+            --orange: #C4855C;
+            --orange-bg: #f3e6dc;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #161616;
+            --bg-card: #1a1a1a;
+            --bg-header: rgba(20, 20, 20, 0.92);
+            --bg-input: #282828;
+            --bg-panel: #1a1a1a;
+            --bg-hover: #2a2a2a;
+            --text-primary: #f0f0f0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #707070;
+            --border-color: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.14);
+            --border-focus: rgba(255, 255, 255, 0.25);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+            --btn-bg: #222222;
+            --btn-text: #f0f0f0;
+            --btn-hover: #f0f0f0;
+            --btn-hover-text: #0a0a0a;
+            --footer-bg: #0a0a0a;
+            --footer-text: #888888;
+            --clock-bg: #282828;
+            --clock-text: #c0c0c0;
+            --success-bg: #1b3a1b;
+            --error-bg: #3a1a1a;
+            --info-bg: #1a2a3a;
+            --warning-bg: #3a2a1a;
+            --purple-bg: #2a1a3a;
+            --orange-bg: #3a2a1a;
+        }
+
+        body {
+            background: var(--bg-primary);
+            font-family: var(--font);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            line-height: 1.6;
+            transition: background var(--transition), color var(--transition);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        header {
+            background: var(--bg-header);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 14px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: background var(--transition), border-color var(--transition);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo {
+            height: 38px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            filter: brightness(0);
+        }
+        [data-theme="dark"] .logo {
+            filter: brightness(0) invert(1);
+        }
+        .logo:hover {
+            transform: scale(1.05) rotate(-1deg);
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            transition: color var(--transition);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        #clock {
+            font-size: 0.85rem;
+            font-weight: 450;
+            color: var(--clock-text);
+            background: var(--clock-bg);
+            padding: 4px 14px;
+            border-radius: var(--radius-xl);
+            letter-spacing: 0.4px;
+            font-variant-numeric: tabular-nums;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .theme-toggle {
+            background: var(--clock-bg);
+            border: none;
+            border-radius: var(--radius-xl);
+            padding: 6px 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .theme-toggle:hover {
+            transform: scale(0.95);
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: 1.5px solid var(--border-hover);
+            border-radius: var(--radius-xl);
+            padding: 5px 14px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .lang-btn:hover {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            transform: scale(0.95);
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 0;
+            flex: 1;
+            animation: fadeUp 0.7s ease forwards;
+            min-height: 0;
+        }
+
+        .file-panel {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            padding: 20px 16px;
+            overflow-y: auto;
+            transition: background var(--transition), border-color var(--transition);
+            min-height: 0;
+            max-height: 72vh;
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            transition: color var(--transition), border-color var(--transition);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-title .badge {
+            font-size: 0.6rem;
+            background: var(--text-muted);
+            color: var(--bg-primary);
+            padding: 1px 8px;
+            border-radius: var(--radius-xl);
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .file-item {
+            padding: 10px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition);
+            overflow: hidden;
+            word-break: break-word;
+            position: relative;
+        }
+        .file-item:hover {
+            border-color: var(--border-hover);
+            transform: translateX(4px);
+            box-shadow: var(--shadow-sm);
+            background: var(--bg-hover);
+        }
+        .file-item.active {
+            border-color: var(--text-primary);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+        }
+        .file-item.active .file-size {
+            color: rgba(255,255,255,0.6);
+        }
+        .file-item .badge-enriched {
+            display: inline-block;
+            font-size: 0.5rem;
+            background: var(--success);
+            color: white;
+            padding: 1px 8px;
+            border-radius: var(--radius-xl);
+            margin-left: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .file-item .badge-basic {
+            display: inline-block;
+            font-size: 0.5rem;
+            background: var(--warning);
+            color: white;
+            padding: 1px 8px;
+            border-radius: var(--radius-xl);
+            margin-left: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .file-item .file-status {
+            font-size: 0.6rem;
+            margin-top: 2px;
+        }
+        .file-item .file-status .ok {
+            color: var(--success);
+        }
+        .file-item .file-status .err {
+            color: var(--error);
+        }
+
+        .file-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .file-size {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: 'Inter', monospace;
+            transition: color var(--transition);
+        }
+
+        .no-files {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px 0;
+            font-size: 0.9rem;
+        }
+
+        .main-content {
+            background: var(--bg-primary);
+            padding: 28px 32px;
+            overflow-y: auto;
+            transition: background var(--transition);
+            min-height: 0;
+            max-height: 72vh;
+        }
+
+        .page-header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            transition: border-color var(--transition);
+        }
+        .page-header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            transition: color var(--transition);
+            word-break: break-word;
+        }
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            transition: color var(--transition);
+            word-break: break-word;
+        }
+
+        .status-message {
+            padding: 12px 18px;
+            margin-bottom: 16px;
+            border-radius: var(--radius-sm);
+            display: none;
+            border-left: 4px solid;
+            font-size: 0.9rem;
+            animation: fadeIn 0.3s ease;
+            word-break: break-word;
+        }
+        .status-success {
+            background: var(--success-bg);
+            border-color: var(--success);
+            color: var(--success);
+        }
+        .status-error {
+            background: var(--error-bg);
+            border-color: var(--error);
+            color: var(--error);
+        }
+        .status-info {
+            background: var(--info-bg);
+            border-color: var(--info);
+            color: var(--info);
+        }
+        .status-warning {
+            background: var(--warning-bg);
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .card {
+            background: var(--bg-card);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            transition: all var(--transition);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+        .card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: color var(--transition);
+        }
+        .card-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: var(--text-primary);
+            border-radius: 2px;
+            transition: background var(--transition);
+        }
+        .card-title .sub {
+            font-weight: 400;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            transition: color var(--transition);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-family: var(--font);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            transition: all var(--transition);
+            outline: none;
+        }
+        .form-control:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+        }
+        [data-theme="dark"] .form-control:focus {
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a4a4a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        [data-theme="dark"] select.form-control {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23b0b0b0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            font-family: var(--font);
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--btn-hover);
+            transform: translateX(-100%);
+            transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            z-index: -1;
+        }
+        .btn:hover::before {
+            transform: translateX(0);
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+        .btn-primary::before {
+            background: var(--bg-primary);
+        }
+        .btn-primary:hover {
+            color: var(--text-primary);
+            border-color: var(--bg-primary);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1.5px solid var(--text-primary);
+        }
+        .btn-secondary::before {
+            background: var(--text-primary);
+        }
+        .btn-secondary:hover {
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+        .btn-success::before {
+            background: white;
+        }
+        .btn-success:hover {
+            color: var(--success);
+            border-color: white;
+        }
+
+        .btn-purple {
+            background: var(--purple);
+            color: white;
+            border-color: var(--purple);
+        }
+        .btn-purple::before {
+            background: white;
+        }
+        .btn-purple:hover {
+            color: var(--purple);
+            border-color: white;
+        }
+
+        .btn-orange {
+            background: var(--orange);
+            color: white;
+            border-color: var(--orange);
+        }
+        .btn-orange::before {
+            background: white;
+        }
+        .btn-orange:hover {
+            color: var(--orange);
+            border-color: white;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        .info-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            transition: all var(--transition);
+        }
+        .info-item:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+        .info-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            transition: color var(--transition);
+        }
+        .info-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .result-container {
+            display: none;
+            animation: fadeUp 0.5s ease;
+        }
+        .result-container.show {
+            display: block;
+        }
+
+        .prediction-result {
+            background: var(--bg-input);
+            padding: 24px;
+            text-align: center;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .prediction-result .yield-value {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+        .prediction-result .yield-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .prediction-result .yield-class {
+            display: inline-block;
+            padding: 4px 20px;
+            border-radius: var(--radius-xl);
+            font-weight: 700;
+            font-size: 0.75rem;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .prediction-result .model-info {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+        .prediction-result .confidence-info {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .prediction-result .interval-info {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .academic-details {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+        }
+        .academic-details span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .academic-details .highlight {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .optimization-results {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .catalyst-result {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            transition: all var(--transition);
+            gap: 12px;
+        }
+        .catalyst-result:hover {
+            border-color: var(--border-hover);
+            transform: translateX(4px);
+        }
+        .catalyst-result .rank {
+            font-weight: 700;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            min-width: 28px;
+        }
+        .catalyst-result .name {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            transition: color var(--transition);
+            word-break: break-word;
+            flex: 1;
+        }
+        .catalyst-result .yield {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text-primary);
+            transition: color var(--transition);
+            white-space: nowrap;
+        }
+        .catalyst-result .qty {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .molecule-display {
+            margin-top: 16px;
+            text-align: center;
+        }
+        .molecule-display h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .molecule-display img {
+            max-width: 100%;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            max-height: 300px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        .spinner {
+            border: 3px solid var(--bg-input);
+            border-top: 3px solid var(--text-primary);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        .loading-text {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .academic-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            padding: 4px 12px;
+            border-radius: var(--radius-xl);
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border: 1px solid var(--border-color);
+        }
+        .academic-badge .icon {
+            font-size: 0.7rem;
+        }
+
+        .model-stats {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            padding: 10px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+        .model-stats .highlight {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .tab-group {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: var(--font);
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .tab-btn:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+        .tab-btn.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .analysis-card {
+            background: var(--bg-input);
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            transition: all var(--transition);
+        }
+        .analysis-card:hover {
+            border-color: var(--border-hover);
+        }
+        .analysis-card h5 {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .analysis-card h5 .badge-academic {
+            font-size: 0.5rem;
+            background: var(--purple);
+            color: white;
+            padding: 1px 8px;
+            border-radius: var(--radius-xl);
+        }
+        .analysis-card .value {
+            font-size: 0.85rem;
+            padding: 2px 0;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .analysis-card .value:last-child {
+            border-bottom: none;
+        }
+        .analysis-card .value strong {
+            color: var(--text-primary);
+        }
+
+        .history-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+        .history-section h4 {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-radius: var(--radius-sm);
+        }
+        .history-item:hover {
+            background: var(--bg-hover);
+        }
+
+        footer {
+            background: var(--footer-bg);
+            color: var(--footer-text);
+            padding: 28px 24px 20px;
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+            transition: background var(--transition), border-color var(--transition);
+        }
+        .footer-content {
+            max-width: 1060px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .footer-content .contact {
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            opacity: 0.7;
+            letter-spacing: 0.2px;
+            word-break: break-word;
+        }
+        .footer-content .contact strong {
+            opacity: 1;
+            color: #fff;
+            font-weight: 500;
+        }
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin: 14px 0 16px;
+            flex-wrap: wrap;
+        }
+        .social-icons a {
+            color: #888;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+        }
+        .social-icons a:hover {
+            color: #fff;
+            transform: translateY(-2px);
+            opacity: 1;
+        }
+        .copyright {
+            font-size: 0.75rem;
+            opacity: 0.35;
+            margin-top: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        .scrollable {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 992px) {
+            .app-container {
+                grid-template-columns: 220px 1fr;
+            }
+            header {
+                padding: 12px 24px;
+            }
+            .analysis-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header { padding: 12px 20px; }
+            .logo { height: 30px; }
+            header h1 { font-size: 1rem; }
+            #clock { display: none; }
+            .theme-toggle { padding: 4px 10px; font-size: 0.85rem; }
+            .lang-btn { padding: 4px 10px; font-size: 0.65rem; }
+
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .file-panel {
+                max-height: 160px;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 12px 16px;
+            }
+
+            .main-content {
+                padding: 16px 20px;
+                max-height: none;
+                min-height: 0;
+            }
+
+            .page-header h1 { font-size: 1.3rem; }
+            .page-header p { font-size: 0.85rem; }
+
+            .card { padding: 16px 18px; }
+            .card-title { font-size: 0.75rem; }
+
+            .form-row { grid-template-columns: 1fr; gap: 10px; }
+            .info-grid { grid-template-columns: 1fr 1fr; }
+
+            .btn-group { flex-direction: column; }
+            .btn { width: 100%; text-align: center; white-space: normal; }
+
+            .prediction-result .yield-value { font-size: 2.4rem; }
+
+            footer { padding: 20px 16px 16px; }
+            .social-icons { gap: 18px; }
+            .social-icons a { font-size: 1rem; }
+
+            .tab-group { flex-wrap: wrap; }
+            .tab-btn { font-size: 0.65rem; padding: 6px 12px; }
+
+            .analysis-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 480px) {
+            header h1 { font-size: 0.85rem; }
+            .lang-btn { font-size: 0.6rem; padding: 3px 8px; }
+            .page-header h1 { font-size: 1.1rem; }
+            .info-grid { grid-template-columns: 1fr; }
+            .card { padding: 12px 14px; }
+            .main-content { padding: 12px 14px; }
+            .file-panel { max-height: 140px; }
+            .prediction-result .yield-value { font-size: 2rem; }
+        }
+    </style>
 </head>
 <body>
 
 <header>
-  <div class="header-left">
-    <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
-    <h1><span id="headerTitleText">Academic Predict</span></h1>
-  </div>
-  <div class="header-right">
-    <div id="clock"></div>
-    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
-      <i class="fas fa-moon" id="themeIcon"></i>
-    </button>
-    <button class="lang-btn" id="langSwitch">TR</button>
-  </div>
+    <div class="header-left">
+        <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Molytica" class="logo" id="logo">
+        <h1 id="headerTitleText">Suzuki Predictor</h1>
+    </div>
+    <div class="header-right">
+        <div id="clock"></div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+            <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+        <button class="lang-btn" id="langSwitch">TR</button>
+    </div>
 </header>
 
 <div class="app-container">
-  <div class="file-panel">
-    <h3 class="panel-title">
-      <span id="filesTitleText">CSV Files</span>
-      <span class="badge" id="fileCount">0</span>
-    </h3>
-    <div class="file-list" id="fileList">
-      <div class="no-files" id="loadingFilesText">Loading files...</div>
-    </div>
-    <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-color);">
-      <div style="display:flex; flex-direction:column; gap:4px; font-size:0.65rem; color:var(--text-muted);">
-        <span><i class="fas fa-check-circle" style="color:var(--success);"></i> <span id="legendEnriched">Enriched: Academic features ready</span></span>
-        <span><i class="fas fa-exclamation-triangle" style="color:var(--warning);"></i> <span id="legendBasic">Basic: Needs enrichment</span></span>
-        <span><i class="fas fa-database"></i> <span id="legendOnlyEnriched">Only enriched files support ML</span></span>
-      </div>
-    </div>
-  </div>
-
-  <div class="main-content">
-    <div class="page-header">
-      <h1 id="mainTitle">Suzuki-Miyaura Academic Predictor</h1>
-      <p id="subtitle">Machine learning with DFT, QSAR, docking and full literature-based parameters</p>
-      <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
-        <span class="academic-badge"><i class="fas fa-atom icon"></i> DFT</span>
-        <span class="academic-badge"><i class="fas fa-chart-bar icon"></i> QSAR</span>
-        <span class="academic-badge"><i class="fas fa-dna icon"></i> Docking</span>
-        <span class="academic-badge"><i class="fas fa-infinity icon"></i> Unlimited</span>
-        <span class="academic-badge"><i class="fas fa-bolt icon"></i> Eyring</span>
-        <span class="academic-badge"><i class="fas fa-sigma icon"></i> Hammett</span>
-        <span class="academic-badge"><i class="fas fa-arrow-up icon"></i> HSAB</span>
-        <span class="monotonicity-badge"><i class="fas fa-arrow-up"></i> Monotonicity</span>
-        <span class="academic-badge"><i class="fas fa-chart-bell icon"></i> Shapiro-Wilk</span>
-        <span class="academic-badge"><i class="fas fa-dice icon"></i> Bootstrap</span>
-        <span class="academic-badge"><i class="fas fa-balance-scale icon"></i> AIC/BIC</span>
-      </div>
-    </div>
-
-    <div id="statusMessage" class="status-message"></div>
-
-    <div class="status-message status-warning" style="display:flex; align-items:flex-start; gap:10px;">
-      <i class="fas fa-circle-info" style="margin-top:2px;"></i>
-      <div>
-        <strong id="datasetNoticeTitle">Important note about the dataset</strong>
-        <div id="datasetNoticeText" style="margin-top:4px; font-weight:400;">These predictions are based on the currently loaded dataset, which may contain a limited number of literature examples. Results may not represent every possible reaction condition; values obtained in Experimental Mode in particular are theoretical extrapolations and should be verified against real laboratory results.</div>
-      </div>
-    </div>
-
-    <div class="card" id="dataInfo" style="display: none;">
-      <h3 class="card-title" id="dataInfoTitle">Dataset Information</h3>
-      <div id="dataDetails" class="info-grid"></div>
-    </div>
-
-    <div class="card" id="modelCard" style="display: none;">
-      <h3 class="card-title"><span id="modelTitleText">Model Selection</span> <span class="sub" id="modelTitleSub">— 14 models ensemble</span></h3>
-      <div class="form-row">
-        <div class="form-group" style="grid-column: span 2;">
-          <label for="modelSelect" id="modelLabel">Model:</label>
-          <select id="modelSelect" class="form-control">
-            <option value="Ensemble">Ensemble (14 models)</option>
-            <option value="Random_Forest">Random Forest</option>
-            <option value="Gradient_Boosting">Gradient Boosting</option>
-            <option value="Hist_Gradient_Boosting">Hist Gradient Boosting</option>
-            <option value="XGBoost">XGBoost</option>
-            <option value="LightGBM">LightGBM</option>
-            <option value="CatBoost">CatBoost</option>
-            <option value="Extra_Trees">Extra Trees</option>
-            <option value="Gaussian_Process">Gaussian Process</option>
-            <option value="Neural_Network">Neural Network</option>
-            <option value="SVR">SVR</option>
-            <option value="Ridge">Ridge</option>
-            <option value="Lasso">Lasso</option>
-            <option value="ElasticNet">ElasticNet</option>
-          </select>
+    <div class="file-panel">
+        <h3 class="panel-title">
+            <span id="filesTitleText">CSV Files</span>
+            <span class="badge" id="fileCount">0</span>
+        </h3>
+        <div class="file-list" id="fileList">
+            <div class="no-files" id="loadingFilesText">Loading files...</div>
         </div>
-      </div>
-      <div id="modelStats" class="model-stats" style="display:none;"></div>
-    </div>
-
-    <div class="card" id="reactionCard" style="display: none;">
-      <h3 class="card-title"><span id="reactionTitleText">Reaction Conditions</span> <span class="sub" id="reactionTitleSub">— Academic data integrity enforced</span></h3>
-      <form id="reactionForm">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="temp" id="tempLabel">Temperature (°C)</label>
-            <input type="number" id="temp" class="form-control" value="80" min="25" max="250" step="1" required>
-          </div>
-          <div class="form-group">
-            <label for="time" id="timeLabel">Time (hours)</label>
-            <input type="number" id="time" class="form-control" value="24" step="0.1" min="1" max="72" required>
-          </div>
-          <div class="form-group">
-            <label for="quantity" id="quantityLabel">Catalyst (mmol)</label>
-            <input type="number" id="quantity" class="form-control" value="0.0025" step="0.0001" min="0.0001" max="0.50" required>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="catalizor" id="catalystLabel">Catalyst</label>
-            <input type="text" id="catalizor" class="form-control" list="catalizor-list" placeholder="Type or select..." required>
-            <datalist id="catalizor-list"></datalist>
-          </div>
-          <div class="form-group">
-            <label for="base" id="baseLabel">Base</label>
-            <input type="text" id="base" class="form-control" list="base-list" placeholder="Type or select..." required>
-            <datalist id="base-list"></datalist>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="solv1" id="solv1Label">Solvent 1</label>
-            <input type="text" id="solv1" class="form-control" list="solv1-list" placeholder="Type or select..." required>
-            <datalist id="solv1-list"></datalist>
-          </div>
-          <div class="form-group">
-            <label for="solv2" id="solv2Label">Solvent 2 <span style="font-weight:400;text-transform:none;color:var(--text-muted);">(optional)</span></label>
-            <input type="text" id="solv2" class="form-control" list="solv2-list" placeholder="Type or select...">
-            <datalist id="solv2-list"></datalist>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="subs1_smiles" id="smiles1Label">Boronic Acid SMILES</label>
-            <input type="text" id="subs1_smiles" class="form-control" placeholder="e.g., OB(O)c1ccccc1" required>
-          </div>
-          <div class="form-group">
-            <label for="subs2_smiles" id="smiles2Label">Aryl Halide SMILES</label>
-            <input type="text" id="subs2_smiles" class="form-control" placeholder="e.g., Brc1ccccc1" required>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="optMethod" id="optMethodLabel">Optimization Method</label>
-            <select id="optMethod" class="form-control">
-              <option value="grid">Grid Search</option>
-              <option value="bayesian">Bayesian Optimization</option>
-              <option value="genetic">Genetic Algorithm</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="margin-bottom:14px;">
-          <label class="experimental-toggle-wrap" id="expToggleWrap" for="experimentalModeCheck">
-            <div class="exp-toggle-switch">
-              <input type="checkbox" id="experimentalModeCheck">
-              <span class="exp-toggle-slider"></span>
+        <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-color);">
+            <div style="display:flex; flex-direction:column; gap:4px; font-size:0.65rem; color:var(--text-muted);">
+                <span><i class="fas fa-check-circle" style="color:var(--success);"></i> <span id="legendEnriched">Enriched: Features ready</span></span>
+                <span><i class="fas fa-exclamation-triangle" style="color:var(--warning);"></i> <span id="legendBasic">Basic: Needs enrichment</span></span>
+                <span><i class="fas fa-database"></i> <span id="legendOnlyEnriched">Only enriched files support ML</span></span>
             </div>
-            <div class="exp-toggle-label">
-              <div class="exp-title">
-                <span id="expToggleTitle">Experimental Mode</span>
-                <span class="exp-badge"><i class="fas fa-flask"></i> <span id="expBadgeText">EXPERIMENTAL</span></span>
-              </div>
-              <div class="exp-desc" id="expToggleDesc">No upper limit on temperature, time or catalyst — yield increases monotonically (log scale)</div>
-            </div>
-          </label>
-          <div class="experimental-banner" id="experimentalBanner">
-            <i class="fas fa-exclamation-triangle"></i>
-            <div id="experimentalBannerText">Experimental mode active: degradation thresholds, saturation kinetics and diffusion limits are disabled. Results represent theoretical upper bounds — real reactions will be limited by substrate decomposition and catalyst deactivation.</div>
-          </div>
         </div>
-
-        <div class="btn-group">
-          <button type="button" id="predictBtn" class="btn btn-primary"><i class="fas fa-flask"></i> <span id="predictBtnText">Predict Yield</span></button>
-          <button type="button" id="optimizeBtn" class="btn btn-secondary"><i class="fas fa-search"></i> <span id="optimizeBtnText">Optimize Catalyst</span></button>
-          <button type="button" id="analyzeBtn" class="btn btn-purple"><i class="fas fa-microscope"></i> <span id="analyzeBtnText">Academic Analysis</span></button>
-          <button type="button" id="historyBtn" class="btn btn-orange"><i class="fas fa-history"></i> <span>History</span></button>
-        </div>
-      </form>
     </div>
 
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <p class="loading-text" id="loadingText">Processing academic calculations...</p>
-    </div>
-
-    <div class="result-container" id="resultContainer">
-      <div class="card">
-        <div class="tab-group" id="tabGroup">
-          <button class="tab-btn active" data-tab="prediction"><i class="fas fa-chart-line"></i> <span>Prediction</span></button>
-          <button class="tab-btn" data-tab="optimization"><i class="fas fa-list"></i> <span>Optimization</span></button>
-          <button class="tab-btn" data-tab="analysis"><i class="fas fa-microscope"></i> <span>Analysis</span></button>
-          <button class="tab-btn" data-tab="history"><i class="fas fa-history"></i> <span>History</span></button>
-        </div>
-
-        <div class="tab-content active" id="tabPrediction">
-          <div id="resultContent"></div>
-          <div class="molecule-display" id="moleculeDisplay"></div>
-        </div>
-
-        <div class="tab-content" id="tabOptimization">
-          <div id="optimizationContent"><p style="color:var(--text-muted);" id="optimizationPlaceholder">Run catalyst optimization to see results here.</p></div>
-        </div>
-
-        <div class="tab-content" id="tabAnalysis">
-          <div id="analysisContent"><p style="color:var(--text-muted);" id="analysisPlaceholder">Run academic analysis to see DFT, QSAR and docking results here.</p></div>
-        </div>
-
-        <div class="tab-content" id="tabHistory">
-          <div id="historyContent">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-              <span style="font-size:0.8rem; color:var(--text-muted);" id="historyDesc">Prediction history with monotonicity tracking</span>
-              <button id="clearHistoryBtn" class="btn" style="padding:4px 12px; font-size:0.65rem; background:var(--error); color:white; border-color:var(--error);"><span id="clearHistoryBtnText">Clear History</span></button>
+    <div class="main-content">
+        <div class="page-header">
+            <h1 id="mainTitle">Suzuki-Miyaura Yield Predictor</h1>
+            <p id="subtitle">Machine learning with molecular descriptors</p>
+            <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+                <span class="academic-badge"><i class="fas fa-atom icon"></i> RDKit</span>
+                <span class="academic-badge"><i class="fas fa-chart-bar icon"></i> QSAR</span>
+                <span class="academic-badge"><i class="fas fa-code-branch icon"></i> Ensemble</span>
+                <span class="academic-badge"><i class="fas fa-chart-bell icon"></i> Shapiro-Wilk</span>
+                <span class="academic-badge"><i class="fas fa-dice icon"></i> Bootstrap</span>
+                <span class="academic-badge"><i class="fas fa-balance-scale icon"></i> AIC/BIC</span>
             </div>
-            <div id="historyList" style="max-height:400px; overflow-y:auto;">
-              <p style="color:var(--text-muted);" id="noHistoryText">No predictions yet.</p>
-            </div>
-          </div>
         </div>
-      </div>
+
+        <div id="statusMessage" class="status-message"></div>
+
+        <div class="status-message status-warning" style="display:flex; align-items:flex-start; gap:10px;">
+            <i class="fas fa-circle-info" style="margin-top:2px;"></i>
+            <div>
+                <strong id="datasetNoticeTitle">Important note about the dataset</strong>
+                <div id="datasetNoticeText" style="margin-top:4px; font-weight:400;">These predictions are based on the currently loaded dataset. Results may not represent every possible reaction condition; values should be verified against real laboratory results.</div>
+            </div>
+        </div>
+
+        <div class="card" id="dataInfo" style="display: none;">
+            <h3 class="card-title" id="dataInfoTitle">Dataset Information</h3>
+            <div id="dataDetails" class="info-grid"></div>
+        </div>
+
+        <div class="card" id="modelCard" style="display: none;">
+            <h3 class="card-title"><span id="modelTitleText">Model Selection</span> <span class="sub" id="modelTitleSub">— 7 models ensemble</span></h3>
+            <div class="form-row">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label for="modelSelect" id="modelLabel">Model:</label>
+                    <select id="modelSelect" class="form-control">
+                        <option value="Ensemble">Ensemble (7 models)</option>
+                        <option value="Random_Forest">Random Forest</option>
+                        <option value="Gradient_Boosting">Gradient Boosting</option>
+                        <option value="XGBoost">XGBoost</option>
+                        <option value="LightGBM">LightGBM</option>
+                        <option value="CatBoost">CatBoost</option>
+                        <option value="Ridge">Ridge</option>
+                        <option value="Lasso">Lasso</option>
+                    </select>
+                </div>
+            </div>
+            <div id="modelStats" class="model-stats" style="display:none;"></div>
+        </div>
+
+        <div class="card" id="reactionCard" style="display: none;">
+            <h3 class="card-title"><span id="reactionTitleText">Reaction Conditions</span> <span class="sub" id="reactionTitleSub">— Data integrity enforced</span></h3>
+            <form id="reactionForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="temp" id="tempLabel">Temperature (°C)</label>
+                        <input type="number" id="temp" class="form-control" value="80" min="25" max="250" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="time" id="timeLabel">Time (hours)</label>
+                        <input type="number" id="time" class="form-control" value="24" step="0.1" min="1" max="72" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity" id="quantityLabel">Catalyst (mmol)</label>
+                        <input type="number" id="quantity" class="form-control" value="0.0025" step="0.0001" min="0.0001" max="0.50" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="catalizor" id="catalystLabel">Catalyst</label>
+                        <input type="text" id="catalizor" class="form-control" list="catalizor-list" placeholder="Type or select..." required>
+                        <datalist id="catalizor-list"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="base" id="baseLabel">Base</label>
+                        <input type="text" id="base" class="form-control" list="base-list" placeholder="Type or select..." required>
+                        <datalist id="base-list"></datalist>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="solv1" id="solv1Label">Solvent 1</label>
+                        <input type="text" id="solv1" class="form-control" list="solv1-list" placeholder="Type or select..." required>
+                        <datalist id="solv1-list"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="solv2" id="solv2Label">Solvent 2 <span style="font-weight:400;text-transform:none;color:var(--text-muted);">(optional)</span></label>
+                        <input type="text" id="solv2" class="form-control" list="solv2-list" placeholder="Type or select...">
+                        <datalist id="solv2-list"></datalist>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="subs1_smiles" id="smiles1Label">Boronic Acid SMILES</label>
+                        <input type="text" id="subs1_smiles" class="form-control" placeholder="e.g., OB(O)c1ccccc1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subs2_smiles" id="smiles2Label">Aryl Halide SMILES</label>
+                        <input type="text" id="subs2_smiles" class="form-control" placeholder="e.g., Brc1ccccc1" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;text-transform:none;">
+                            <input type="checkbox" id="forceExperimental" style="width:18px;height:18px;cursor:pointer;">
+                            <span id="forceExperimentalLabel">Deneysel (heuristik) mod - ML yerine kural tabanlı tahmin kullan</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" id="predictBtn" class="btn btn-primary"><i class="fas fa-flask"></i> <span id="predictBtnText">Predict Yield</span></button>
+                    <button type="button" id="optimizeBtn" class="btn btn-secondary"><i class="fas fa-search"></i> <span id="optimizeBtnText">Optimize Catalyst</span></button>
+                    <button type="button" id="analyzeBtn" class="btn btn-purple"><i class="fas fa-microscope"></i> <span id="analyzeBtnText">Academic Analysis</span></button>
+                    <button type="button" id="historyBtn" class="btn btn-orange"><i class="fas fa-history"></i> <span id="historyBtnText">History</span></button>
+                </div>
+            </form>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p class="loading-text" id="loadingText">Processing calculations...</p>
+        </div>
+
+        <div class="result-container" id="resultContainer">
+            <div class="card">
+                <div class="tab-group" id="tabGroup">
+                    <button class="tab-btn active" data-tab="prediction"><i class="fas fa-chart-line"></i> <span id="tabPredictionText">Prediction</span></button>
+                    <button class="tab-btn" data-tab="optimization"><i class="fas fa-list"></i> <span id="tabOptimizationText">Optimization</span></button>
+                    <button class="tab-btn" data-tab="analysis"><i class="fas fa-microscope"></i> <span id="tabAnalysisText">Analysis</span></button>
+                    <button class="tab-btn" data-tab="history"><i class="fas fa-history"></i> <span id="tabHistoryText">History</span></button>
+                </div>
+
+                <div class="tab-content active" id="tabPrediction">
+                    <div id="resultContent"></div>
+                    <div class="molecule-display" id="moleculeDisplay"></div>
+                </div>
+
+                <div class="tab-content" id="tabOptimization">
+                    <div id="optimizationContent"><p style="color:var(--text-muted);" id="optimizationPlaceholder">Run catalyst optimization to see results here.</p></div>
+                </div>
+
+                <div class="tab-content" id="tabAnalysis">
+                    <div id="analysisContent"><p style="color:var(--text-muted);" id="analysisPlaceholder">Run academic analysis to see results here.</p></div>
+                </div>
+
+                <div class="tab-content" id="tabHistory">
+                    <div id="historyContent">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                            <span style="font-size:0.8rem; color:var(--text-muted);" id="historyDesc">Prediction history</span>
+                            <button id="clearHistoryBtn" class="btn" style="padding:4px 12px; font-size:0.65rem; background:var(--error); color:white; border-color:var(--error);"><span id="clearHistoryBtnText">Clear History</span></button>
+                        </div>
+                        <div id="historyList" style="max-height:400px; overflow-y:auto;">
+                            <p style="color:var(--text-muted);" id="noHistoryText">No predictions yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <footer>
-  <div class="footer-content">
-    <div class="contact">
-      <strong id="contactLabel">Contact</strong>
-      <span id="contactInfo">akkochief@gmail.com · @akkochief</span>
+    <div class="footer-content">
+        <div class="contact">
+            <strong id="contactLabel">Contact</strong>
+            <span id="contactInfo">akkochief@gmail.com · @akkochief</span>
+        </div>
+        <div class="social-icons">
+            <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+            <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
+            <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+        </div>
+        <div class="copyright" id="copyright">© 2026 Molytica — Academic Edition</div>
     </div>
-    <div class="social-icons">
-      <a href="https://x.com/akkochief" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
-      <a href="https://github.com/akkocchief" aria-label="GitHub"><i class="fab fa-github"></i></a>
-      <a href="https://www.linkedin.com/in/akkochief/" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-    </div>
-    <div class="copyright" id="copyright">© 2026 Molytica — Academic Edition</div>
-  </div>
 </footer>
 
 <script>
-  (function() {
-    'use strict';
+    (function() {
+        'use strict';
 
-    var translations = {
-      tr: {
-        headerTitle: 'Akademik Tahmin',
-        filesTitle: 'CSV Dosyaları',
-        mainTitle: 'Suzuki-Miyaura Akademik Tahmin',
-        subtitle: 'DFT, QSAR, docking ve tam literatür parametreleri ile makine öğrenmesi',
-        dataInfoTitle: 'Veri Bilgileri',
-        modelTitle: 'Model Seçimi',
-        modelLabel: 'Model:',
-        reactionTitle: 'Reaksiyon Koşulları',
-        tempLabel: 'Sıcaklık (°C)',
-        timeLabel: 'Süre (saat)',
-        quantityLabel: 'Katalizör (mmol)',
-        catalystLabel: 'Katalizör',
-        baseLabel: 'Baz',
-        solv1Label: 'Çözücü 1',
-        solv2Label: 'Çözücü 2',
-        smiles1Label: 'Boronic Asit SMILES',
-        smiles2Label: 'Aryl Halide SMILES',
-        predictBtnText: 'Verim Tahmini',
-        optimizeBtnText: 'Katalizör Optimize Et',
-        analyzeBtnText: 'Akademik Analiz',
-        loadingText: 'Akademik hesaplamalar yapılıyor...',
-        contactLabel: 'İletişim',
-        contactInfo: 'akkochief@gmail.com · @akkochief',
-        copyright: '© 2026 Molytica — Akademik Sürüm',
-        noFiles: 'CSV dosyası bulunamadı',
-        predictionTab: 'Tahmin',
-        optimizationTab: 'Optimizasyon',
-        analysisTab: 'Analiz',
-        historyTab: 'Geçmiş',
-        expToggleTitle: 'Deneysel Mod',
-        expBadgeText: 'DENEYSEL',
-        expToggleDesc: 'Sıcaklık, süre ve katalizörde üst sınır yok — verim logaritmik olarak artar',
-        experimentalBannerText: 'Deneysel mod aktif: bozunma eşikleri, doygunluk kinetikleri ve difüzyon limitleri devre dışı. Sonuçlar teorik üst sınırları temsil eder — gerçek reaksiyonlar substrat bozunması ve katalizör deaktivasyon ile sınırlıdır.',
-        headerTitleText: 'Akademik Tahmin',
-        filesTitleText: 'CSV Dosyaları',
-        modelTitleText: 'Model Seçimi',
-        modelTitleSub: '— 14 model topluluğu',
-        reactionTitleText: 'Reaksiyon Koşulları',
-        reactionTitleSub: '— Akademik veri bütünlüğü zorunlu',
-        loadingFiles: 'Dosyalar yükleniyor...',
-        legendEnriched: 'Zenginleştirilmiş: Akademik özellikler hazır',
-        legendBasic: 'Temel: Zenginleştirme gerekiyor',
-        legendOnlyEnriched: 'Sadece zenginleştirilmiş dosyalar ML destekler',
-        datasetNoticeTitle: 'Veri seti hakkında önemli not',
-        datasetNoticeText: 'Bu tahminler mevcut veri setine dayanmaktadır ve veri seti sınırlı sayıda literatür örneği içerebilir. Sonuçlar tüm reaksiyon koşullarını temsil etmeyebilir; özellikle Deneysel Mod\'da elde edilen değerler teorik ekstrapolasyondur ve gerçek laboratuvar sonuçlarıyla doğrulanmalıdır.',
-        optimizationPlaceholder: 'Sonuçları görmek için katalizör optimizasyonu çalıştırın.',
-        analysisPlaceholder: 'DFT, QSAR ve docking sonuçlarını görmek için akademik analiz çalıştırın.',
-        historyDesc: 'Monotonluk takibi ile tahmin geçmişi',
-        clearHistoryBtnText: 'Geçmişi Temizle',
-        noHistoryText: 'Henüz tahmin yok.',
-        rowsLabel: 'Satır',
-        columnsLabel: 'Sütun',
-        catalystsCountLabel: 'Katalizör',
-        basesCountLabel: 'Baz',
-        featuresLabel: 'Özellik',
-        meanYieldLabel: 'Ort. Verim',
-        predictedYieldLabel: 'Tahmini Verim',
-        confidenceLabelText: 'Güven',
-        modelInfoLabel: 'Model',
-        modelsUsedLabel: 'model kullanıldı',
-        bestLabelText: 'En iyi',
-        mlLabelText: 'ML',
-        chemicalLabelText: 'Kimyasal',
-        fallbackUsedText: 'Yedek Model Kullanıldı',
-        molecularStructuresTitle: 'Moleküler Yapılar',
-        topCatalystsTitle: 'En İyi Katalizörler',
-        noOptResultsText: 'Optimizasyon sonucu bulunamadı.',
-        noPredHistoryText: 'Tahmin geçmişi bulunamadı.',
-        failedText: 'Başarısız',
-        expBadgeShort: 'DENEYSEL MOD',
-        fileNeedsEnrichmentMsg: 'Bu dosya zenginleştirme gerektiriyor. Önce dataset_routes.py kullanın.',
-        fileListErrorMsg: 'Dosya listesi hatası: ',
-        loadErrorMsg: 'Yükleme hatası: ',
-        historyClearConfirm: 'Tüm tahmin geçmişi silinsin mi?',
-        historyClearedMsg: 'Geçmiş temizlendi',
-        historyClearErrorMsg: 'Geçmiş temizlenirken hata: ',
-        predictionErrorMsg: 'Tahmin hatası: ',
-        optimizationErrorMsg: 'Optimizasyon hatası: ',
-        analysisErrorMsg: 'Analiz hatası: ',
-        modelChangeErrorMsg: 'Model değiştirme hatası: ',
-        predictionCompletedMsg: 'Tahmin tamamlandı — model: ',
-        optimizationCompletedMsg: 'Optimizasyon tamamlandı',
-        analysisCompletedMsg: 'Akademik analiz tamamlandı (DFT, QSAR, docking)',
-        analysisNotAvailableMsg: 'Bu veri seti için akademik analiz mevcut değil',
-        loadFirstMsg: 'Lütfen önce bir veri dosyası yükleyin',
-        optMethodLabel: 'Optimizasyon Yöntemi'
-      },
-      en: {
-        headerTitle: 'Academic Predict',
-        filesTitle: 'CSV Files',
-        mainTitle: 'Suzuki-Miyaura Academic Predictor',
-        subtitle: 'Machine learning with DFT, QSAR, docking and full literature-based parameters',
-        dataInfoTitle: 'Dataset Information',
-        modelTitle: 'Model Selection',
-        modelLabel: 'Model:',
-        reactionTitle: 'Reaction Conditions',
-        tempLabel: 'Temperature (°C)',
-        timeLabel: 'Time (hours)',
-        quantityLabel: 'Catalyst (mmol)',
-        catalystLabel: 'Catalyst',
-        baseLabel: 'Base',
-        solv1Label: 'Solvent 1',
-        solv2Label: 'Solvent 2',
-        smiles1Label: 'Boronic Acid SMILES',
-        smiles2Label: 'Aryl Halide SMILES',
-        predictBtnText: 'Predict Yield',
-        optimizeBtnText: 'Optimize Catalyst',
-        analyzeBtnText: 'Academic Analysis',
-        loadingText: 'Processing academic calculations...',
-        contactLabel: 'Contact',
-        contactInfo: 'akkochief@gmail.com · @akkochief',
-        copyright: '© 2026 Molytica — Academic Edition',
-        noFiles: 'No CSV files found',
-        predictionTab: 'Prediction',
-        optimizationTab: 'Optimization',
-        analysisTab: 'Analysis',
-        historyTab: 'History',
-        expToggleTitle: 'Experimental Mode',
-        expBadgeText: 'EXPERIMENTAL',
-        expToggleDesc: 'No upper limit on temperature, time or catalyst — yield increases monotonically (log scale)',
-        experimentalBannerText: 'Experimental mode active: degradation thresholds, saturation kinetics and diffusion limits are disabled. Results represent theoretical upper bounds — real reactions will be limited by substrate decomposition and catalyst deactivation.',
-        headerTitleText: 'Academic Predict',
-        filesTitleText: 'CSV Files',
-        modelTitleText: 'Model Selection',
-        modelTitleSub: '— 14 models ensemble',
-        reactionTitleText: 'Reaction Conditions',
-        reactionTitleSub: '— Academic data integrity enforced',
-        loadingFiles: 'Loading files...',
-        legendEnriched: 'Enriched: Academic features ready',
-        legendBasic: 'Basic: Needs enrichment',
-        legendOnlyEnriched: 'Only enriched files support ML',
-        datasetNoticeTitle: 'Important note about the dataset',
-        datasetNoticeText: 'These predictions are based on the currently loaded dataset, which may contain a limited number of literature examples. Results may not represent every possible reaction condition; values obtained in Experimental Mode in particular are theoretical extrapolations and should be verified against real laboratory results.',
-        optimizationPlaceholder: 'Run catalyst optimization to see results here.',
-        analysisPlaceholder: 'Run academic analysis to see DFT, QSAR and docking results here.',
-        historyDesc: 'Prediction history with monotonicity tracking',
-        clearHistoryBtnText: 'Clear History',
-        noHistoryText: 'No predictions yet.',
-        rowsLabel: 'Rows',
-        columnsLabel: 'Columns',
-        catalystsCountLabel: 'Catalysts',
-        basesCountLabel: 'Bases',
-        featuresLabel: 'Features',
-        meanYieldLabel: 'Mean Yield',
-        predictedYieldLabel: 'Predicted Yield',
-        confidenceLabelText: 'Confidence',
-        modelInfoLabel: 'Model',
-        modelsUsedLabel: 'models used',
-        bestLabelText: 'Best',
-        mlLabelText: 'ML',
-        chemicalLabelText: 'Chemical',
-        fallbackUsedText: 'Fallback Model Used',
-        molecularStructuresTitle: 'Molecular Structures',
-        topCatalystsTitle: 'Top Catalysts',
-        noOptResultsText: 'No optimization results available.',
-        noPredHistoryText: 'No prediction history available.',
-        failedText: 'Failed',
-        expBadgeShort: 'EXPERIMENTAL MODE',
-        fileNeedsEnrichmentMsg: 'This file needs enrichment. Please use dataset_routes.py first.',
-        fileListErrorMsg: 'File list error: ',
-        loadErrorMsg: 'Load error: ',
-        historyClearConfirm: 'Clear all prediction history?',
-        historyClearedMsg: 'History cleared',
-        historyClearErrorMsg: 'Error clearing history: ',
-        predictionErrorMsg: 'Prediction error: ',
-        optimizationErrorMsg: 'Optimization error: ',
-        analysisErrorMsg: 'Analysis error: ',
-        modelChangeErrorMsg: 'Model change error: ',
-        predictionCompletedMsg: 'Prediction completed with ',
-        optimizationCompletedMsg: 'Optimization completed',
-        analysisCompletedMsg: 'Academic analysis completed with DFT, QSAR, docking',
-        analysisNotAvailableMsg: 'Academic analysis not available for this dataset',
-        loadFirstMsg: 'Please load a data file first',
-        optMethodLabel: 'Optimization Method'
-      }
-    };
+        var translations = {
+            tr: {
+                headerTitleText: 'Suzuki Tahmin',
+                filesTitleText: 'CSV Dosyaları',
+                loadingFilesText: 'Dosyalar yükleniyor...',
+                legendEnriched: 'Zenginleştirilmiş: Özellikler hazır',
+                legendBasic: 'Temel: Zenginleştirme gerekiyor',
+                legendOnlyEnriched: 'Sadece zenginleştirilmiş dosyalar ML destekler',
+                datasetNoticeTitle: 'Veri seti hakkında önemli not',
+                datasetNoticeText: 'Bu tahminler mevcut veri setine dayanmaktadır. Sonuçlar tüm reaksiyon koşullarını temsil etmeyebilir; değerler gerçek laboratuvar sonuçlarıyla doğrulanmalıdır.',
+                mainTitle: 'Suzuki-Miyaura Verim Tahmin',
+                subtitle: 'Makine öğrenimi ve moleküler tanımlayıcılar',
+                dataInfoTitle: 'Veri Bilgileri',
+                modelTitleText: 'Model Seçimi',
+                modelTitleSub: '— 7 model topluluğu',
+                modelLabel: 'Model:',
+                reactionTitleText: 'Reaksiyon Koşulları',
+                reactionTitleSub: '— Veri bütünlüğü zorunlu',
+                tempLabel: 'Sıcaklık (°C)',
+                timeLabel: 'Süre (saat)',
+                quantityLabel: 'Katalizör (mmol)',
+                catalystLabel: 'Katalizör',
+                baseLabel: 'Baz',
+                solv1Label: 'Çözücü 1',
+                solv2Label: 'Çözücü 2',
+                smiles1Label: 'Boronic Asit SMILES',
+                smiles2Label: 'Aryl Halide SMILES',
+                forceExperimentalLabel: 'Deneysel (heuristik) mod - ML yerine kural tabanlı tahmin kullan',
+                predictBtnText: 'Verim Tahmini',
+                optimizeBtnText: 'Katalizör Optimize Et',
+                analyzeBtnText: 'Akademik Analiz',
+                historyBtnText: 'Geçmiş',
+                loadingText: 'Hesaplamalar yapılıyor...',
+                tabPredictionText: 'Tahmin',
+                tabOptimizationText: 'Optimizasyon',
+                tabAnalysisText: 'Analiz',
+                tabHistoryText: 'Geçmiş',
+                optimizationPlaceholder: 'Sonuçları görmek için katalizör optimizasyonu çalıştırın.',
+                analysisPlaceholder: 'Sonuçları görmek için akademik analiz çalıştırın.',
+                historyDesc: 'Tahmin geçmişi',
+                clearHistoryBtnText: 'Geçmişi Temizle',
+                noHistoryText: 'Henüz tahmin yok.',
+                contactLabel: 'İletişim',
+                contactInfo: 'akkochief@gmail.com · @akkochief',
+                copyright: '© 2026 Molytica — Akademik Sürüm',
+                noFiles: 'CSV dosyası bulunamadı',
+                rowsLabel: 'Satır',
+                columnsLabel: 'Sütun',
+                catalystsCountLabel: 'Katalizör',
+                basesCountLabel: 'Baz',
+                featuresLabel: 'Özellik',
+                meanYieldLabel: 'Ort. Verim',
+                predictedYieldLabel: 'Tahmini Verim',
+                confidenceLabelText: 'Güven',
+                modelInfoLabel: 'Model',
+                modelsUsedLabel: 'model kullanıldı',
+                bestLabelText: 'En iyi',
+                mlLabelText: 'ML',
+                fallbackUsedText: 'Yedek Model Kullanıldı',
+                molecularStructuresTitle: 'Moleküler Yapılar',
+                topCatalystsTitle: 'En İyi Katalizörler',
+                noOptResultsText: 'Optimizasyon sonucu bulunamadı.',
+                noPredHistoryText: 'Tahmin geçmişi bulunamadı.',
+                failedText: 'Başarısız',
+                fileNeedsEnrichmentMsg: 'Bu dosya zenginleştirme gerektiriyor. Önce dataset_routes.py kullanın.',
+                fileListErrorMsg: 'Dosya listesi hatası: ',
+                loadErrorMsg: 'Yükleme hatası: ',
+                historyClearConfirm: 'Tüm tahmin geçmişi silinsin mi?',
+                historyClearedMsg: 'Geçmiş temizlendi',
+                historyClearErrorMsg: 'Geçmiş temizlenirken hata: ',
+                predictionErrorMsg: 'Tahmin hatası: ',
+                optimizationErrorMsg: 'Optimizasyon hatası: ',
+                analysisErrorMsg: 'Analiz hatası: ',
+                modelChangeErrorMsg: 'Model değiştirme hatası: ',
+                predictionCompletedMsg: 'Tahmin tamamlandı — model: ',
+                optimizationCompletedMsg: 'Optimizasyon tamamlandı',
+                analysisCompletedMsg: 'Akademik analiz tamamlandı',
+                analysisNotAvailableMsg: 'Bu veri seti için akademik analiz mevcut değil',
+                loadFirstMsg: 'Lütfen önce bir veri dosyası yükleyin',
+                datasetInfoRows: 'Satır',
+                datasetInfoColumns: 'Sütun',
+                datasetInfoCatalysts: 'Katalizör',
+                datasetInfoBases: 'Baz',
+                datasetInfoFeatures: 'Özellik',
+                datasetInfoMeanYield: 'Ort. Verim'
+            },
+            en: {
+                headerTitleText: 'Suzuki Predictor',
+                filesTitleText: 'CSV Files',
+                loadingFilesText: 'Loading files...',
+                legendEnriched: 'Enriched: Features ready',
+                legendBasic: 'Basic: Needs enrichment',
+                legendOnlyEnriched: 'Only enriched files support ML',
+                datasetNoticeTitle: 'Important note about the dataset',
+                datasetNoticeText: 'These predictions are based on the currently loaded dataset. Results may not represent every possible reaction condition; values should be verified against real laboratory results.',
+                mainTitle: 'Suzuki-Miyaura Yield Predictor',
+                subtitle: 'Machine learning with molecular descriptors',
+                dataInfoTitle: 'Dataset Information',
+                modelTitleText: 'Model Selection',
+                modelTitleSub: '— 7 models ensemble',
+                modelLabel: 'Model:',
+                reactionTitleText: 'Reaction Conditions',
+                reactionTitleSub: '— Data integrity enforced',
+                tempLabel: 'Temperature (°C)',
+                timeLabel: 'Time (hours)',
+                quantityLabel: 'Catalyst (mmol)',
+                catalystLabel: 'Catalyst',
+                baseLabel: 'Base',
+                solv1Label: 'Solvent 1',
+                solv2Label: 'Solvent 2',
+                smiles1Label: 'Boronic Acid SMILES',
+                smiles2Label: 'Aryl Halide SMILES',
+                forceExperimentalLabel: 'Experimental (heuristic) mode - use rule-based prediction instead of ML',
+                predictBtnText: 'Predict Yield',
+                optimizeBtnText: 'Optimize Catalyst',
+                analyzeBtnText: 'Academic Analysis',
+                historyBtnText: 'History',
+                loadingText: 'Processing calculations...',
+                tabPredictionText: 'Prediction',
+                tabOptimizationText: 'Optimization',
+                tabAnalysisText: 'Analysis',
+                tabHistoryText: 'History',
+                optimizationPlaceholder: 'Run catalyst optimization to see results here.',
+                analysisPlaceholder: 'Run academic analysis to see results here.',
+                historyDesc: 'Prediction history',
+                clearHistoryBtnText: 'Clear History',
+                noHistoryText: 'No predictions yet.',
+                contactLabel: 'Contact',
+                contactInfo: 'akkochief@gmail.com · @akkochief',
+                copyright: '© 2026 Molytica — Academic Edition',
+                noFiles: 'No CSV files found',
+                rowsLabel: 'Rows',
+                columnsLabel: 'Columns',
+                catalystsCountLabel: 'Catalysts',
+                basesCountLabel: 'Bases',
+                featuresLabel: 'Features',
+                meanYieldLabel: 'Mean Yield',
+                predictedYieldLabel: 'Predicted Yield',
+                confidenceLabelText: 'Confidence',
+                modelInfoLabel: 'Model',
+                modelsUsedLabel: 'models used',
+                bestLabelText: 'Best',
+                mlLabelText: 'ML',
+                fallbackUsedText: 'Fallback Model Used',
+                molecularStructuresTitle: 'Molecular Structures',
+                topCatalystsTitle: 'Top Catalysts',
+                noOptResultsText: 'No optimization results available.',
+                noPredHistoryText: 'No prediction history available.',
+                failedText: 'Failed',
+                fileNeedsEnrichmentMsg: 'This file needs enrichment. Please use dataset_routes.py first.',
+                fileListErrorMsg: 'File list error: ',
+                loadErrorMsg: 'Load error: ',
+                historyClearConfirm: 'Clear all prediction history?',
+                historyClearedMsg: 'History cleared',
+                historyClearErrorMsg: 'Error clearing history: ',
+                predictionErrorMsg: 'Prediction error: ',
+                optimizationErrorMsg: 'Optimization error: ',
+                analysisErrorMsg: 'Analysis error: ',
+                modelChangeErrorMsg: 'Model change error: ',
+                predictionCompletedMsg: 'Prediction completed — model: ',
+                optimizationCompletedMsg: 'Optimization completed',
+                analysisCompletedMsg: 'Academic analysis completed',
+                analysisNotAvailableMsg: 'Academic analysis not available for this dataset',
+                loadFirstMsg: 'Please load a data file first',
+                datasetInfoRows: 'Rows',
+                datasetInfoColumns: 'Columns',
+                datasetInfoCatalysts: 'Catalysts',
+                datasetInfoBases: 'Bases',
+                datasetInfoFeatures: 'Features',
+                datasetInfoMeanYield: 'Mean Yield'
+            }
+        };
 
-    var currentLang = 'tr';
-    function T(key) {
-      return (translations[currentLang] && translations[currentLang][key] !== undefined) ? translations[currentLang][key] : key;
-    }
-    var dark = localStorage.getItem('molytica-theme') === 'dark';
-    var currentFile = null;
-    var dataInfo = null;
-    var isProcessing = false;
-
-    var $ = function(id) { return document.getElementById(id); };
-    var fileList = $('fileList');
-    var statusMsg = $('statusMessage');
-    var dataInfoCard = $('dataInfo');
-    var dataDetails = $('dataDetails');
-    var modelCard = $('modelCard');
-    var reactionCard = $('reactionCard');
-    var resultContainer = $('resultContainer');
-    var resultContent = $('resultContent');
-    var optimizationContent = $('optimizationContent');
-    var analysisContent = $('analysisContent');
-    var historyContent = $('historyContent');
-    var historyList = $('historyList');
-    var moleculeDisplay = $('moleculeDisplay');
-    var loading = $('loading');
-    var loadingText = $('loadingText');
-    var langSwitch = $('langSwitch');
-    var themeToggle = $('themeToggle');
-    var themeIcon = $('themeIcon');
-    var logo = $('logo');
-    var modelSelect = $('modelSelect');
-    var modelStats = $('modelStats');
-    var predictBtn = $('predictBtn');
-    var optimizeBtn = $('optimizeBtn');
-    var analyzeBtn = $('analyzeBtn');
-    var historyBtn = $('historyBtn');
-    var clearHistoryBtn = $('clearHistoryBtn');
-    var fileCount = $('fileCount');
-    var experimentalModeCheck = $('experimentalModeCheck');
-    var expToggleWrap = $('expToggleWrap');
-    var experimentalBanner = $('experimentalBanner');
-    var tempInput = $('temp');
-    var timeInput = $('time');
-    var quantityInput = $('quantity');
-    var optMethod = $('optMethod');
-
-    var API_BASE = '/predict_ml';
-
-    function safeJson(resp) {
-      return resp.text().then(function(text) {
-        var data;
-        try {
-          data = text ? JSON.parse(text) : {};
-        } catch (e) {
-          data = { success: false, message: 'Invalid response from server (HTTP ' + resp.status + ')' };
+        var currentLang = 'tr';
+        function T(key) {
+            return (translations[currentLang] && translations[currentLang][key] !== undefined) ? translations[currentLang][key] : key;
         }
-        if (!resp.ok && data.success === undefined) {
-          data.success = false;
-          data.message = data.message || ('Request failed (HTTP ' + resp.status + ')');
+
+        var dark = localStorage.getItem('molytica-theme') === 'dark';
+        var currentFile = null;
+        var dataInfo = null;
+        var isProcessing = false;
+
+        var $ = function(id) { return document.getElementById(id); };
+        var fileList = $('fileList');
+        var statusMsg = $('statusMessage');
+        var dataInfoCard = $('dataInfo');
+        var dataDetails = $('dataDetails');
+        var modelCard = $('modelCard');
+        var reactionCard = $('reactionCard');
+        var resultContainer = $('resultContainer');
+        var resultContent = $('resultContent');
+        var optimizationContent = $('optimizationContent');
+        var analysisContent = $('analysisContent');
+        var historyList = $('historyList');
+        var moleculeDisplay = $('moleculeDisplay');
+        var loading = $('loading');
+        var loadingText = $('loadingText');
+        var langSwitch = $('langSwitch');
+        var themeToggle = $('themeToggle');
+        var themeIcon = $('themeIcon');
+        var logo = $('logo');
+        var modelSelect = $('modelSelect');
+        var modelStats = $('modelStats');
+        var predictBtn = $('predictBtn');
+        var optimizeBtn = $('optimizeBtn');
+        var analyzeBtn = $('analyzeBtn');
+        var historyBtn = $('historyBtn');
+        var clearHistoryBtn = $('clearHistoryBtn');
+        var fileCount = $('fileCount');
+
+        var API_BASE = '/predict_ml';
+
+        function safeJson(resp) {
+            return resp.text().then(function(text) {
+                var data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (e) {
+                    data = { success: false, message: 'Invalid response from server (HTTP ' + resp.status + ')' };
+                }
+                if (!resp.ok && data.success === undefined) {
+                    data.success = false;
+                    data.message = data.message || ('Request failed (HTTP ' + resp.status + ')');
+                }
+                return data;
+            });
         }
-        return data;
-      });
-    }
 
-    function setExperimentalMode(active) {
-      if (experimentalModeCheck) experimentalModeCheck.checked = active;
-      if (expToggleWrap) {
-        if (active) expToggleWrap.classList.add('active');
-        else expToggleWrap.classList.remove('active');
-      }
-      if (experimentalBanner) {
-        if (active) experimentalBanner.classList.add('show');
-        else experimentalBanner.classList.remove('show');
-      }
-      if (tempInput) {
-        if (active) tempInput.removeAttribute('max');
-        else tempInput.setAttribute('max', '250');
-      }
-      if (timeInput) {
-        if (active) timeInput.removeAttribute('max');
-        else timeInput.setAttribute('max', '72');
-      }
-      if (quantityInput) {
-        if (active) quantityInput.removeAttribute('max');
-        else quantityInput.setAttribute('max', '0.50');
-      }
-    }
-
-    if (experimentalModeCheck) {
-      experimentalModeCheck.addEventListener('change', function() {
-        setExperimentalMode(this.checked);
-      });
-    }
-
-    function setTheme(d) {
-      dark = d;
-      document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
-      localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
-      if (themeIcon) {
-        themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
-      }
-    }
-
-    function setLanguage(lang) {
-      currentLang = lang;
-      var t = translations[lang];
-      if (!t) return;
-
-      var map = {
-        'headerTitleText': 'headerTitleText',
-        'filesTitleText': 'filesTitleText',
-        'loadingFilesText': 'loadingFiles',
-        'legendEnriched': 'legendEnriched',
-        'legendBasic': 'legendBasic',
-        'legendOnlyEnriched': 'legendOnlyEnriched',
-        'datasetNoticeTitle': 'datasetNoticeTitle',
-        'datasetNoticeText': 'datasetNoticeText',
-        'mainTitle': 'mainTitle',
-        'subtitle': 'subtitle',
-        'dataInfoTitle': 'dataInfoTitle',
-        'modelTitleText': 'modelTitleText',
-        'modelTitleSub': 'modelTitleSub',
-        'modelLabel': 'modelLabel',
-        'reactionTitleText': 'reactionTitleText',
-        'reactionTitleSub': 'reactionTitleSub',
-        'tempLabel': 'tempLabel',
-        'timeLabel': 'timeLabel',
-        'quantityLabel': 'quantityLabel',
-        'catalystLabel': 'catalystLabel',
-        'baseLabel': 'baseLabel',
-        'solv1Label': 'solv1Label',
-        'solv2Label': 'solv2Label',
-        'smiles1Label': 'smiles1Label',
-        'smiles2Label': 'smiles2Label',
-        'predictBtnText': 'predictBtnText',
-        'optimizeBtnText': 'optimizeBtnText',
-        'analyzeBtnText': 'analyzeBtnText',
-        'loadingText': 'loadingText',
-        'contactLabel': 'contactLabel',
-        'contactInfo': 'contactInfo',
-        'copyright': 'copyright',
-        'noFiles': 'noFiles',
-        'expToggleTitle': 'expToggleTitle',
-        'expBadgeText': 'expBadgeText',
-        'expToggleDesc': 'expToggleDesc',
-        'experimentalBannerText': 'experimentalBannerText',
-        'optimizationPlaceholder': 'optimizationPlaceholder',
-        'analysisPlaceholder': 'analysisPlaceholder',
-        'historyDesc': 'historyDesc',
-        'clearHistoryBtnText': 'clearHistoryBtnText',
-        'noHistoryText': 'noHistoryText',
-        'optMethodLabel': 'optMethodLabel'
-      };
-
-      Object.keys(map).forEach(function(id) {
-        var el = $(id);
-        if (el) el.textContent = t[map[id]];
-      });
-
-      if (langSwitch) {
-        langSwitch.textContent = lang.toUpperCase();
-      }
-
-      var tabMap = {
-        'prediction': 'predictionTab',
-        'optimization': 'optimizationTab',
-        'analysis': 'analysisTab',
-        'history': 'historyTab'
-      };
-      document.querySelectorAll('.tab-btn').forEach(function(btn) {
-        var key = btn.dataset.tab;
-        var span = btn.querySelector('span');
-        if (tabMap[key] && span) {
-          span.textContent = t[tabMap[key]];
+        function setTheme(d) {
+            dark = d;
+            document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+            localStorage.setItem('molytica-theme', d ? 'dark' : 'light');
+            if (themeIcon) {
+                themeIcon.className = d ? 'fas fa-sun' : 'fas fa-moon';
+            }
         }
-      });
-    }
 
-    function updateClock() {
-      var clock = $('clock');
-      if (!clock) return;
-      clock.textContent = new Date().toLocaleTimeString(
-        currentLang === 'tr' ? 'tr-TR' : 'en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }
-      );
-    }
+        function setLanguage(lang) {
+            currentLang = lang;
+            var t = translations[lang];
+            if (!t) return;
 
-    function showMessage(msg, type) {
-      statusMsg.textContent = msg;
-      statusMsg.className = 'status-message status-' + type;
-      statusMsg.style.display = 'block';
-      setTimeout(function() {
-        if (statusMsg.textContent === msg) {
-          statusMsg.style.display = 'none';
-        }
-      }, 8000);
-    }
+            // Tüm translate edilebilir elementleri güncelle
+            var map = {
+                'headerTitleText': 'headerTitleText',
+                'filesTitleText': 'filesTitleText',
+                'loadingFilesText': 'loadingFilesText',
+                'legendEnriched': 'legendEnriched',
+                'legendBasic': 'legendBasic',
+                'legendOnlyEnriched': 'legendOnlyEnriched',
+                'datasetNoticeTitle': 'datasetNoticeTitle',
+                'datasetNoticeText': 'datasetNoticeText',
+                'mainTitle': 'mainTitle',
+                'subtitle': 'subtitle',
+                'dataInfoTitle': 'dataInfoTitle',
+                'modelTitleText': 'modelTitleText',
+                'modelTitleSub': 'modelTitleSub',
+                'modelLabel': 'modelLabel',
+                'reactionTitleText': 'reactionTitleText',
+                'reactionTitleSub': 'reactionTitleSub',
+                'tempLabel': 'tempLabel',
+                'timeLabel': 'timeLabel',
+                'quantityLabel': 'quantityLabel',
+                'catalystLabel': 'catalystLabel',
+                'baseLabel': 'baseLabel',
+                'solv1Label': 'solv1Label',
+                'solv2Label': 'solv2Label',
+                'smiles1Label': 'smiles1Label',
+                'smiles2Label': 'smiles2Label',
+                'forceExperimentalLabel': 'forceExperimentalLabel',
+                'predictBtnText': 'predictBtnText',
+                'optimizeBtnText': 'optimizeBtnText',
+                'analyzeBtnText': 'analyzeBtnText',
+                'historyBtnText': 'historyBtnText',
+                'loadingText': 'loadingText',
+                'tabPredictionText': 'tabPredictionText',
+                'tabOptimizationText': 'tabOptimizationText',
+                'tabAnalysisText': 'tabAnalysisText',
+                'tabHistoryText': 'tabHistoryText',
+                'optimizationPlaceholder': 'optimizationPlaceholder',
+                'analysisPlaceholder': 'analysisPlaceholder',
+                'historyDesc': 'historyDesc',
+                'clearHistoryBtnText': 'clearHistoryBtnText',
+                'noHistoryText': 'noHistoryText',
+                'contactLabel': 'contactLabel',
+                'contactInfo': 'contactInfo',
+                'copyright': 'copyright'
+            };
 
-    function showLoading(show) {
-      loading.style.display = show ? 'block' : 'none';
-      if (predictBtn) predictBtn.disabled = show;
-      if (optimizeBtn) optimizeBtn.disabled = show;
-      if (analyzeBtn) analyzeBtn.disabled = show;
-      if (historyBtn) historyBtn.disabled = show;
-      if (modelSelect) modelSelect.disabled = show;
-    }
-
-    function showResults(html, tab) {
-      if (tab === 'optimization') {
-        optimizationContent.innerHTML = html;
-        document.querySelector('[data-tab="optimization"]').click();
-      } else if (tab === 'analysis') {
-        analysisContent.innerHTML = html;
-        document.querySelector('[data-tab="analysis"]').click();
-      } else if (tab === 'history') {
-        historyList.innerHTML = html;
-        document.querySelector('[data-tab="history"]').click();
-      } else {
-        resultContent.innerHTML = html;
-        resultContainer.classList.add('show');
-        document.querySelector('[data-tab="prediction"]').click();
-      }
-    }
-
-    function showPredictionResult(data) {
-      var yieldColor = data.yield_class_color || '#3B82F6';
-      var isExp = data.experimental_mode === true;
-      var borderStyle = isExp ? 'border-color: var(--purple);' : '';
-      var html = '<div class="prediction-result" style="' + borderStyle + '">';
-
-      if (isExp) {
-        html += '<div class="result-experimental-badge"><i class="fas fa-flask"></i> ' + T('expBadgeShort') + '</div>';
-      }
-
-      html +=
-        '<div class="yield-value" style="color:' + (isExp ? 'var(--purple)' : yieldColor) + ';">' + data.prediction.toFixed(1) + '%</div>' +
-        '<div class="yield-label">' + T('predictedYieldLabel') + '</div>' +
-        '<span class="yield-class" style="background:' + (isExp ? 'var(--purple)' : yieldColor) + ';color:white;">' + data.yield_class + (isExp ? ' ★' : '') + '</span>';
-
-      if (data.confidence) {
-        html += '<div class="confidence-info">' + T('confidenceLabelText') + ': %' + (data.confidence * 100).toFixed(0) + '</div>';
-      }
-
-      if (data.confidence_interval) {
-        html += '<div class="interval-info">95% CI: [' + data.confidence_interval.lower.toFixed(1) + '%, ' + data.confidence_interval.upper.toFixed(1) + '%]</div>';
-      }
-
-      if (data.prediction_interval) {
-        html += '<div class="interval-info">90% PI: [' + data.prediction_interval.lower.toFixed(1) + '%, ' + data.prediction_interval.upper.toFixed(1) + '%]</div>';
-      }
-
-      html += '<div class="model-info">' + T('modelInfoLabel') + ': ' + data.model + ' | ' + data.model_count + ' ' + T('modelsUsedLabel');
-
-      if (data.best_model) {
-        html += ' | ' + T('bestLabelText') + ': ' + data.best_model;
-      }
-
-      if (data.ml_prediction) {
-        html += ' | ' + T('mlLabelText') + ': ' + data.ml_prediction.toFixed(1) + '%';
-      }
-      if (data.chemical_prediction) {
-        html += ' | ' + T('chemicalLabelText') + ': ' + data.chemical_prediction.toFixed(1) + '%';
-      }
-
-      if (data.fallback_used) {
-        html += ' | <span style="color:var(--warning);">' + T('fallbackUsedText') + '</span>';
-      }
-
-      html += '</div>';
-
-      if (data.academic_details) {
-        var ad = data.academic_details;
-        html += '<div class="academic-details">';
-        if (ad.anomaly_score && ad.anomaly_score.length > 0) {
-          html += '<span>Anomaly: <span class="highlight">' + ad.anomaly_score[0].toFixed(2) + '</span></span>';
-        }
-        if (ad.normality_test && ad.normality_test.is_normal !== undefined) {
-          html += '<span>Normality: <span class="highlight">' + (ad.normality_test.is_normal ? '✓ Normal' : '✗ Non-normal') + '</span></span>';
-        }
-        if (ad.aic_bic && ad.aic_bic.AIC) {
-          html += '<span>AIC: <span class="highlight">' + ad.aic_bic.AIC.toFixed(1) + '</span></span>';
-        }
-        if (ad.bootstrap_ci && ad.bootstrap_ci.ci_lower !== undefined) {
-          html += '<span>Bootstrap CI: <span class="highlight">[' + ad.bootstrap_ci.ci_lower.toFixed(2) + ', ' + ad.bootstrap_ci.ci_upper.toFixed(2) + ']</span></span>';
-        }
-        if (ad.uncertainty && ad.uncertainty.relative_uncertainty !== undefined) {
-          var rel = typeof ad.uncertainty.relative_uncertainty === 'number' ? ad.uncertainty.relative_uncertainty : ad.uncertainty.relative_uncertainty[0];
-          html += '<span>Uncertainty: <span class="highlight">' + (rel * 100).toFixed(1) + '%</span></span>';
-        }
-        if (ad.correlation_analysis && ad.correlation_analysis.feature_count !== undefined) {
-          html += '<span>Features: <span class="highlight">' + ad.correlation_analysis.feature_count + '</span></span>';
-        }
-        html += '</div>';
-      }
-
-      html += '</div>';
-
-      resultContent.innerHTML = html;
-      resultContainer.classList.add('show');
-      document.querySelector('[data-tab="prediction"]').click();
-
-      if (data.molecule_image) {
-        moleculeDisplay.innerHTML = '<h4>' + T('molecularStructuresTitle') + '</h4><img src="data:image/png;base64,' + data.molecule_image + '" alt="' + T('molecularStructuresTitle') + '">';
-      } else {
-        moleculeDisplay.innerHTML = '';
-      }
-
-      loadHistory();
-    }
-
-    function showOptimizationResult(data) {
-      var html = '<h4 style="margin-bottom:12px;">' + T('topCatalystsTitle') + '</h4><div class="optimization-results">';
-      if (data.results && data.results.length > 0) {
-        data.results.forEach(function(item, i) {
-          var catalyst = item[0];
-          var yieldVal = item[1];
-          var qty = item[2] || '-';
-          var temp = item[3] || '-';
-          var time = item[4] || '-';
-          var method = item[5] || 'grid';
-          var color = yieldVal > 85 ? 'var(--success)' : yieldVal > 70 ? 'var(--info)' : yieldVal > 50 ? 'var(--warning)' : 'var(--error)';
-          var methodLabels = { 'grid': 'Grid', 'bayesian': 'Bayesian', 'genetic': 'Genetic' };
-          html += '<div class="catalyst-result">' +
-            '<span class="rank">#' + (i + 1) + '</span>' +
-            '<span class="name">' + catalyst + ' <span class="method-badge">' + (methodLabels[method] || 'Grid') + '</span></span>' +
-            '<span class="yield" style="color:' + color + ';">' + yieldVal.toFixed(1) + '%</span>' +
-            '<span class="qty">' + (typeof qty === 'number' ? qty.toFixed(4) : qty) + ' mmol</span>' +
-            '<span class="temp-time">' + temp + '°C, ' + time + 'h</span>' +
-            '</div>';
-        });
-      } else {
-        html += '<p style="color:var(--text-muted);">' + T('noOptResultsText') + '</p>';
-      }
-      html += '</div>';
-
-      optimizationContent.innerHTML = html;
-      document.querySelector('[data-tab="optimization"]').click();
-    }
-
-    function showAnalysisResult(data) {
-      var html = '<div class="analysis-grid">';
-
-      if (data.normality_test) {
-        var nt = data.normality_test;
-        html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-chart-bell" style="color:var(--info);"></i> Normality Test <span class="badge-academic">Shapiro-Wilk</span></h5>' +
-          '<div class="value"><span>Statistic</span> <strong>' + nt.shapiro_statistic.toFixed(4) + '</strong></div>' +
-          '<div class="value"><span>P-Value</span> <strong>' + nt.shapiro_p_value.toFixed(4) + '</strong></div>' +
-          '<div class="value"><span>Status</span> <strong style="color:' + (nt.is_normal ? 'var(--success)' : 'var(--error)') + ';">' + nt.interpretation + '</strong></div>' +
-          '</div>';
-      }
-
-      if (data.bootstrap_ci) {
-        var bc = data.bootstrap_ci;
-        html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-dice" style="color:var(--orange);"></i> Bootstrap CI <span class="badge-academic">Efron 1979</span></h5>' +
-          '<div class="value"><span>Mean Error</span> <strong>' + bc.mean_error.toFixed(3) + '</strong></div>' +
-          '<div class="value"><span>CI Lower</span> <strong>' + bc.ci_lower.toFixed(3) + '</strong></div>' +
-          '<div class="value"><span>CI Upper</span> <strong>' + bc.ci_upper.toFixed(3) + '</strong></div>' +
-          '<div class="value"><span>CI Width</span> <strong>' + bc.ci_width.toFixed(3) + '</strong></div>' +
-          '</div>';
-      }
-
-      if (data.aic_bic) {
-        var ab = data.aic_bic;
-        html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-balance-scale" style="color:var(--purple);"></i> AIC / BIC <span class="badge-academic">Model Selection</span></h5>' +
-          '<div class="value"><span>AIC</span> <strong>' + ab.AIC.toFixed(1) + '</strong></div>' +
-          '<div class="value"><span>BIC</span> <strong>' + ab.BIC.toFixed(1) + '</strong></div>' +
-          '<div class="value"><span>Log-Likelihood</span> <strong>' + ab.log_likelihood.toFixed(1) + '</strong></div>' +
-          '</div>';
-      }
-
-      if (data.learning_curve) {
-        var lc = data.learning_curve;
-        html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-chart-line" style="color:var(--success);"></i> Learning Curve <span class="badge-academic">Hastie 2009</span></h5>' +
-          '<div class="value"><span>Overfitting Ratio</span> <strong style="color:' + (lc.is_overfitting ? 'var(--error)' : 'var(--success)') + ';">' + (lc.overfitting_ratio * 100).toFixed(1) + '%</strong></div>' +
-          '<div class="value"><span>Status</span> <strong>' + (lc.is_overfitting ? '⚠️ Overfitting' : '✓ Generalizing') + '</strong></div>' +
-          '<div class="value"><span>Train Score</span> <strong>' + (lc.train_scores_mean ? lc.train_scores_mean[lc.train_scores_mean.length-1].toFixed(3) : 'N/A') + '</strong></div>' +
-          '<div class="value"><span>Test Score</span> <strong>' + (lc.test_scores_mean ? lc.test_scores_mean[lc.test_scores_mean.length-1].toFixed(3) : 'N/A') + '</strong></div>' +
-          '</div>';
-      }
-
-      if (data.correlation_analysis && data.correlation_analysis.top_features) {
-        var ca = data.correlation_analysis;
-        html += '<div class="analysis-card" style="grid-column:1/-1;">' +
-          '<h5><i class="fas fa-arrows-left-right" style="color:var(--warning);"></i> Correlation Analysis <span class="badge-academic">Pearson 1895</span></h5>';
-        if (ca.top_features && ca.top_features.length > 0) {
-          ca.top_features.slice(0, 5).forEach(function(item) {
-            html += '<div class="value"><span>' + item[0] + '</span> <strong>' + item[1].toFixed(3) + '</strong></div>';
-          });
-        } else {
-          html += '<p style="color:var(--text-muted);font-size:0.8rem;">No significant correlations found</p>';
-        }
-        html += '</div>';
-      }
-
-      if (data.uncertainty) {
-        var uc = data.uncertainty;
-        var rel = typeof uc.relative_uncertainty === 'number' ? uc.relative_uncertainty : (Array.isArray(uc.relative_uncertainty) ? uc.relative_uncertainty[0] : 0);
-        html += '<div class="analysis-card">' +
-          '<h5><i class="fas fa-triangle-exclamation" style="color:var(--error);"></i> Uncertainty <span class="badge-academic">Ensemble</span></h5>' +
-          '<div class="value"><span>Relative Uncertainty</span> <strong>' + (rel * 100).toFixed(1) + '%</strong></div>' +
-          '<div class="value"><span>CI Lower</span> <strong>' + (typeof uc.ci_lower === 'number' ? uc.ci_lower.toFixed(2) : 'N/A') + '</strong></div>' +
-          '<div class="value"><span>CI Upper</span> <strong>' + (typeof uc.ci_upper === 'number' ? uc.ci_upper.toFixed(2) : 'N/A') + '</strong></div>' +
-          '</div>';
-      }
-
-      html += '</div>';
-      analysisContent.innerHTML = html;
-      document.querySelector('[data-tab="analysis"]').click();
-    }
-
-    function showHistory(data) {
-      var html = '';
-      if (data.history && data.history.length > 0) {
-        data.history.forEach(function(item) {
-          var cond = item.conditions || {};
-          var result = item.result || {};
-          var ts = new Date(item.timestamp).toLocaleString();
-          var expFlag = item.experimental_mode
-            ? '<span style="font-size:0.5rem;background:var(--purple);color:white;padding:1px 6px;border-radius:99px;margin-left:6px;font-weight:700;">EXP</span>'
-            : '';
-          html += '<div class="history-item">' +
-            '<span>' + (cond.catalizor || '?') + ' | ' + (cond.base || '?') + ' | ' + (cond.temp || '?') + '°C' + expFlag + '</span>' +
-            '<span style="font-weight:600;color:' + (result.yield > 70 ? 'var(--success)' : result.yield > 50 ? 'var(--warning)' : 'var(--error)') + ';">' + (result.yield != null ? result.yield.toFixed(1) + '%' : T('failedText')) + '</span>' +
-            '</div>';
-        });
-      } else {
-        html = '<p style="color:var(--text-muted);">' + T('noPredHistoryText') + '</p>';
-      }
-      historyList.innerHTML = html;
-      document.querySelector('[data-tab="history"]').click();
-    }
-
-    function hideResults() {
-      resultContainer.classList.remove('show');
-    }
-
-    function loadHistory() {
-      fetch(API_BASE + '/api/prediction_history')
-        .then(safeJson)
-        .then(function(data) {
-          if (data.success) {
-            showHistory(data);
-          }
-        })
-        .catch(function(err) {
-          console.warn('History load error:', err);
-        });
-    }
-
-    function clearHistory() {
-      if (!confirm(T('historyClearConfirm'))) return;
-      fetch(API_BASE + '/api/clear_history', { method: 'POST' })
-        .then(safeJson)
-        .then(function(data) {
-          if (data.success) {
-            showMessage(T('historyClearedMsg'), 'success');
-            loadHistory();
-          }
-        })
-        .catch(function(err) {
-          showMessage(T('historyClearErrorMsg') + err.message, 'error');
-        });
-    }
-
-    function loadFileList() {
-      fetch(API_BASE + '/api/get_csv_files')
-        .then(safeJson)
-        .then(function(data) {
-          if (!data.success) throw new Error(data.message || 'Failed to load files');
-
-          fileList.innerHTML = '';
-
-          if (data.files.length === 0) {
-            fileList.innerHTML = '<div class="no-files">' + translations[currentLang].noFiles + '</div>';
-            if (fileCount) fileCount.textContent = '0';
-            return;
-          }
-
-          if (fileCount) fileCount.textContent = data.files.length;
-
-          data.files.forEach(function(file) {
-            var item = document.createElement('div');
-            item.className = 'file-item';
-            var badge = file.is_enriched ?
-              '<span class="badge-enriched">' + (currentLang === 'tr' ? 'Zengin' : 'Enriched') + '</span>' :
-              '<span class="badge-basic">' + (currentLang === 'tr' ? 'Temel' : 'Basic') + '</span>';
-
-            var statusHtml = file.is_enriched ?
-              '<div class="file-status"><span class="ok">' + T('legendEnriched').split(':')[1].trim() + '</span></div>' :
-              '<div class="file-status"><span class="err">' + T('legendBasic').split(':')[1].trim() + '</span></div>';
-
-            item.innerHTML = '<div class="file-name">' + file.name + ' ' + badge + '</div>' +
-              '<div class="file-size">' + file.size + ' · ' + new Date(file.modified).toLocaleDateString() + '</div>' +
-              statusHtml;
-
-            item.addEventListener('click', function() {
-              if (!file.is_enriched) {
-                showMessage(T('fileNeedsEnrichmentMsg'), 'error');
-                return;
-              }
-              selectFile(file.name, item);
+            Object.keys(map).forEach(function(id) {
+                var el = $(id);
+                if (el && t[map[id]] !== undefined) {
+                    el.textContent = t[map[id]];
+                }
             });
 
-            fileList.appendChild(item);
-          });
-        })
-        .catch(function(err) {
-          showMessage(T('fileListErrorMsg') + err.message, 'error');
-        });
-    }
-
-    function selectFile(filename, element) {
-      document.querySelectorAll('.file-item').forEach(function(el) { el.classList.remove('active'); });
-      element.classList.add('active');
-
-      currentFile = filename;
-      showLoading(true);
-      hideResults();
-
-      fetch(API_BASE + '/api/load_data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: filename })
-      })
-      .then(safeJson)
-      .then(function(data) {
-        if (data.success) {
-          dataInfo = data.data_info;
-          showDataInfo(data);
-          populateDropdowns(data);
-          modelCard.style.display = 'block';
-          reactionCard.style.display = 'block';
-          showMessage(data.message, 'success');
-
-          if (data.performance) {
-            var bestModel = data.best_model || 'Ensemble';
-            var perf = data.performance;
-            var html = '<strong>Best Model:</strong> ' + bestModel;
-            if (perf[bestModel]) {
-              html += ' | R²: ' + (perf[bestModel].r2 ? perf[bestModel].r2.toFixed(3) : 'N/A');
-              html += ' | MAE: ' + (perf[bestModel].mae ? perf[bestModel].mae.toFixed(2) : 'N/A');
-              html += ' | RMSE: ' + (perf[bestModel].rmse ? perf[bestModel].rmse.toFixed(2) : 'N/A');
+            if (langSwitch) {
+                langSwitch.textContent = lang.toUpperCase();
             }
-            if (data.cv_results) {
-              var cv = data.cv_results;
-              if (cv[bestModel]) {
-                html += ' | CV: ' + cv[bestModel].mean.toFixed(3) + ' ± ' + cv[bestModel].std.toFixed(3);
-              }
-            }
-            if (data.normality_test && data.normality_test.is_normal !== undefined) {
-              html += ' | Normality: ' + (data.normality_test.is_normal ? '✓' : '✗');
-            }
-            if (data.aic_bic_results && data.aic_bic_results.AIC) {
-              html += ' | AIC: ' + data.aic_bic_results.AIC.toFixed(1);
-            }
-            modelStats.innerHTML = html;
-            modelStats.style.display = 'block';
 
-            var bestKey = Object.keys(perf).reduce(function(a, b) {
-              return (perf[a].r2 || 0) > (perf[b].r2 || 0) ? a : b;
-            }, Object.keys(perf)[0]);
-            if (bestKey && modelSelect) {
-              for (var i = 0; i < modelSelect.options.length; i++) {
-                if (modelSelect.options[i].value === bestKey) {
-                  modelSelect.selectedIndex = i;
-                  break;
+            // Model select option'ları güncelle (sadece model isimleri değişmez ama placeholder varsa)
+            // Placeholder'lar zaten güncellendi
+        }
+
+        function updateClock() {
+            var clock = $('clock');
+            if (!clock) return;
+            clock.textContent = new Date().toLocaleTimeString(
+                currentLang === 'tr' ? 'tr-TR' : 'en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
                 }
-              }
+            );
+        }
+
+        function showMessage(msg, type) {
+            statusMsg.textContent = msg;
+            statusMsg.className = 'status-message status-' + type;
+            statusMsg.style.display = 'block';
+            setTimeout(function() {
+                if (statusMsg.textContent === msg) {
+                    statusMsg.style.display = 'none';
+                }
+            }, 8000);
+        }
+
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            if (predictBtn) predictBtn.disabled = show;
+            if (optimizeBtn) optimizeBtn.disabled = show;
+            if (analyzeBtn) analyzeBtn.disabled = show;
+            if (historyBtn) historyBtn.disabled = show;
+            if (modelSelect) modelSelect.disabled = show;
+        }
+
+        function showResults(html, tab) {
+            if (tab === 'optimization') {
+                optimizationContent.innerHTML = html;
+                document.querySelector('[data-tab="optimization"]').click();
+            } else if (tab === 'analysis') {
+                analysisContent.innerHTML = html;
+                document.querySelector('[data-tab="analysis"]').click();
+            } else if (tab === 'history') {
+                historyList.innerHTML = html;
+                document.querySelector('[data-tab="history"]').click();
+            } else {
+                resultContent.innerHTML = html;
+                resultContainer.classList.add('show');
+                document.querySelector('[data-tab="prediction"]').click();
             }
-          }
-
-          loadHistory();
-
-        } else {
-          showMessage(data.message, 'error');
         }
-      })
-      .catch(function(err) {
-        showMessage(T('loadErrorMsg') + err.message, 'error');
-      })
-      .finally(function() {
-        showLoading(false);
-      });
-    }
 
-    function showDataInfo(data) {
-      if (!data || !data.data_info) return;
+        function showPredictionResult(data) {
+            var yieldColor = data.yield_class_color || '#3B82F6';
+            var html = '<div class="prediction-result">';
 
-      var info = data.data_info;
-      dataDetails.innerHTML = '' +
-        '<div class="info-item"><div class="info-value">' + info.rows + '</div><div class="info-label">' + T('rowsLabel') + '</div></div>' +
-        '<div class="info-item"><div class="info-value">' + info.columns.length + '</div><div class="info-label">' + T('columnsLabel') + '</div></div>' +
-        '<div class="info-item"><div class="info-value">' + (info.catalysts ? info.catalysts.length : 0) + '</div><div class="info-label">' + T('catalystsCountLabel') + '</div></div>' +
-        '<div class="info-item"><div class="info-value">' + (info.bases ? info.bases.length : 0) + '</div><div class="info-label">' + T('basesCountLabel') + '</div></div>' +
-        '<div class="info-item"><div class="info-value">' + (info.feature_count || 0) + '</div><div class="info-label">' + T('featuresLabel') + '</div></div>' +
-        '<div class="info-item"><div class="info-value">' + (info.yield_stats ? info.yield_stats.mean.toFixed(1) : '-') + '%</div><div class="info-label">' + T('meanYieldLabel') + '</div></div>';
+            html +=
+                '<div class="yield-value" style="color:' + yieldColor + ';">' + data.prediction.toFixed(1) + '%</div>' +
+                '<div class="yield-label">' + T('predictedYieldLabel') + '</div>' +
+                '<span class="yield-class" style="background:' + yieldColor + ';color:white;">' + data.yield_class + '</span>';
 
-      dataInfoCard.style.display = 'block';
-
-      if (info.rows && info.rows < 60) {
-        showMessage((currentLang === 'tr' ?
-          'Uyarı: veri setinde sadece ' + info.rows + ' satır var — küçük veri setleri tahmin güvenilirliğini azaltabilir.' :
-          'Warning: dataset only has ' + info.rows + ' rows — small datasets may reduce prediction reliability.'), 'warning');
-      }
-    }
-
-    function populateDropdowns(data) {
-      if (!data || !data.data_info) return;
-      var info = data.data_info;
-      populateDatalist('catalizor-list', info.catalysts);
-      populateDatalist('base-list', info.bases);
-      populateDatalist('solv1-list', info.solvents1);
-      populateDatalist('solv2-list', info.solvents2 || []);
-    }
-
-    function populateDatalist(id, options) {
-      var list = $(id);
-      if (!list) return;
-      list.innerHTML = '';
-      if (!options) return;
-      options.forEach(function(opt) {
-        if (opt) {
-          var el = document.createElement('option');
-          el.value = opt;
-          list.appendChild(el);
-        }
-      });
-    }
-
-    function getConditions() {
-      var expMode = experimentalModeCheck ? experimentalModeCheck.checked : false;
-      var method = optMethod ? optMethod.value : 'grid';
-
-      var cond = {
-        temp: parseFloat($('temp').value),
-        time: parseFloat($('time').value),
-        quantity: parseFloat($('quantity').value),
-        catalizor: $('catalizor').value.trim(),
-        base: $('base').value.trim(),
-        solv1: $('solv1').value.trim(),
-        solv2: $('solv2').value.trim(),
-        subs1_smiles: $('subs1_smiles').value.trim(),
-        subs2_smiles: $('subs2_smiles').value.trim(),
-        experimental_mode: expMode,
-        method: method
-      };
-
-      if (!cond.catalizor || !cond.base || !cond.solv1 || !cond.subs1_smiles || !cond.subs2_smiles) {
-        showMessage(currentLang === 'tr' ? 'Lütfen tüm zorunlu alanları doldurun' : 'Please fill all required fields', 'error');
-        return null;
-      }
-
-      if (isNaN(cond.temp) || isNaN(cond.time) || isNaN(cond.quantity)) {
-        showMessage(currentLang === 'tr' ? 'Sıcaklık, süre ve miktar sayısal olmalı' : 'Temperature, time and quantity must be numbers', 'error');
-        return null;
-      }
-      if (cond.temp < 25) {
-        showMessage(currentLang === 'tr' ? 'Sıcaklık en az 25°C olmalı' : 'Temperature must be at least 25°C', 'error');
-        return null;
-      }
-      if (!expMode && cond.temp > 250) {
-        showMessage(currentLang === 'tr' ? 'Sıcaklık ≤ 250°C olmalı (bu sınırı kaldırmak için Deneysel Modu açın)' : 'Temperature must be ≤ 250°C (disable Experimental Mode for this limit)', 'error');
-        return null;
-      }
-
-      if (cond.time < 1) {
-        showMessage(currentLang === 'tr' ? 'Süre en az 1 saat olmalı' : 'Time must be at least 1 hour', 'error');
-        return null;
-      }
-      if (!expMode && cond.time > 72) {
-        showMessage(currentLang === 'tr' ? 'Süre ≤ 72 saat olmalı (bu sınırı kaldırmak için Deneysel Modu açın)' : 'Time must be ≤ 72 hours (disable Experimental Mode for this limit)', 'error');
-        return null;
-      }
-
-      if (cond.quantity < 0.0001) {
-        showMessage(currentLang === 'tr' ? 'Katalizör miktarı en az 0.0001 mmol olmalı' : 'Catalyst quantity must be at least 0.0001 mmol', 'error');
-        return null;
-      }
-      if (!expMode && cond.quantity > 0.50) {
-        showMessage(currentLang === 'tr' ? 'Katalizör miktarı ≤ 0.50 mmol olmalı (bu sınırı kaldırmak için Deneysel Modu açın)' : 'Catalyst quantity must be ≤ 0.50 mmol (disable Experimental Mode for this limit)', 'error');
-        return null;
-      }
-
-      return cond;
-    }
-
-    function makePrediction() {
-      if (isProcessing) return;
-      var cond = getConditions();
-      if (!cond) return;
-
-      isProcessing = true;
-      showLoading(true);
-      hideResults();
-
-      fetch(API_BASE + '/api/make_prediction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cond)
-      })
-      .then(safeJson)
-      .then(function(data) {
-        if (data.success) {
-          showPredictionResult(data);
-          showMessage(T('predictionCompletedMsg') + data.model, 'success');
-        } else {
-          showMessage(data.message, 'error');
-        }
-      })
-      .catch(function(err) {
-        showMessage(T('predictionErrorMsg') + err.message, 'error');
-      })
-      .finally(function() {
-        isProcessing = false;
-        showLoading(false);
-      });
-    }
-
-    function optimizeCatalyst() {
-      if (isProcessing) return;
-      var cond = getConditions();
-      if (!cond) return;
-
-      isProcessing = true;
-      showLoading(true);
-
-      fetch(API_BASE + '/api/optimize_catalyst', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cond)
-      })
-      .then(safeJson)
-      .then(function(data) {
-        if (data.success) {
-          showOptimizationResult(data);
-          showMessage(T('optimizationCompletedMsg'), 'success');
-        } else {
-          showMessage(data.message, 'error');
-        }
-      })
-      .catch(function(err) {
-        showMessage(T('optimizationErrorMsg') + err.message, 'error');
-      })
-      .finally(function() {
-        isProcessing = false;
-        showLoading(false);
-      });
-    }
-
-    function analyzeAcademic() {
-      if (isProcessing) return;
-      var cond = getConditions();
-      if (!cond) return;
-
-      isProcessing = true;
-      showLoading(true);
-
-      fetch(API_BASE + '/api/make_prediction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cond)
-      })
-      .then(safeJson)
-      .then(function(data) {
-        if (data.success && data.academic_details) {
-          showAnalysisResult(data.academic_details);
-          showMessage(T('analysisCompletedMsg'), 'success');
-        } else {
-          showMessage(T('analysisNotAvailableMsg'), 'warning');
-        }
-      })
-      .catch(function(err) {
-        showMessage(T('analysisErrorMsg') + err.message, 'error');
-      })
-      .finally(function() {
-        isProcessing = false;
-        showLoading(false);
-      });
-    }
-
-    function changeModel(modelName) {
-      if (isProcessing) return;
-      if (!currentFile) {
-        showMessage(T('loadFirstMsg'), 'error');
-        return;
-      }
-
-      isProcessing = true;
-      showLoading(true);
-
-      fetch(API_BASE + '/api/change_model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_name: modelName })
-      })
-      .then(safeJson)
-      .then(function(data) {
-        if (data.success) {
-          var msg = data.message;
-          if (data.stats) {
-            msg += ' | R²: ' + (data.stats.r2 ? data.stats.r2.toFixed(3) : 'N/A');
-            msg += ' | MAE: ' + (data.stats.mae ? data.stats.mae.toFixed(2) : 'N/A');
-          }
-          showMessage(msg, 'success');
-
-          if (data.stats) {
-            var html = '<strong>Model:</strong> ' + modelName;
-            html += ' | R²: ' + (data.stats.r2 ? data.stats.r2.toFixed(3) : 'N/A');
-            html += ' | MAE: ' + (data.stats.mae ? data.stats.mae.toFixed(2) : 'N/A');
-            html += ' | RMSE: ' + (data.stats.rmse ? data.stats.rmse.toFixed(2) : 'N/A');
-            if (data.cv_results && data.cv_results[modelName]) {
-              html += ' | CV: ' + data.cv_results[modelName].mean.toFixed(3) + ' ± ' + data.cv_results[modelName].std.toFixed(3);
+            if (data.confidence) {
+                html += '<div class="confidence-info">' + T('confidenceLabelText') + ': %' + (data.confidence * 100).toFixed(0) + '</div>';
             }
-            modelStats.innerHTML = html;
-            modelStats.style.display = 'block';
-          }
-        } else {
-          showMessage(data.message, 'error');
+
+            if (data.confidence_interval) {
+                html += '<div class="interval-info">95% CI: [' + data.confidence_interval.lower.toFixed(1) + '%, ' + data.confidence_interval.upper.toFixed(1) + '%]</div>';
+            }
+
+            html += '<div class="model-info">' + T('modelInfoLabel') + ': ' + data.model + ' | ' + data.model_count + ' ' + T('modelsUsedLabel');
+
+            if (data.best_model) {
+                html += ' | ' + T('bestLabelText') + ': ' + data.best_model;
+            }
+
+            if (data.ml_prediction) {
+                html += ' | ' + T('mlLabelText') + ': ' + data.ml_prediction.toFixed(1) + '%';
+            }
+
+            if (data.fallback_used) {
+                html += ' | <span style="color:var(--warning);">' + T('fallbackUsedText') + '</span>';
+            }
+
+            html += '</div>';
+
+            if (data.mode === 'experimental_heuristic') {
+                var disclaimer = currentLang === 'tr' ? 
+                    'Deneysel (heuristik) mod aktif - bu tahmin ML modelinden değil kural tabanlı bir yaklaşımdan geldi.' :
+                    'Experimental (heuristic) mode active - this prediction came from a rule-based approach, not an ML model.';
+                var reason = data.mode_reason ? '<br><span style="opacity:0.75;">' + (currentLang === 'tr' ? 'Sebep: ' : 'Reason: ') + data.mode_reason + '</span>' : '';
+                html += '<div style="margin:12px 0;padding:10px 14px;border-radius:10px;background:var(--warning-bg);color:var(--warning);font-size:0.85rem;line-height:1.4;">' +
+                    '<i class="fas fa-flask" style="margin-right:6px;"></i>' + disclaimer + reason +
+                    '</div>';
+            }
+
+            if (data.academic_details) {
+                var ad = data.academic_details;
+                html += '<div class="academic-details">';
+                if (ad.note) {
+                    html += '<span style="width:100%;color:var(--text-muted);font-style:italic;">' + ad.note + '</span>';
+                }
+                if (ad.anomaly_score && ad.anomaly_score.length > 0) {
+                    html += '<span>Anomaly: <span class="highlight">' + ad.anomaly_score[0].toFixed(2) + '</span></span>';
+                }
+                if (ad.normality_test && ad.normality_test.is_normal !== undefined) {
+                    var normText = ad.normality_test.is_normal ? (currentLang === 'tr' ? '✓ Normal' : '✓ Normal') : (currentLang === 'tr' ? '✗ Normal Değil' : '✗ Non-normal');
+                    html += '<span>Normality: <span class="highlight">' + normText + '</span></span>';
+                }
+                if (ad.aic_bic && ad.aic_bic.AIC) {
+                    html += '<span>AIC: <span class="highlight">' + ad.aic_bic.AIC.toFixed(1) + '</span></span>';
+                }
+                if (ad.bootstrap_ci && ad.bootstrap_ci.ci_lower !== undefined) {
+                    html += '<span>Bootstrap CI: <span class="highlight">[' + ad.bootstrap_ci.ci_lower.toFixed(2) + ', ' + ad.bootstrap_ci.ci_upper.toFixed(2) + ']</span></span>';
+                }
+                if (ad.uncertainty && ad.uncertainty.relative_uncertainty !== undefined) {
+                    var rel = typeof ad.uncertainty.relative_uncertainty === 'number' ? ad.uncertainty.relative_uncertainty : ad.uncertainty.relative_uncertainty[0];
+                    html += '<span>Uncertainty: <span class="highlight">' + (rel * 100).toFixed(1) + '%</span></span>';
+                }
+                if (ad.correlation_analysis && ad.correlation_analysis.feature_count !== undefined) {
+                    html += '<span>Features: <span class="highlight">' + ad.correlation_analysis.feature_count + '</span></span>';
+                }
+                html += '</div>';
+            }
+
+            html += '</div>';
+
+            resultContent.innerHTML = html;
+            resultContainer.classList.add('show');
+            document.querySelector('[data-tab="prediction"]').click();
+
+            if (data.molecule_image) {
+                moleculeDisplay.innerHTML = '<h4>' + T('molecularStructuresTitle') + '</h4><img src="data:image/png;base64,' + data.molecule_image + '" alt="' + T('molecularStructuresTitle') + '">';
+            } else {
+                moleculeDisplay.innerHTML = '';
+            }
+
+            loadHistory();
         }
-      })
-      .catch(function(err) {
-        showMessage(T('modelChangeErrorMsg') + err.message, 'error');
-      })
-      .finally(function() {
-        isProcessing = false;
-        showLoading(false);
-      });
-    }
 
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-        this.classList.add('active');
+        function showOptimizationResult(data) {
+            var html = '<h4 style="margin-bottom:12px;">' + T('topCatalystsTitle') + '</h4><div class="optimization-results">';
+            if (data.results && data.results.length > 0) {
+                data.results.forEach(function(item, i) {
+                    var catalyst = item[0];
+                    var yieldVal = item[1];
+                    var qty = item[2] || '-';
+                    var color = yieldVal > 85 ? 'var(--success)' : yieldVal > 70 ? 'var(--info)' : yieldVal > 50 ? 'var(--warning)' : 'var(--error)';
+                    html += '<div class="catalyst-result">' +
+                        '<span class="rank">#' + (i + 1) + '</span>' +
+                        '<span class="name">' + catalyst + '</span>' +
+                        '<span class="yield" style="color:' + color + ';">' + yieldVal.toFixed(1) + '%</span>' +
+                        '<span class="qty">' + (typeof qty === 'number' ? qty.toFixed(4) : qty) + ' mmol</span>' +
+                        '</div>';
+                });
+            } else {
+                html += '<p style="color:var(--text-muted);">' + T('noOptResultsText') + '</p>';
+            }
+            html += '</div>';
 
-        var tab = this.dataset.tab;
-        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
-
-        var contentMap = {
-          'prediction': 'tabPrediction',
-          'optimization': 'tabOptimization',
-          'analysis': 'tabAnalysis',
-          'history': 'tabHistory'
-        };
-        var target = $(contentMap[tab]);
-        if (target) target.classList.add('active');
-      });
-    });
-
-    if (logo) {
-      logo.addEventListener('click', function() { window.location.href = '/'; });
-    }
-
-    if (langSwitch) {
-      langSwitch.addEventListener('click', function() {
-        setLanguage(currentLang === 'tr' ? 'en' : 'tr');
-      });
-    }
-
-    if (themeToggle) {
-      themeToggle.addEventListener('click', function() { setTheme(!dark); });
-    }
-
-    if (modelSelect) {
-      modelSelect.addEventListener('change', function() {
-        changeModel(this.value);
-      });
-    }
-
-    if (predictBtn) {
-      predictBtn.addEventListener('click', makePrediction);
-    }
-
-    if (optimizeBtn) {
-      optimizeBtn.addEventListener('click', function() {
-        var method = optMethod ? optMethod.value : 'grid';
-        if (method === 'bayesian' && !window.SKOPT_AVAILABLE) {
-          showMessage('Bayesian optimization requires scikit-optimize. Falling back to grid search.', 'warning');
+            optimizationContent.innerHTML = html;
+            document.querySelector('[data-tab="optimization"]').click();
         }
-        if (method === 'genetic' && !window.DEAP_AVAILABLE) {
-          showMessage('Genetic optimization requires DEAP. Falling back to grid search.', 'warning');
+
+        function showAnalysisResult(data) {
+            var html = '<div class="analysis-grid">';
+
+            if (data.note) {
+                html += '<div class="analysis-card" style="grid-column:1/-1;background:var(--warning-bg);color:var(--warning);">' +
+                    '<p style="font-size:0.85rem;line-height:1.4;">' + data.note + '</p>' +
+                    '</div>';
+            }
+
+            if (data.cv_results && Object.keys(data.cv_results).length > 0) {
+                html += '<div class="analysis-card" style="grid-column:1/-1;">' +
+                    '<h5><i class="fas fa-layer-group" style="color:var(--info);"></i> Cross-Validation <span class="badge-academic">K-Fold</span></h5>';
+                Object.keys(data.cv_results).forEach(function(name) {
+                    var cv = data.cv_results[name];
+                    html += '<div class="value"><span>' + name + '</span> <strong>R² ' + cv.mean.toFixed(3) + ' ± ' + cv.std.toFixed(3) + '</strong></div>';
+                });
+                html += '</div>';
+            }
+
+            if (data.normality_test) {
+                var nt = data.normality_test;
+                html += '<div class="analysis-card">' +
+                    '<h5><i class="fas fa-chart-bell" style="color:var(--info);"></i> Normality Test <span class="badge-academic">Shapiro-Wilk</span></h5>' +
+                    '<div class="value"><span>Statistic</span> <strong>' + nt.shapiro_statistic.toFixed(4) + '</strong></div>' +
+                    '<div class="value"><span>P-Value</span> <strong>' + nt.shapiro_p_value.toFixed(4) + '</strong></div>' +
+                    '<div class="value"><span>Status</span> <strong style="color:' + (nt.is_normal ? 'var(--success)' : 'var(--error)') + ';">' + nt.interpretation + '</strong></div>' +
+                    '</div>';
+            }
+
+            if (data.bootstrap_ci) {
+                var bc = data.bootstrap_ci;
+                html += '<div class="analysis-card">' +
+                    '<h5><i class="fas fa-dice" style="color:var(--orange);"></i> Bootstrap CI <span class="badge-academic">Efron 1979</span></h5>' +
+                    '<div class="value"><span>Mean Error</span> <strong>' + bc.mean_error.toFixed(3) + '</strong></div>' +
+                    '<div class="value"><span>CI Lower</span> <strong>' + bc.ci_lower.toFixed(3) + '</strong></div>' +
+                    '<div class="value"><span>CI Upper</span> <strong>' + bc.ci_upper.toFixed(3) + '</strong></div>' +
+                    '<div class="value"><span>CI Width</span> <strong>' + bc.ci_width.toFixed(3) + '</strong></div>' +
+                    '</div>';
+            }
+
+            if (data.aic_bic) {
+                var ab = data.aic_bic;
+                html += '<div class="analysis-card">' +
+                    '<h5><i class="fas fa-balance-scale" style="color:var(--purple);"></i> AIC / BIC <span class="badge-academic">Model Selection</span></h5>' +
+                    '<div class="value"><span>AIC</span> <strong>' + ab.AIC.toFixed(1) + '</strong></div>' +
+                    '<div class="value"><span>BIC</span> <strong>' + ab.BIC.toFixed(1) + '</strong></div>' +
+                    '<div class="value"><span>Log-Likelihood</span> <strong>' + ab.log_likelihood.toFixed(1) + '</strong></div>' +
+                    '</div>';
+            }
+
+            if (data.learning_curve) {
+                var lc = data.learning_curve;
+                var overfitText = lc.is_overfitting ? (currentLang === 'tr' ? '⚠️ Aşırı Öğrenme' : '⚠️ Overfitting') : (currentLang === 'tr' ? '✓ Genelleme' : '✓ Generalizing');
+                html += '<div class="analysis-card">' +
+                    '<h5><i class="fas fa-chart-line" style="color:var(--success);"></i> Learning Curve <span class="badge-academic">Hastie 2009</span></h5>' +
+                    '<div class="value"><span>Overfitting Ratio</span> <strong style="color:' + (lc.is_overfitting ? 'var(--error)' : 'var(--success)') + ';">' + (lc.overfitting_ratio * 100).toFixed(1) + '%</strong></div>' +
+                    '<div class="value"><span>Status</span> <strong>' + overfitText + '</strong></div>' +
+                    '<div class="value"><span>Train Score</span> <strong>' + (lc.train_scores_mean ? lc.train_scores_mean[lc.train_scores_mean.length-1].toFixed(3) : 'N/A') + '</strong></div>' +
+                    '<div class="value"><span>Test Score</span> <strong>' + (lc.test_scores_mean ? lc.test_scores_mean[lc.test_scores_mean.length-1].toFixed(3) : 'N/A') + '</strong></div>' +
+                    '</div>';
+            }
+
+            if (data.correlation_analysis && data.correlation_analysis.top_features) {
+                var ca = data.correlation_analysis;
+                html += '<div class="analysis-card" style="grid-column:1/-1;">' +
+                    '<h5><i class="fas fa-arrows-left-right" style="color:var(--warning);"></i> Correlation Analysis <span class="badge-academic">Pearson 1895</span></h5>';
+                if (ca.top_features && ca.top_features.length > 0) {
+                    ca.top_features.slice(0, 5).forEach(function(item) {
+                        html += '<div class="value"><span>' + item[0] + '</span> <strong>' + item[1].toFixed(3) + '</strong></div>';
+                    });
+                } else {
+                    html += '<p style="color:var(--text-muted);font-size:0.8rem;">' + (currentLang === 'tr' ? 'Önemli korelasyon bulunamadı' : 'No significant correlations found') + '</p>';
+                }
+                html += '</div>';
+            }
+
+            if (data.uncertainty) {
+                var uc = data.uncertainty;
+                var rel = typeof uc.relative_uncertainty === 'number' ? uc.relative_uncertainty : (Array.isArray(uc.relative_uncertainty) ? uc.relative_uncertainty[0] : 0);
+                html += '<div class="analysis-card">' +
+                    '<h5><i class="fas fa-triangle-exclamation" style="color:var(--error);"></i> Uncertainty <span class="badge-academic">Ensemble</span></h5>' +
+                    '<div class="value"><span>Relative Uncertainty</span> <strong>' + (rel * 100).toFixed(1) + '%</strong></div>' +
+                    '<div class="value"><span>CI Lower</span> <strong>' + (typeof uc.ci_lower === 'number' ? uc.ci_lower.toFixed(2) : 'N/A') + '</strong></div>' +
+                    '<div class="value"><span>CI Upper</span> <strong>' + (typeof uc.ci_upper === 'number' ? uc.ci_upper.toFixed(2) : 'N/A') + '</strong></div>' +
+                    '</div>';
+            }
+
+            html += '</div>';
+            analysisContent.innerHTML = html;
+            document.querySelector('[data-tab="analysis"]').click();
         }
-        optimizeCatalyst();
-      });
-    }
 
-    if (analyzeBtn) {
-      analyzeBtn.addEventListener('click', analyzeAcademic);
-    }
+        function showHistory(data) {
+            var html = '';
+            if (data.history && data.history.length > 0) {
+                data.history.forEach(function(item) {
+                    var cond = item.conditions || {};
+                    var result = item.result || {};
+                    var ts = new Date(item.timestamp).toLocaleString();
+                    var failedText = T('failedText');
+                    html += '<div class="history-item">' +
+                        '<span>' + (cond.catalizor || '?') + ' | ' + (cond.base || '?') + ' | ' + (cond.temp || '?') + '°C</span>' +
+                        '<span style="font-weight:600;color:' + (result.yield > 70 ? 'var(--success)' : result.yield > 50 ? 'var(--warning)' : 'var(--error)') + ';">' + (result.yield != null ? result.yield.toFixed(1) + '%' : failedText) + '</span>' +
+                        '</div>';
+                });
+            } else {
+                html = '<p style="color:var(--text-muted);">' + T('noPredHistoryText') + '</p>';
+            }
+            historyList.innerHTML = html;
+            document.querySelector('[data-tab="history"]').click();
+        }
 
-    if (historyBtn) {
-      historyBtn.addEventListener('click', function() {
+        function hideResults() {
+            resultContainer.classList.remove('show');
+        }
+
+        function loadHistory() {
+            fetch(API_BASE + '/api/prediction_history')
+                .then(safeJson)
+                .then(function(data) {
+                    if (data.success) {
+                        showHistory(data);
+                    }
+                })
+                .catch(function(err) {
+                    console.warn('History load error:', err);
+                });
+        }
+
+        function clearHistory() {
+            if (!confirm(T('historyClearConfirm'))) return;
+            fetch(API_BASE + '/api/clear_history', { method: 'POST' })
+                .then(safeJson)
+                .then(function(data) {
+                    if (data.success) {
+                        showMessage(T('historyClearedMsg'), 'success');
+                        loadHistory();
+                    }
+                })
+                .catch(function(err) {
+                    showMessage(T('historyClearErrorMsg') + err.message, 'error');
+                });
+        }
+
+        function loadFileList() {
+            fetch(API_BASE + '/api/get_csv_files')
+                .then(safeJson)
+                .then(function(data) {
+                    if (!data.success) throw new Error(data.message || 'Failed to load files');
+
+                    fileList.innerHTML = '';
+
+                    if (data.files.length === 0) {
+                        fileList.innerHTML = '<div class="no-files">' + translations[currentLang].noFiles + '</div>';
+                        if (fileCount) fileCount.textContent = '0';
+                        return;
+                    }
+
+                    if (fileCount) fileCount.textContent = data.files.length;
+
+                    data.files.forEach(function(file) {
+                        var item = document.createElement('div');
+                        item.className = 'file-item';
+                        var badge = file.is_enriched ?
+                            '<span class="badge-enriched">' + (currentLang === 'tr' ? 'Zengin' : 'Enriched') + '</span>' :
+                            '<span class="badge-basic">' + (currentLang === 'tr' ? 'Temel' : 'Basic') + '</span>';
+
+                        var statusHtml = file.is_enriched ?
+                            '<div class="file-status"><span class="ok">' + T('legendEnriched').split(':')[1].trim() + '</span></div>' :
+                            '<div class="file-status"><span class="err">' + T('legendBasic').split(':')[1].trim() + '</span></div>';
+
+                        item.innerHTML = '<div class="file-name">' + file.name + ' ' + badge + '</div>' +
+                            '<div class="file-size">' + file.size + ' · ' + new Date(file.modified).toLocaleDateString() + '</div>' +
+                            statusHtml;
+
+                        item.addEventListener('click', function() {
+                            if (!file.is_enriched) {
+                                showMessage(T('fileNeedsEnrichmentMsg'), 'error');
+                                return;
+                            }
+                            selectFile(file.name, item);
+                        });
+
+                        fileList.appendChild(item);
+                    });
+                })
+                .catch(function(err) {
+                    showMessage(T('fileListErrorMsg') + err.message, 'error');
+                });
+        }
+
+        function selectFile(filename, element) {
+            document.querySelectorAll('.file-item').forEach(function(el) { el.classList.remove('active'); });
+            element.classList.add('active');
+
+            currentFile = filename;
+            showLoading(true);
+            hideResults();
+
+            fetch(API_BASE + '/api/load_data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: filename })
+            })
+            .then(safeJson)
+            .then(function(data) {
+                if (data.success) {
+                    dataInfo = data.data_info;
+                    showDataInfo(data);
+                    populateDropdowns(data);
+                    modelCard.style.display = 'block';
+                    reactionCard.style.display = 'block';
+                    showMessage(data.message, 'success');
+
+                    if (data.performance) {
+                        var bestModel = data.best_model || 'Ensemble';
+                        var perf = data.performance;
+                        var html = '<strong>Best Model:</strong> ' + bestModel;
+                        if (perf[bestModel]) {
+                            html += ' | R²: ' + (perf[bestModel].r2 ? perf[bestModel].r2.toFixed(3) : 'N/A');
+                            html += ' | MAE: ' + (perf[bestModel].mae ? perf[bestModel].mae.toFixed(2) : 'N/A');
+                            html += ' | RMSE: ' + (perf[bestModel].rmse ? perf[bestModel].rmse.toFixed(2) : 'N/A');
+                        }
+                        if (data.cv_results) {
+                            var cv = data.cv_results;
+                            if (cv[bestModel]) {
+                                html += ' | CV: ' + cv[bestModel].mean.toFixed(3) + ' ± ' + cv[bestModel].std.toFixed(3);
+                            }
+                        }
+                        if (data.normality_test && data.normality_test.is_normal !== undefined) {
+                            html += ' | Normality: ' + (data.normality_test.is_normal ? '✓' : '✗');
+                        }
+                        if (data.aic_bic_results && data.aic_bic_results.AIC) {
+                            html += ' | AIC: ' + data.aic_bic_results.AIC.toFixed(1);
+                        }
+                        modelStats.innerHTML = html;
+                        modelStats.style.display = 'block';
+
+                        var bestKey = Object.keys(perf).reduce(function(a, b) {
+                            return (perf[a].r2 || 0) > (perf[b].r2 || 0) ? a : b;
+                        }, Object.keys(perf)[0]);
+                        if (bestKey && modelSelect) {
+                            for (var i = 0; i < modelSelect.options.length; i++) {
+                                if (modelSelect.options[i].value === bestKey) {
+                                    modelSelect.selectedIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    loadHistory();
+
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            })
+            .catch(function(err) {
+                showMessage(T('loadErrorMsg') + err.message, 'error');
+            })
+            .finally(function() {
+                showLoading(false);
+            });
+        }
+
+        function showDataInfo(data) {
+            if (!data || !data.data_info) return;
+
+            var info = data.data_info;
+            dataDetails.innerHTML = '' +
+                '<div class="info-item"><div class="info-value">' + info.rows + '</div><div class="info-label">' + T('datasetInfoRows') + '</div></div>' +
+                '<div class="info-item"><div class="info-value">' + info.columns.length + '</div><div class="info-label">' + T('datasetInfoColumns') + '</div></div>' +
+                '<div class="info-item"><div class="info-value">' + (info.catalysts ? info.catalysts.length : 0) + '</div><div class="info-label">' + T('datasetInfoCatalysts') + '</div></div>' +
+                '<div class="info-item"><div class="info-value">' + (info.bases ? info.bases.length : 0) + '</div><div class="info-label">' + T('datasetInfoBases') + '</div></div>' +
+                '<div class="info-item"><div class="info-value">' + (info.feature_count || 0) + '</div><div class="info-label">' + T('datasetInfoFeatures') + '</div></div>' +
+                '<div class="info-item"><div class="info-value">' + (info.yield_stats ? info.yield_stats.mean.toFixed(1) : '-') + '%</div><div class="info-label">' + T('datasetInfoMeanYield') + '</div></div>';
+
+            dataInfoCard.style.display = 'block';
+
+            if (info.rows && info.rows < 60) {
+                showMessage((currentLang === 'tr' ?
+                    'Uyarı: veri setinde sadece ' + info.rows + ' satır var — küçük veri setleri tahmin güvenilirliğini azaltabilir.' :
+                    'Warning: dataset only has ' + info.rows + ' rows — small datasets may reduce prediction reliability.'), 'warning');
+            }
+        }
+
+        function populateDropdowns(data) {
+            if (!data || !data.data_info) return;
+            var info = data.data_info;
+            populateDatalist('catalizor-list', info.catalysts);
+            populateDatalist('base-list', info.bases);
+            populateDatalist('solv1-list', info.solvents1);
+            populateDatalist('solv2-list', info.solvents2 || []);
+        }
+
+        function populateDatalist(id, options) {
+            var list = $(id);
+            if (!list) return;
+            list.innerHTML = '';
+            if (!options) return;
+            options.forEach(function(opt) {
+                if (opt) {
+                    var el = document.createElement('option');
+                    el.value = opt;
+                    list.appendChild(el);
+                }
+            });
+        }
+
+        function getConditions() {
+            var cond = {
+                temp: parseFloat($('temp').value),
+                time: parseFloat($('time').value),
+                quantity: parseFloat($('quantity').value),
+                catalizor: $('catalizor').value.trim(),
+                base: $('base').value.trim(),
+                solv1: $('solv1').value.trim(),
+                solv2: $('solv2').value.trim(),
+                subs1_smiles: $('subs1_smiles').value.trim(),
+                subs2_smiles: $('subs2_smiles').value.trim(),
+                force_experimental: !!($('forceExperimental') && $('forceExperimental').checked)
+            };
+
+            var requiredMsg = currentLang === 'tr' ? 'Lütfen tüm zorunlu alanları doldurun' : 'Please fill all required fields';
+            if (!cond.catalizor || !cond.base || !cond.solv1 || !cond.subs1_smiles || !cond.subs2_smiles) {
+                showMessage(requiredMsg, 'error');
+                return null;
+            }
+
+            if (isNaN(cond.temp) || isNaN(cond.time) || isNaN(cond.quantity)) {
+                showMessage(currentLang === 'tr' ? 'Sıcaklık, süre ve miktar sayısal olmalı' : 'Temperature, time and quantity must be numbers', 'error');
+                return null;
+            }
+            if (cond.temp < 25) {
+                showMessage(currentLang === 'tr' ? 'Sıcaklık en az 25°C olmalı' : 'Temperature must be at least 25°C', 'error');
+                return null;
+            }
+            if (cond.temp > 250) {
+                showMessage(currentLang === 'tr' ? 'Sıcaklık ≤ 250°C olmalı' : 'Temperature must be ≤ 250°C', 'error');
+                return null;
+            }
+
+            if (cond.time < 1) {
+                showMessage(currentLang === 'tr' ? 'Süre en az 1 saat olmalı' : 'Time must be at least 1 hour', 'error');
+                return null;
+            }
+            if (cond.time > 72) {
+                showMessage(currentLang === 'tr' ? 'Süre ≤ 72 saat olmalı' : 'Time must be ≤ 72 hours', 'error');
+                return null;
+            }
+
+            if (cond.quantity < 0.0001) {
+                showMessage(currentLang === 'tr' ? 'Katalizör miktarı en az 0.0001 mmol olmalı' : 'Catalyst quantity must be at least 0.0001 mmol', 'error');
+                return null;
+            }
+            if (cond.quantity > 0.50) {
+                showMessage(currentLang === 'tr' ? 'Katalizör miktarı ≤ 0.50 mmol olmalı' : 'Catalyst quantity must be ≤ 0.50 mmol', 'error');
+                return null;
+            }
+
+            return cond;
+        }
+
+        function makePrediction() {
+            if (isProcessing) return;
+            var cond = getConditions();
+            if (!cond) return;
+
+            isProcessing = true;
+            showLoading(true);
+            hideResults();
+
+            fetch(API_BASE + '/api/make_prediction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cond)
+            })
+            .then(safeJson)
+            .then(function(data) {
+                if (data.success) {
+                    showPredictionResult(data);
+                    showMessage(T('predictionCompletedMsg') + data.model, 'success');
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            })
+            .catch(function(err) {
+                showMessage(T('predictionErrorMsg') + err.message, 'error');
+            })
+            .finally(function() {
+                isProcessing = false;
+                showLoading(false);
+            });
+        }
+
+        function optimizeCatalyst() {
+            if (isProcessing) return;
+            var cond = getConditions();
+            if (!cond) return;
+
+            isProcessing = true;
+            showLoading(true);
+
+            fetch(API_BASE + '/api/optimize_catalyst', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cond)
+            })
+            .then(safeJson)
+            .then(function(data) {
+                if (data.success) {
+                    showOptimizationResult(data);
+                    showMessage(T('optimizationCompletedMsg'), 'success');
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            })
+            .catch(function(err) {
+                showMessage(T('optimizationErrorMsg') + err.message, 'error');
+            })
+            .finally(function() {
+                isProcessing = false;
+                showLoading(false);
+            });
+        }
+
+        function analyzeAcademic() {
+            if (isProcessing) return;
+            var cond = getConditions();
+            if (!cond) return;
+
+            isProcessing = true;
+            showLoading(true);
+
+            fetch(API_BASE + '/api/make_prediction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cond)
+            })
+            .then(safeJson)
+            .then(function(data) {
+                if (data.success && data.academic_details) {
+                    showAnalysisResult(data.academic_details);
+                    showMessage(T('analysisCompletedMsg'), 'success');
+                } else {
+                    showMessage(T('analysisNotAvailableMsg'), 'warning');
+                }
+            })
+            .catch(function(err) {
+                showMessage(T('analysisErrorMsg') + err.message, 'error');
+            })
+            .finally(function() {
+                isProcessing = false;
+                showLoading(false);
+            });
+        }
+
+        function changeModel(modelName) {
+            if (isProcessing) return;
+            if (!currentFile) {
+                showMessage(T('loadFirstMsg'), 'error');
+                return;
+            }
+
+            isProcessing = true;
+            showLoading(true);
+
+            fetch(API_BASE + '/api/change_model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_name: modelName })
+            })
+            .then(safeJson)
+            .then(function(data) {
+                if (data.success) {
+                    var msg = data.message;
+                    if (data.stats) {
+                        msg += ' | R²: ' + (data.stats.r2 ? data.stats.r2.toFixed(3) : 'N/A');
+                        msg += ' | MAE: ' + (data.stats.mae ? data.stats.mae.toFixed(2) : 'N/A');
+                    }
+                    showMessage(msg, 'success');
+
+                    if (data.stats) {
+                        var html = '<strong>Model:</strong> ' + modelName;
+                        html += ' | R²: ' + (data.stats.r2 ? data.stats.r2.toFixed(3) : 'N/A');
+                        html += ' | MAE: ' + (data.stats.mae ? data.stats.mae.toFixed(2) : 'N/A');
+                        html += ' | RMSE: ' + (data.stats.rmse ? data.stats.rmse.toFixed(2) : 'N/A');
+                        if (data.cv_results && data.cv_results[modelName]) {
+                            html += ' | CV: ' + data.cv_results[modelName].mean.toFixed(3) + ' ± ' + data.cv_results[modelName].std.toFixed(3);
+                        }
+                        modelStats.innerHTML = html;
+                        modelStats.style.display = 'block';
+                    }
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            })
+            .catch(function(err) {
+                showMessage(T('modelChangeErrorMsg') + err.message, 'error');
+            })
+            .finally(function() {
+                isProcessing = false;
+                showLoading(false);
+            });
+        }
+
+        // Tab butonları
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+                this.classList.add('active');
+
+                var tab = this.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+
+                var contentMap = {
+                    'prediction': 'tabPrediction',
+                    'optimization': 'tabOptimization',
+                    'analysis': 'tabAnalysis',
+                    'history': 'tabHistory'
+                };
+                var target = $(contentMap[tab]);
+                if (target) target.classList.add('active');
+            });
+        });
+
+        // Logo tıklama
+        if (logo) {
+            logo.addEventListener('click', function() { window.location.href = '/'; });
+        }
+
+        // Dil değiştirme
+        if (langSwitch) {
+            langSwitch.addEventListener('click', function() {
+                var newLang = currentLang === 'tr' ? 'en' : 'tr';
+                setLanguage(newLang);
+                // Dosya listesini yeniden yükle (badge'ları güncellemek için)
+                loadFileList();
+                // Eğer dataInfo varsa yeniden göster
+                if (dataInfo && dataInfoCard.style.display !== 'none') {
+                    showDataInfo({ data_info: dataInfo });
+                }
+            });
+        }
+
+        // Tema değiştirme
+        if (themeToggle) {
+            themeToggle.addEventListener('click', function() { setTheme(!dark); });
+        }
+
+        // Model değiştirme
+        if (modelSelect) {
+            modelSelect.addEventListener('change', function() {
+                changeModel(this.value);
+            });
+        }
+
+        // Butonlar
+        if (predictBtn) {
+            predictBtn.addEventListener('click', makePrediction);
+        }
+
+        if (optimizeBtn) {
+            optimizeBtn.addEventListener('click', optimizeCatalyst);
+        }
+
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', analyzeAcademic);
+        }
+
+        if (historyBtn) {
+            historyBtn.addEventListener('click', function() {
+                loadHistory();
+                document.querySelector('[data-tab="history"]').click();
+            });
+        }
+
+        if (clearHistoryBtn) {
+            clearHistoryBtn.addEventListener('click', clearHistory);
+        }
+
+        // Enter tuşu ile tahmin
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                if (predictBtn && !predictBtn.disabled) {
+                    makePrediction();
+                }
+            }
+        });
+
+        // Başlat
+        setTheme(dark);
+        setLanguage('tr');
+        updateClock();
+        setInterval(updateClock, 1000);
+        loadFileList();
         loadHistory();
-        document.querySelector('[data-tab="history"]').click();
-      });
-    }
 
-    if (clearHistoryBtn) {
-      clearHistoryBtn.addEventListener('click', clearHistory);
-    }
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-        if (predictBtn && !predictBtn.disabled) {
-          makePrediction();
-        }
-      }
-    });
-
-    setTheme(dark);
-    setLanguage('tr');
-    updateClock();
-    setInterval(updateClock, 1000);
-    loadFileList();
-    loadHistory();
-
-    window.SKOPT_AVAILABLE = false;
-    window.DEAP_AVAILABLE = false;
-
-    fetch(API_BASE + '/api/health')
-      .then(safeJson)
-      .then(function(data) {
-        if (data.success) {
-          window.SKOPT_AVAILABLE = data.skopt_available || false;
-          window.DEAP_AVAILABLE = data.deap_available || false;
-        }
-      })
-      .catch(function() {});
-
-  })();
+    })();
 </script>
 </body>
 </html>
