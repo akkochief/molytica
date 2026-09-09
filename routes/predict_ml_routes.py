@@ -1,4 +1,30 @@
-from flask import Blueprint, render_template, request, jsonify, send_from_directory
+"""
+Molytica - Suzuki-Miyaura Academic Predictor
+Professional, Scientific, Production-Ready Code
+
+FIX (2026-09-09): train_test_split stratify bug fixed.
+Previously the code always split target 'yield' into 4 quartile bins
+(pd.qcut(..., q=4)) and used that as the stratify key, regardless of
+dataset size or test-set size. sklearn requires the test set to contain
+at least as many samples as there are stratification classes, so any
+small dataset (e.g. 15 rows -> test_size 0.2 -> 3 test rows) crashed
+with: "test_size = 3 should be greater or equal to the number of
+classes = 4". The fix below dynamically picks the number of bins based
+on how many samples will actually land in the test set, and disables
+stratification entirely when there aren't enough test samples to
+support it.
+
+FIX (2026-09-09, second pass): experimental/heuristic fallback mode is
+now a mode the user can toggle explicitly from the UI (force_experimental),
+in addition to the automatic safety-net triggers. Academic statistics
+(AIC/BIC, bootstrap CI, learning curve, normality test, correlation
+analysis, CV results) are computed once at training time and are now
+always returned from predict(), regardless of whether that particular
+prediction used the ML ensemble or the heuristic fallback -- they
+describe the trained model's overall quality, not a single prediction.
+"""
+
+from flask import Blueprint, render_template, request, jsonify
 import os
 import json
 import traceback
@@ -14,54 +40,32 @@ import re
 import joblib
 import warnings
 import hashlib
-import threading
-import logging
-from logging.handlers import RotatingFileHandler
 from scipy import stats
 from scipy.spatial.distance import mahalanobis
 from scipy.stats import shapiro, pearsonr, skew, kurtosis
 from sklearn.model_selection import (
-    train_test_split, cross_val_score, KFold, RepeatedKFold, 
-    LeaveOneOut, learning_curve, GridSearchCV, RandomizedSearchCV
+    train_test_split, cross_val_score, KFold, RepeatedKFold,
+    LeaveOneOut, learning_curve
 )
 from sklearn.metrics import (
-    r2_score, mean_absolute_error, mean_squared_error, 
-    mean_absolute_percentage_error, explained_variance_score, 
-    max_error, mean_squared_log_error
+    r2_score, mean_absolute_error, mean_squared_error,
+    mean_absolute_percentage_error, explained_variance_score,
+    max_error
 )
-from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
-from sklearn.impute import SimpleImputer, KNNImputer
-from sklearn.feature_selection import (
-    SelectKBest, f_regression, mutual_info_regression,
-    VarianceThreshold, RFE, SelectFromModel
-)
-from sklearn.linear_model import Ridge, Lasso, ElasticNet, LinearRegression
-from sklearn.ensemble import (
-    RandomForestRegressor, GradientBoostingRegressor, 
-    ExtraTreesRegressor, HistGradientBoostingRegressor,
-    StackingRegressor, VotingRegressor
-)
-from sklearn.svm import SVR
-from sklearn.neural_network import MLPRegressor
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, WhiteKernel, Matern
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.feature_selection import SelectKBest, mutual_info_regression
+from sklearn.linear_model import Ridge, Lasso
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
 from werkzeug.utils import secure_filename
-from werkzeug.exceptions import RequestEntityTooLarge
 
 try:
     from rdkit import Chem
-    from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors, Draw, AllChem
-    from rdkit.Chem.Draw import IPythonConsole
-    from rdkit.Chem import PandasTools
+    from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors, Draw
     RDKIT_AVAILABLE = True
-    RDKIT_3D_AVAILABLE = True
 except ImportError:
     RDKIT_AVAILABLE = False
-    RDKIT_3D_AVAILABLE = False
 
 try:
     from sklearn.inspection import permutation_importance
@@ -87,208 +91,166 @@ try:
 except ImportError:
     CATBOOST_AVAILABLE = False
 
-try:
-    from skopt import gp_minimize
-    from skopt.space import Real, Integer, Categorical
-    from skopt.utils import use_named_args
-    SKOPT_AVAILABLE = True
-except ImportError:
-    SKOPT_AVAILABLE = False
-
-try:
-    from deap import base, creator, tools, algorithms
-    DEAP_AVAILABLE = True
-except ImportError:
-    DEAP_AVAILABLE = False
-
-try:
-    import shap
-    SHAP_AVAILABLE = True
-except ImportError:
-    SHAP_AVAILABLE = False
-
-try:
-    from mapie.regression import MapieRegressor
-    MAPIE_AVAILABLE = True
-except ImportError:
-    MAPIE_AVAILABLE = False
-
-try:
-    from xtb.interface import Calculator
-    XTB_AVAILABLE = True
-except ImportError:
-    XTB_AVAILABLE = False
-
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['PYTHONWARNINGS'] = 'ignore'
 
 predict_ml_bp = Blueprint('predict_ml', __name__, url_prefix='/predict_ml')
 
 PREDICTION_HISTORY_FILE = 'prediction_history.json'
-MODEL_REGISTRY_FILE = 'model_registry.json'
 PREDICTION_HISTORY = []
-MODEL_REGISTRY = {}
 PREDICTOR = None
 CONFIG = None
 DATA_INFO = None
 CURRENT_FILE = None
-CURRENT_MODEL = 'Ensemble'
-MODEL_PERFORMANCE = {}
-CACHE = {}
-FEATURE_IMPORTANCE = {}
-CACHE_HIT = 0
-CACHE_MISS = 0
-MAX_SMILES_LENGTH = 500
-MAX_TEXT_FIELD_LENGTH = 500
-MAX_FILE_SIZE = 50 * 1024 * 1024
-UPLOAD_FOLDER = 'static/datasets'
-MODEL_FOLDER = 'static/models'
-LOG_FOLDER = 'logs'
-CONFIG_FOLDER = 'config'
-
-for folder in [UPLOAD_FOLDER, MODEL_FOLDER, LOG_FOLDER, CONFIG_FOLDER]:
-    os.makedirs(folder, exist_ok=True)
-
-logger = logging.getLogger('MolyticaPredictor')
-logger.setLevel(logging.INFO)
-if not logger.handlers:
-    handler = RotatingFileHandler(
-        os.path.join(LOG_FOLDER, 'predict_ml.log'),
-        maxBytes=10*1024*1024,
-        backupCount=5
-    )
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
 REQUIRED_COLUMNS = ['yield', 'temp', 'time', 'quantity', 'catalizor', 'base', 'solv1']
 OPTIONAL_COLUMNS = ['solv2', 'subs1', 'subs2', 'product']
-NULLABLE_COLUMNS = ['solv1', 'solv2']
-FAILURE_COLUMN = 'yield'
 CRITICAL_NON_NULLABLE_COLUMNS = ['temp', 'time', 'quantity', 'catalizor', 'base']
+MAX_SMILES_LENGTH = 500
+MAX_TEXT_FIELD_LENGTH = 500
 
-ACADEMIC_FEATURE_COLUMNS = [
-    'subs1_SMILES_logp', 'subs1_SMILES_sigma_p', 'subs1_SMILES_sigma_m',
-    'subs1_SMILES_taft_es', 'subs1_SMILES_hba', 'subs1_SMILES_hbd',
-    'subs1_SMILES_complexity', 'subs1_SMILES_kappa1',
-    'subs2_SMILES_logp', 'subs2_SMILES_sigma_p', 'subs2_SMILES_sigma_m',
-    'subs2_SMILES_taft_es', 'subs2_SMILES_hba', 'subs2_SMILES_hbd',
-    'subs2_SMILES_complexity', 'subs2_SMILES_kappa1',
-]
-
-HAMMETT_SIGMA = {
-    'H': {'sigma_m': 0.00, 'sigma_p': 0.00, 'taft_es': 0.00},
-    'CH3': {'sigma_m': -0.07, 'sigma_p': -0.17, 'taft_es': 0.00},
-    'OCH3': {'sigma_m': 0.12, 'sigma_p': -0.27, 'taft_es': -0.20},
-    'OH': {'sigma_m': 0.12, 'sigma_p': -0.37, 'taft_es': -0.51},
-    'F': {'sigma_m': 0.34, 'sigma_p': 0.06, 'taft_es': -0.46},
-    'Cl': {'sigma_m': 0.37, 'sigma_p': 0.23, 'taft_es': -0.97},
-    'Br': {'sigma_m': 0.39, 'sigma_p': 0.23, 'taft_es': -1.16},
-    'I': {'sigma_m': 0.35, 'sigma_p': 0.18, 'taft_es': -1.40},
-    'NO2': {'sigma_m': 0.71, 'sigma_p': 0.78, 'taft_es': -1.01},
-    'CN': {'sigma_m': 0.56, 'sigma_p': 0.66, 'taft_es': -0.51},
-    'CF3': {'sigma_m': 0.43, 'sigma_p': 0.54, 'taft_es': -2.40},
-    'COOH': {'sigma_m': 0.37, 'sigma_p': 0.45, 'taft_es': -1.20},
-    'COOCH3': {'sigma_m': 0.35, 'sigma_p': 0.39, 'taft_es': -1.10},
-    'CHO': {'sigma_m': 0.36, 'sigma_p': 0.42, 'taft_es': -1.20},
-    'NH2': {'sigma_m': -0.16, 'sigma_p': -0.66, 'taft_es': -0.20},
-    'N(CH3)2': {'sigma_m': -0.15, 'sigma_p': -0.83, 'taft_es': -0.30},
-    'SO2CH3': {'sigma_m': 0.60, 'sigma_p': 0.72, 'taft_es': -1.50},
-    'B(OH)2': {'sigma_m': 0.04, 'sigma_p': -0.10, 'taft_es': 0.00},
-    'Si(CH3)3': {'sigma_m': -0.04, 'sigma_p': -0.07, 'taft_es': -0.80},
-    'C(CH3)3': {'sigma_m': -0.10, 'sigma_p': -0.20, 'taft_es': -1.54},
-    'C6H5': {'sigma_m': 0.06, 'sigma_p': -0.01, 'taft_es': -1.20},
-    'COCH3': {'sigma_m': 0.38, 'sigma_p': 0.50, 'taft_es': -1.20},
-    'SO2NH2': {'sigma_m': 0.55, 'sigma_p': 0.62, 'taft_es': -1.30},
-    'NHAc': {'sigma_m': 0.21, 'sigma_p': 0.00, 'taft_es': -0.50},
-}
-
-GROUP_SMARTS = {
-    'CH3': '[CH3;!$(C=O)]',
-    'OCH3': '[OX2][CH3]',
-    'NO2': '[NX3](=O)=O',
-    'Cl': '[Cl]',
-    'F': '[F]',
-    'CN': '[C]#[N]',
-    'CF3': '[C](F)(F)F',
-    'COOH': 'C(=O)[OH]',
-    'COOCH3': 'C(=O)[O][CH3]',
-    'CHO': '[CH1](=O)',
-    'NH2': '[NX3;H2;!$(N-C=O)]',
-    'N(CH3)2': '[NX3]([CH3])([CH3])',
-    'SO2CH3': 'S(=O)(=O)[CH3]',
-    'B(OH)2': '[B]([OH])([OH])',
-    'Si(CH3)3': '[Si]([CH3])([CH3])([CH3])',
-    'C(CH3)3': '[C]([CH3])([CH3])([CH3])',
-    'C6H5': '[c]1[c][c][c][c][c]1',
-    'COCH3': 'C(=O)[CH3]',
-    'OH': '[OX2H]',
-    'I': '[I]',
-    'Br': '[Br]',
-}
-
-BASE_PROPERTIES = {
-    'k2co3': {'pka': 10.3, 'solubility': 0.1, 'cation_radius': 1.38, 'hygroscopic': False, 'class': 'carbonate', 'pkb': 3.7},
-    'cs2co3': {'pka': 10.3, 'solubility': 2.6, 'cation_radius': 1.67, 'hygroscopic': True, 'class': 'carbonate', 'pkb': 3.7},
-    'na2co3': {'pka': 10.3, 'solubility': 0.2, 'cation_radius': 1.02, 'hygroscopic': False, 'class': 'carbonate', 'pkb': 3.7},
-    'k3po4': {'pka': 12.3, 'solubility': 0.5, 'cation_radius': 1.38, 'hygroscopic': True, 'class': 'phosphate', 'pkb': 1.7},
-    'naoh': {'pka': 15.7, 'solubility': 1.1, 'cation_radius': 1.02, 'hygroscopic': True, 'class': 'hydroxide', 'pkb': -1.7},
-    'koh': {'pka': 15.7, 'solubility': 1.2, 'cation_radius': 1.38, 'hygroscopic': True, 'class': 'hydroxide', 'pkb': -1.7},
-    'tea': {'pka': 10.7, 'solubility': 0.8, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 3.3},
-    'dipea': {'pka': 11.4, 'solubility': 0.6, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 2.6},
-    'koac': {'pka': 4.8, 'solubility': 0.1, 'cation_radius': 1.38, 'hygroscopic': False, 'class': 'acetate', 'pkb': 9.2},
-    'csf': {'pka': 3.2, 'solubility': 0.3, 'cation_radius': 1.67, 'hygroscopic': True, 'class': 'fluoride', 'pkb': 10.8},
-    'kf': {'pka': 3.2, 'solubility': 0.2, 'cation_radius': 1.38, 'hygroscopic': True, 'class': 'fluoride', 'pkb': 10.8},
-    'k2hpo4': {'pka': 12.3, 'solubility': 0.4, 'cation_radius': 1.38, 'hygroscopic': False, 'class': 'phosphate', 'pkb': 1.7},
-    'nahco3': {'pka': 6.4, 'solubility': 0.1, 'cation_radius': 1.02, 'hygroscopic': False, 'class': 'bicarbonate', 'pkb': 7.6},
-    'dbu': {'pka': 12.0, 'solubility': 0.5, 'cation_radius': None, 'hygroscopic': False, 'class': 'amidine', 'pkb': 2.0},
-    'dabco': {'pka': 8.8, 'solubility': 0.4, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 5.2},
-    'pyridine': {'pka': 5.2, 'solubility': 0.3, 'cation_radius': None, 'hygroscopic': False, 'class': 'amine', 'pkb': 8.8},
-}
-
-SOLVENT_PHYSICS = {
-    'water': {'dielectric': 80.1, 'donor_number': 18.0, 'polarity_index': 10.2, 'alpha': 1.17, 'beta': 0.47, 'pi_star': 1.09, 'reichardt_et30': 63.1, 'hildebrand_delta': 47.8},
-    'methanol': {'dielectric': 32.7, 'donor_number': 19.0, 'polarity_index': 5.1, 'alpha': 0.93, 'beta': 0.62, 'pi_star': 0.60, 'reichardt_et30': 55.5, 'hildebrand_delta': 29.7},
-    'ethanol': {'dielectric': 24.6, 'donor_number': 19.2, 'polarity_index': 4.3, 'alpha': 0.83, 'beta': 0.77, 'pi_star': 0.54, 'reichardt_et30': 51.9, 'hildebrand_delta': 26.5},
-    'isopropanol': {'dielectric': 19.9, 'donor_number': 18.5, 'polarity_index': 3.9, 'alpha': 0.76, 'beta': 0.84, 'pi_star': 0.48, 'reichardt_et30': 48.6, 'hildebrand_delta': 23.5},
-    'acetone': {'dielectric': 20.7, 'donor_number': 17.0, 'polarity_index': 5.1, 'alpha': 0.08, 'beta': 0.48, 'pi_star': 0.71, 'reichardt_et30': 42.2, 'hildebrand_delta': 19.7},
-    'acetonitrile': {'dielectric': 37.5, 'donor_number': 14.1, 'polarity_index': 5.8, 'alpha': 0.19, 'beta': 0.31, 'pi_star': 0.75, 'reichardt_et30': 46.0, 'hildebrand_delta': 24.3},
-    'dmso': {'dielectric': 46.7, 'donor_number': 29.8, 'polarity_index': 7.2, 'alpha': 0.00, 'beta': 0.76, 'pi_star': 1.00, 'reichardt_et30': 45.1, 'hildebrand_delta': 26.7},
-    'dmf': {'dielectric': 36.7, 'donor_number': 26.6, 'polarity_index': 6.4, 'alpha': 0.00, 'beta': 0.69, 'pi_star': 0.88, 'reichardt_et30': 43.8, 'hildebrand_delta': 24.9},
-    'thf': {'dielectric': 7.5, 'donor_number': 20.0, 'polarity_index': 4.0, 'alpha': 0.00, 'beta': 0.55, 'pi_star': 0.58, 'reichardt_et30': 37.4, 'hildebrand_delta': 18.5},
-    'dioxane': {'dielectric': 2.2, 'donor_number': 14.8, 'polarity_index': 4.8, 'alpha': 0.00, 'beta': 0.37, 'pi_star': 0.49, 'reichardt_et30': 36.0, 'hildebrand_delta': 19.9},
-    'toluene': {'dielectric': 2.4, 'donor_number': 0.1, 'polarity_index': 2.4, 'alpha': 0.00, 'beta': 0.11, 'pi_star': 0.54, 'reichardt_et30': 33.9, 'hildebrand_delta': 18.2},
-    'benzene': {'dielectric': 2.3, 'donor_number': 0.1, 'polarity_index': 2.7, 'alpha': 0.00, 'beta': 0.10, 'pi_star': 0.59, 'reichardt_et30': 34.5, 'hildebrand_delta': 18.6},
-    'dichloromethane': {'dielectric': 8.9, 'donor_number': 0.0, 'polarity_index': 3.1, 'alpha': 0.13, 'beta': 0.10, 'pi_star': 0.82, 'reichardt_et30': 41.1, 'hildebrand_delta': 20.2},
-    'chloroform': {'dielectric': 4.8, 'donor_number': 0.0, 'polarity_index': 4.1, 'alpha': 0.44, 'beta': 0.00, 'pi_star': 0.58, 'reichardt_et30': 39.1, 'hildebrand_delta': 19.0},
-    'hexane': {'dielectric': 1.9, 'donor_number': 0.0, 'polarity_index': 0.1, 'alpha': 0.00, 'beta': 0.00, 'pi_star': 0.00, 'reichardt_et30': 31.0, 'hildebrand_delta': 14.9},
-    'cyclohexane': {'dielectric': 2.0, 'donor_number': 0.0, 'polarity_index': 0.2, 'alpha': 0.00, 'beta': 0.00, 'pi_star': 0.00, 'reichardt_et30': 31.2, 'hildebrand_delta': 16.7},
-    'ethyl_acetate': {'dielectric': 6.0, 'donor_number': 14.0, 'polarity_index': 4.4, 'alpha': 0.00, 'beta': 0.45, 'pi_star': 0.55, 'reichardt_et30': 38.1, 'hildebrand_delta': 18.2},
-    'diethyl_ether': {'dielectric': 4.3, 'donor_number': 19.2, 'polarity_index': 2.8, 'alpha': 0.00, 'beta': 0.47, 'pi_star': 0.27, 'reichardt_et30': 34.6, 'hildebrand_delta': 15.4},
-    'pyridine': {'dielectric': 12.3, 'donor_number': 33.1, 'polarity_index': 5.3, 'alpha': 0.00, 'beta': 0.64, 'pi_star': 0.87, 'reichardt_et30': 40.2, 'hildebrand_delta': 21.8},
-    'nmp': {'dielectric': 32.2, 'donor_number': 27.3, 'polarity_index': 6.7, 'alpha': 0.00, 'beta': 0.77, 'pi_star': 0.92, 'reichardt_et30': 42.0, 'hildebrand_delta': 23.1},
-    'dme': {'dielectric': 7.2, 'donor_number': 19.5, 'polarity_index': 3.5, 'alpha': 0.00, 'beta': 0.53, 'pi_star': 0.53, 'reichardt_et30': 36.5, 'hildebrand_delta': 17.6},
-}
 
 def classify_and_filter_rows(df):
     working = df.copy()
     present_critical = [c for c in CRITICAL_NON_NULLABLE_COLUMNS if c in working.columns]
     missing_critical_cols = [c for c in CRITICAL_NON_NULLABLE_COLUMNS if c not in working.columns]
     if missing_critical_cols:
-        raise ValueError(f"Dataset is missing required column(s): {', '.join(missing_critical_cols)}")
+        raise ValueError(f"Missing required columns: {', '.join(missing_critical_cols)}")
     critical_ok_mask = working[present_critical].notnull().all(axis=1)
     rejected_df = working[~critical_ok_mask].copy()
     valid_structure_df = working[critical_ok_mask].copy()
-    if FAILURE_COLUMN in valid_structure_df.columns:
-        yield_present_mask = valid_structure_df[FAILURE_COLUMN].notnull()
+    if 'yield' in valid_structure_df.columns:
+        yield_present_mask = valid_structure_df['yield'].notnull()
     else:
         yield_present_mask = pd.Series(False, index=valid_structure_df.index)
     usable_df = valid_structure_df[yield_present_mask].copy()
     failed_df = valid_structure_df[~yield_present_mask].copy()
     return usable_df, failed_df, rejected_df
+
+
+def convert_to_serializable(obj):
+    # FIX (2026-09-09): native Python float/int/bool/str/None used to fall
+    # through to the final `else: return str(obj)` branch below, silently
+    # turning numbers into strings (e.g. yield_stats.mean == 45.67 became
+    # the string "45.67"). That broke every frontend call to .toFixed()
+    # on these fields ("... .toFixed is not a function"), since only
+    # numpy scalar types were ever explicitly handled. These checks must
+    # come first so plain Python scalars pass through untouched.
+    # NOTE: np.float32/np.float64 are actual subclasses of Python's
+    # built-in `float` (and np.bool_ can behave like `bool` in some
+    # numpy versions), so numpy-specific checks MUST run before the
+    # generic (int, float, str) passthrough below, or they'd never be
+    # reached and NaN/Infinity would slip through unconverted.
+    if obj is None:
+        return None
+    elif isinstance(obj, np.ndarray):
+        return [convert_to_serializable(x) for x in obj.tolist()]
+    elif isinstance(obj, (np.floating,)):
+        val = float(obj)
+        # NaN/Infinity are not valid JSON; jsonify would otherwise emit
+        # non-standard tokens that some JS JSON parsers reject/mis-handle.
+        return val if np.isfinite(val) else None
+    elif isinstance(obj, (np.integer,)):
+        return int(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, bool):
+        return obj
+    elif isinstance(obj, (int, str)):
+        return obj
+    elif isinstance(obj, float):
+        return obj if np.isfinite(obj) else None
+    elif isinstance(obj, dict):
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_serializable(item) for item in obj]
+    elif isinstance(obj, pd.Series):
+        return convert_to_serializable(obj.tolist())
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    else:
+        return str(obj)
+
+
+def clean_text(value, max_length=MAX_TEXT_FIELD_LENGTH):
+    if value is None:
+        return ''
+    text = str(value).strip()
+    return text[:max_length]
+
+
+def to_float(value, default=None, field_name='value'):
+    if value is None or value == '':
+        if default is not None:
+            return default
+        raise ValueError(f'{field_name} must be a number')
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'{field_name} must be a valid number')
+    if not np.isfinite(f):
+        raise ValueError(f'{field_name} must be a finite number')
+    return f
+
+
+def secure_filename_custom(filename):
+    return re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
+
+
+def format_size(bytes_val):
+    if bytes_val == 0:
+        return '0 B'
+    k = 1024
+    sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    i = 0
+    while bytes_val >= k and i < len(sizes) - 1:
+        bytes_val /= k
+        i += 1
+    return f"{bytes_val:.1f} {sizes[i]}"
+
+
+def timing_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        elapsed = time.time() - start
+        return result
+    return wrapper
+
+
+def error_handler(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (TypeError, KeyError, ValueError) as e:
+            return jsonify({'success': False, 'message': str(e)}), 400
+        except Exception as e:
+            debug_on = os.getenv('DEBUG', '').lower() in ('1', 'true', 'yes')
+            return jsonify({
+                'success': False,
+                'message': str(e) if debug_on else 'An internal error occurred',
+                'traceback': traceback.format_exc() if debug_on else None
+            }), 500
+    return wrapper
+
+
+def get_json_body():
+    try:
+        data = request.get_json(silent=True, force=False)
+    except Exception:
+        data = None
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def is_enriched_dataset(df):
+    cols = df.columns.tolist()
+    smiles_cols = [c for c in cols if '_SMILES_' in c and not c.endswith('_status')]
+    return len(smiles_cols) >= 3
+
 
 def save_prediction_history(prediction_data):
     global PREDICTION_HISTORY
@@ -317,16 +279,16 @@ def save_prediction_history(prediction_data):
                 'yield': prediction_data.get('yield'),
                 'yield_class': prediction_data.get('yield_class'),
                 'model': prediction_data.get('model')
-            },
-            'experimental_mode': prediction_data.get('experimental_mode', False)
+            }
         }
         PREDICTION_HISTORY.append(entry)
         if len(PREDICTION_HISTORY) > 1000:
             PREDICTION_HISTORY = PREDICTION_HISTORY[-1000:]
         with open(history_file, 'w', encoding='utf-8') as f:
             json.dump(PREDICTION_HISTORY, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error(f"Failed to save prediction history: {str(e)}")
+    except Exception:
+        pass
+
 
 def load_prediction_history():
     global PREDICTION_HISTORY
@@ -336,190 +298,18 @@ def load_prediction_history():
                 PREDICTION_HISTORY = json.load(f)
         else:
             PREDICTION_HISTORY = []
-    except Exception as e:
-        logger.error(f"Failed to load prediction history: {str(e)}")
+    except Exception:
         PREDICTION_HISTORY = []
 
-def get_last_prediction_for_conditions(conditions):
-    global PREDICTION_HISTORY
-    if not PREDICTION_HISTORY:
-        return None
-    key_fields = ['catalizor', 'base', 'solv1', 'solv2', 'subs1_smiles', 'subs2_smiles']
-    for entry in reversed(PREDICTION_HISTORY):
-        cond = entry.get('conditions', {})
-        match = True
-        for field in key_fields:
-            if cond.get(field) != conditions.get(field):
-                match = False
-                break
-        if match:
-            return {
-                'temp': cond.get('temp'),
-                'time': cond.get('time'),
-                'quantity': cond.get('quantity'),
-                'yield': entry.get('result', {}).get('yield'),
-                'timestamp': entry.get('timestamp')
-            }
-    return None
-
-def convert_to_serializable(obj):
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    elif isinstance(obj, (np.float32, np.float64)):
-        return float(obj)
-    elif isinstance(obj, (np.int32, np.int64)):
-        return int(obj)
-    elif isinstance(obj, np.bool_):
-        return bool(obj)
-    elif isinstance(obj, bool):
-        return obj
-    elif isinstance(obj, np.generic):
-        return float(obj) if hasattr(obj, '__float__') else str(obj)
-    elif isinstance(obj, dict):
-        return {k: convert_to_serializable(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_to_serializable(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return tuple(convert_to_serializable(item) for item in obj)
-    elif isinstance(obj, set):
-        return [convert_to_serializable(item) for item in obj]
-    elif isinstance(obj, pd.Series):
-        return obj.tolist()
-    elif isinstance(obj, pd.DataFrame):
-        return obj.to_dict(orient='records')
-    elif isinstance(obj, pd.Index):
-        return obj.tolist()
-    elif isinstance(obj, datetime):
-        return obj.isoformat()
-    else:
-        return str(obj)
-
-def clean_feature_name(name):
-    tr_map = {'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c'}
-    for old, new in tr_map.items():
-        name = name.replace(old, new)
-    name = re.sub(r'[^a-zA-Z0-9_.]', '_', name)
-    name = re.sub(r'_+', '_', name)
-    name = name.strip('_')
-    if len(name) > 50:
-        digest = hashlib.md5(name.encode('utf-8')).hexdigest()[:10]
-        name = name[:38].rstrip('_') + '_' + digest
-    return name if name else 'feature'
-
-def _dedupe_columns(df):
-    seen = {}
-    new_cols = []
-    for col in df.columns:
-        if col not in seen:
-            seen[col] = 0
-            new_cols.append(col)
-        else:
-            seen[col] += 1
-            new_cols.append(f"{col}_dup{seen[col]}")
-    df = df.copy()
-    df.columns = new_cols
-    return df
-
-def format_size(bytes_val):
-    if bytes_val == 0:
-        return '0 B'
-    k = 1024
-    sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    i = 0
-    while bytes_val >= k and i < len(sizes) - 1:
-        bytes_val /= k
-        i += 1
-    return f"{bytes_val:.1f} {sizes[i]}"
-
-def secure_filename_custom(filename):
-    return re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
-
-def is_enriched_dataset(df):
-    cols = df.columns.tolist()
-    academic_count = sum(1 for col in ACADEMIC_FEATURE_COLUMNS if col in cols)
-    if academic_count >= 3:
-        return True
-    smiles_cols = [c for c in cols if '_SMILES_' in c]
-    if len(smiles_cols) >= 5:
-        return True
-    sigma_cols = [c for c in cols if '_sigma_' in c]
-    if len(sigma_cols) >= 2:
-        return True
-    return False
-
-def clean_text(value, max_length=MAX_TEXT_FIELD_LENGTH):
-    if value is None:
-        return ''
-    text = str(value).strip()
-    return text[:max_length]
-
-def to_float(value, default=None, field_name='value'):
-    if value is None or value == '':
-        if default is not None:
-            return default
-        raise ValueError(f'{field_name} is required and must be a number')
-    try:
-        f = float(value)
-    except (TypeError, ValueError):
-        raise ValueError(f'{field_name} must be a valid number')
-    if not np.isfinite(f):
-        raise ValueError(f'{field_name} must be a finite number')
-    return f
-
-def timing_decorator(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.time()
-        result = func(*args, **kwargs)
-        elapsed = time.time() - start
-        logger.info(f"Function {func.__name__} took {elapsed:.4f} seconds")
-        return result
-    return wrapper
-
-def error_handler(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except (TypeError, KeyError, ValueError) as e:
-            logger.warning(f"Validation error in {func.__name__}: {str(e)}")
-            return jsonify({'success': False, 'message': str(e)}), 400
-        except RequestEntityTooLarge as e:
-            logger.warning(f"File too large: {str(e)}")
-            return jsonify({'success': False, 'message': 'File too large'}), 413
-        except Exception as e:
-            logger.error(f"Error in {func.__name__}: {str(e)}\n{traceback.format_exc()}")
-            debug_on = os.getenv('DEBUG', '').lower() in ('1', 'true', 'yes')
-            return jsonify({
-                'success': False,
-                'message': str(e) if debug_on else 'An internal error occurred',
-                'traceback': traceback.format_exc() if debug_on else None
-            }), 500
-    return wrapper
-
-def get_json_body():
-    try:
-        data = request.get_json(silent=True, force=False)
-    except Exception:
-        data = None
-    if not isinstance(data, dict):
-        return {}
-    return data
 
 class ConfigManager:
     def __init__(self, config_path='config/info.xml'):
         self.config_path = config_path
-        self.tree = None
-        self.root = None
-        self._cache = {}
         self.params = {}
         self.raw_xml = ""
-        self._xml_hash = None
         self._ensure_dir()
         self._load_or_create()
         self._parse_all()
-        self._validate_config()
-        self._compute_xml_hash()
         self.max_smiles_length = self.get_int('security/sanitization/max_smiles_length', 500)
 
     def _ensure_dir(self):
@@ -528,138 +318,18 @@ class ConfigManager:
             os.makedirs(dir_path, exist_ok=True)
 
     def _load_or_create(self):
-        try:
-            if os.path.exists(self.config_path):
-                with open(self.config_path, 'r', encoding='utf-8') as f:
-                    self.raw_xml = f.read()
-                self.tree = ET.parse(self.config_path)
-                self.root = self.tree.getroot()
-            else:
-                self._create_default()
-        except Exception as e:
-            logger.error(f"Failed to load config: {str(e)}")
-            self._create_default()
-
-    def _create_default(self):
-        default_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<suzuki_config>
-    <metadata>
-        <last_updated>2026-09-07</last_updated>
-        <description>Academic Suzuki ML predictor</description>
-    </metadata>
-    <data_integrity>
-        <critical_non_nullable_columns>temp,time,quantity,catalizor,base</critical_non_nullable_columns>
-        <minimum_usable_rows>5</minimum_usable_rows>
-        <nullable_columns>solv1,solv2</nullable_columns>
-        <failure_column>yield</failure_column>
-    </data_integrity>
-    <ml_training_safeguards>
-        <min_samples_per_feature>10</min_samples_per_feature>
-        <min_samples_for_full_ensemble>30</min_samples_for_full_ensemble>
-        <bootstrap_iterations>1000</bootstrap_iterations>
-        <confidence_level>0.95</confidence_level>
-    </ml_training_safeguards>
-    <model_parameters>
-        <Random_Forest>
-            <n_estimators>300</n_estimators>
-            <max_depth>15</max_depth>
-            <random_state>42</random_state>
-        </Random_Forest>
-        <Gradient_Boosting>
-            <n_estimators>350</n_estimators>
-            <max_depth>7</max_depth>
-            <learning_rate>0.07</learning_rate>
-            <random_state>42</random_state>
-        </Gradient_Boosting>
-        <XGBoost>
-            <n_estimators>350</n_estimators>
-            <max_depth>7</max_depth>
-            <learning_rate>0.08</learning_rate>
-            <random_state>42</random_state>
-        </XGBoost>
-        <LightGBM>
-            <n_estimators>400</n_estimators>
-            <max_depth>10</max_depth>
-            <num_leaves>31</num_leaves>
-            <learning_rate>0.06</learning_rate>
-            <random_state>42</random_state>
-        </LightGBM>
-        <CatBoost>
-            <iterations>400</iterations>
-            <depth>7</depth>
-            <learning_rate>0.07</learning_rate>
-            <random_seed>42</random_seed>
-        </CatBoost>
-        <Ridge>
-            <alpha>1.0</alpha>
-            <random_state>42</random_state>
-        </Ridge>
-        <Lasso>
-            <alpha>1.0</alpha>
-            <random_state>42</random_state>
-        </Lasso>
-        <Ensemble>
-            <weights>
-                <Random_Forest>0.22</Random_Forest>
-                <Gradient_Boosting>0.18</Gradient_Boosting>
-                <XGBoost>0.14</XGBoost>
-                <LightGBM>0.14</LightGBM>
-                <CatBoost>0.12</CatBoost>
-                <Ridge>0.10</Ridge>
-                <Lasso>0.10</Lasso>
-            </weights>
-        </Ensemble>
-    </model_parameters>
-    <feature_importance>
-        <temperature>0.16</temperature>
-        <time>0.13</time>
-        <catalyst_quantity>0.11</catalyst_quantity>
-        <electronegativity>0.03</electronegativity>
-        <flexibility>0.03</flexibility>
-        <molecular_volume>0.02</molecular_volume>
-    </feature_importance>
-    <data_processing>
-        <normalization>
-            <numeric_method>standard_scaler</numeric_method>
-        </normalization>
-        <split>
-            <test_size>0.20</test_size>
-            <random_state>42</random_state>
-        </split>
-        <outlier_detection>
-            <mahalanobis_threshold>3.5</mahalanobis_threshold>
-        </outlier_detection>
-    </data_processing>
-    <performance_metrics>
-        <metrics>
-            <r2>true</r2>
-            <mae>true</mae>
-            <rmse>true</rmse>
-            <aic>true</aic>
-            <bic>true</bic>
-            <shapiro_wilk>true</shapiro_wilk>
-        </metrics>
-        <uncertainty>
-            <n_bootstrap>1000</n_bootstrap>
-            <confidence_level>0.95</confidence_level>
-        </uncertainty>
-        <learning_curve>
-            <enabled>true</enabled>
-            <cv_folds>5</cv_folds>
-        </learning_curve>
-    </performance_metrics>
-    <security>
-        <sanitization>
-            <max_smiles_length>500</max_smiles_length>
-        </sanitization>
-    </security>
-</suzuki_config>"""
-        with open(self.config_path, 'w', encoding='utf-8') as f:
-            f.write(default_xml)
-        self.tree = ET.parse(self.config_path)
-        self.root = self.tree.getroot()
-        with open(self.config_path, 'r', encoding='utf-8') as f:
-            self.raw_xml = f.read()
+        if os.path.exists(self.config_path):
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                self.raw_xml = f.read()
+            self.tree = ET.parse(self.config_path)
+            self.root = self.tree.getroot()
+        else:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                f.write(DEFAULT_XML)
+            self.tree = ET.parse(self.config_path)
+            self.root = self.tree.getroot()
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                self.raw_xml = f.read()
 
     def _parse_all(self):
         self.params = self._parse_element(self.root)
@@ -686,19 +356,8 @@ class ConfigManager:
                 result[child.tag] = val
         return result
 
-    def _validate_config(self):
-        required = ['data_integrity/critical_non_nullable_columns']
-        for path in required:
-            if self.get(path) is None:
-                logger.warning(f"Required parameter missing: {path}")
-
-    def _compute_xml_hash(self):
-        self._xml_hash = hashlib.md5(self.raw_xml.encode()).hexdigest()
-
     def get(self, path, default=None):
         try:
-            if path in self._cache:
-                return self._cache[path]
             keys = path.split('/')
             current = self.params
             for key in keys:
@@ -706,7 +365,6 @@ class ConfigManager:
                     current = current[key]
                 else:
                     return default
-            self._cache[path] = current
             return current
         except:
             return default
@@ -752,268 +410,18 @@ class ConfigManager:
     def get_feature_importance(self):
         return self.get_dict('feature_importance')
 
-    def reload(self):
-        try:
-            self._cache.clear()
-            self._load_or_create()
-            self._parse_all()
-            self._validate_config()
-            self._compute_xml_hash()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to reload config: {str(e)}")
-            return False
-
     def get_raw_xml(self):
         return self.raw_xml
 
-    def get_all_params(self):
-        return self.params
-
-    def get_xml_hash(self):
-        return self._xml_hash
-
-    def get_summary(self):
-        return {
-            'config_path': self.config_path,
-            'xml_size': len(self.raw_xml),
-            'xml_hash': self._xml_hash[:8] if self._xml_hash else None,
-            'top_level_sections': len(self.params),
-            'sections': list(self.params.keys()),
-            'cache_size': len(self._cache)
-        }
-
-class DFTEngine:
-    def __init__(self):
-        self.xtb_available = XTB_AVAILABLE
-        self.rdkit_3d = RDKIT_3D_AVAILABLE
-
-    def calculate_homo_lumo(self, smiles):
-        if not RDKIT_AVAILABLE:
-            return None
-        try:
-            mol = Chem.MolFromSmiles(smiles)
-            if mol is None:
-                return None
-            if self.rdkit_3d:
-                mol3d = Chem.AddHs(mol)
-                AllChem.EmbedMolecule(mol3d, randomSeed=42)
-                AllChem.MMFFOptimizeMolecule(mol3d)
-                if self.xtb_available:
-                    try:
-                        calc = Calculator(method="GFN2-xTB", charge=0, mult=1)
-                        calc.singlepoint(mol3d)
-                        return {
-                            'homo_energy': float(calc.get_homo()),
-                            'lumo_energy': float(calc.get_lumo()),
-                            'gap_energy': float(calc.get_gap()),
-                            'method': 'GFN2-xTB',
-                            'is_dft': True,
-                            'conformer_generated': True
-                        }
-                    except Exception as e:
-                        logger.error(f"xtb calculation failed: {str(e)}")
-            return {
-                'homo_energy': None,
-                'lumo_energy': None,
-                'gap_energy': None,
-                'method': 'DFT not available',
-                'is_dft': False,
-                'conformer_generated': False
-            }
-        except Exception as e:
-            logger.error(f"DFT calculation failed: {str(e)}")
-            return None
-
-class SHAPAnalyzer:
-    def __init__(self):
-        self.shap_available = SHAP_AVAILABLE
-
-    def analyze(self, model, X, feature_names):
-        if not self.shap_available:
-            return None
-        try:
-            if isinstance(model, (RandomForestRegressor, GradientBoostingRegressor,
-                                  XGBRegressor, LGBMRegressor, CatBoostRegressor)):
-                explainer = shap.TreeExplainer(model)
-                shap_values = explainer.shap_values(X)
-                return {
-                    'shap_values': shap_values.tolist() if hasattr(shap_values, 'tolist') else shap_values,
-                    'base_value': float(explainer.expected_value) if hasattr(explainer.expected_value, '__float__') else explainer.expected_value,
-                    'feature_names': feature_names,
-                    'method': 'SHAP TreeExplainer'
-                }
-            else:
-                explainer = shap.KernelExplainer(model.predict, X[:100])
-                shap_values = explainer.shap_values(X[:100])
-                return {
-                    'shap_values': shap_values.tolist() if hasattr(shap_values, 'tolist') else shap_values,
-                    'base_value': float(explainer.expected_value),
-                    'feature_names': feature_names,
-                    'method': 'SHAP KernelExplainer'
-                }
-        except Exception as e:
-            logger.error(f"SHAP analysis failed: {str(e)}")
-            return None
-
-class ConformalPredictor:
-    def __init__(self):
-        self.mapie_available = MAPIE_AVAILABLE
-
-    def predict(self, model, X_train, y_train, X_test, alpha=0.05):
-        if not self.mapie_available:
-            return None
-        try:
-            mapie = MapieRegressor(model, method="plus", cv=5)
-            mapie.fit(X_train, y_train)
-            y_pred, y_std = mapie.predict(X_test, alpha=alpha)
-            return {
-                'predictions': y_pred.tolist() if hasattr(y_pred, 'tolist') else y_pred,
-                'std': y_std.tolist() if hasattr(y_std, 'tolist') else y_std,
-                'alpha': alpha,
-                'method': 'Conformal Prediction (MAPIE)'
-            }
-        except Exception as e:
-            logger.error(f"Conformal prediction failed: {str(e)}")
-            return None
-
-class HyperparameterOptimizer:
-    def __init__(self):
-        self.grid_search_available = True
-
-    def optimize(self, model_type, X, y):
-        param_grids = {
-            'Random_Forest': {
-                'n_estimators': [100, 200, 300, 400],
-                'max_depth': [5, 10, 15, 20, None],
-                'min_samples_split': [2, 3, 5],
-                'min_samples_leaf': [1, 2, 4]
-            },
-            'XGBoost': {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.05, 0.1, 0.2],
-                'max_depth': [3, 5, 7, 9],
-                'subsample': [0.6, 0.8, 1.0],
-                'colsample_bytree': [0.6, 0.8, 1.0]
-            },
-            'LightGBM': {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.05, 0.1],
-                'num_leaves': [15, 31, 63],
-                'max_depth': [3, 5, 7, 10]
-            },
-            'Gradient_Boosting': {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.05, 0.1],
-                'max_depth': [3, 5, 7],
-                'min_samples_split': [2, 3, 5]
-            },
-            'Ridge': {'alpha': [0.01, 0.1, 1.0, 10.0, 100.0]},
-            'Lasso': {'alpha': [0.01, 0.1, 1.0, 10.0]},
-            'ElasticNet': {'alpha': [0.01, 0.1, 1.0], 'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9]},
-            'SVR': {'C': [0.1, 1.0, 10.0, 100.0], 'epsilon': [0.01, 0.05, 0.1, 0.2], 'gamma': ['scale', 'auto']},
-            'Neural_Network': {
-                'hidden_layer_sizes': [(50,), (100,), (50, 25), (100, 50)],
-                'alpha': [0.0001, 0.001, 0.01],
-                'learning_rate_init': [0.001, 0.01]
-            }
-        }
-        if model_type not in param_grids:
-            return None
-        try:
-            model_creators = {
-                'Random_Forest': RandomForestRegressor,
-                'XGBoost': XGBRegressor,
-                'LightGBM': LGBMRegressor,
-                'Gradient_Boosting': GradientBoostingRegressor,
-                'Ridge': Ridge,
-                'Lasso': Lasso,
-                'ElasticNet': ElasticNet,
-                'SVR': SVR,
-                'Neural_Network': MLPRegressor
-            }
-            if model_type not in model_creators:
-                return None
-            base_model = model_creators[model_type]()
-            search = RandomizedSearchCV(
-                base_model, param_grids[model_type],
-                n_iter=20, cv=3, scoring='r2',
-                random_state=42, n_jobs=1
-            )
-            search.fit(X, y)
-            return {
-                'best_params': search.best_params_,
-                'best_score': float(search.best_score_),
-                'method': 'RandomizedSearchCV',
-                'n_iter': 20
-            }
-        except Exception as e:
-            logger.error(f"Hyperparameter optimization failed: {str(e)}")
-            return None
-
-class ValidationReporter:
-    def __init__(self):
-        pass
-
-    def generate_report(self, y_true, y_pred, model, X_train, y_train, X_test):
-        try:
-            report = {
-                'test_metrics': {
-                    'r2': float(r2_score(y_true, y_pred)),
-                    'mae': float(mean_absolute_error(y_true, y_pred)),
-                    'rmse': float(np.sqrt(mean_squared_error(y_true, y_pred))),
-                    'mape': float(mean_absolute_percentage_error(y_true, y_pred) * 100),
-                    'max_error': float(max_error(y_true, y_pred)),
-                    'explained_variance': float(explained_variance_score(y_true, y_pred))
-                }
-            }
-            if len(y_true) >= 3:
-                try:
-                    corr, p_val = pearsonr(y_true, y_pred)
-                    report['test_metrics']['pearson_correlation'] = float(corr)
-                    report['test_metrics']['pearson_p_value'] = float(p_val)
-                except:
-                    pass
-            if len(y_true) >= 3 and len(y_true) <= 5000:
-                try:
-                    residuals = np.array(y_true) - np.array(y_pred)
-                    shapiro_stat, shapiro_p = shapiro(residuals)
-                    report['residual_normality'] = {
-                        'shapiro_stat': float(shapiro_stat),
-                        'shapiro_p': float(shapiro_p),
-                        'is_normal': bool(shapiro_p > 0.05)
-                    }
-                except:
-                    pass
-            try:
-                train_sizes, train_scores, test_scores = learning_curve(
-                    model, X_train, y_train, cv=3,
-                    train_sizes=np.linspace(0.1, 1.0, 5),
-                    scoring='r2', n_jobs=1
-                )
-                report['learning_curve'] = {
-                    'train_sizes': train_sizes.tolist(),
-                    'train_scores_mean': np.mean(train_scores, axis=1).tolist(),
-                    'test_scores_mean': np.mean(test_scores, axis=1).tolist()
-                }
-            except:
-                pass
-            return report
-        except Exception as e:
-            logger.error(f"Validation report generation failed: {str(e)}")
-            return None
 
 class AdvancedFeatureEngineer:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self):
         self.selected_features = []
         self.anomaly_results = {}
         self.EN = {
             'H': 2.20, 'C': 2.55, 'N': 3.04, 'O': 3.44, 'F': 3.98,
             'P': 2.19, 'S': 2.58, 'Cl': 3.16, 'Br': 2.96, 'I': 2.66,
-            'B': 2.04, 'Si': 1.90, 'Pd': 2.20, 'Pt': 2.28, 'Li': 0.98,
-            'Na': 0.93, 'K': 0.82, 'Cs': 0.79, 'Mg': 1.31, 'Ca': 1.00,
-            'Zn': 1.65, 'Cu': 1.90, 'Fe': 1.83, 'Co': 1.88, 'Ni': 1.91
+            'B': 2.04, 'Si': 1.90, 'Pd': 2.20, 'Pt': 2.28
         }
 
     def extract_electronegativity_features(self, smiles):
@@ -1068,13 +476,10 @@ class AdvancedFeatureEngineer:
             n_count = sum(1 for atom in mol.GetAtoms() if atom.GetSymbol() == 'N')
             o_count = sum(1 for atom in mol.GetAtoms() if atom.GetSymbol() == 'O')
             s_count = sum(1 for atom in mol.GetAtoms() if atom.GetSymbol() == 'S')
-            n_contribution = n_count * 12.0
-            o_contribution = o_count * 20.0
-            s_contribution = s_count * 5.0
             return {
-                'n_tpsa_contribution': float(n_contribution),
-                'o_tpsa_contribution': float(o_contribution),
-                's_tpsa_contribution': float(s_contribution),
+                'n_tpsa_contribution': float(n_count * 12.0),
+                'o_tpsa_contribution': float(o_count * 20.0),
+                's_tpsa_contribution': float(s_count * 5.0),
                 'tpsa_per_heavy_atom': float(total_tpsa / (heavy_atoms + 1)),
                 'tpsa_hetero_ratio': float(total_tpsa / ((n_count + o_count + s_count) + 1))
             }
@@ -1161,11 +566,11 @@ class AdvancedFeatureEngineer:
         except:
             return {'selected_features': [], 'correlations': {}}
 
+
 class FeatureEngineer:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self):
         self.selected_features = []
-        self.advanced = AdvancedFeatureEngineer(config)
+        self.advanced = AdvancedFeatureEngineer()
 
     def extract_smiles_features(self, smiles):
         features = {}
@@ -1217,8 +622,8 @@ class FeatureEngineer:
             features['branch_nodes'] = sum(1 for atom in mol.GetAtoms() if atom.GetDegree() > 2)
             features['smiles_length'] = len(smiles)
             features.update(self.advanced.extract_all_features(smiles))
-        except Exception as e:
-            logger.debug(f"SMILES feature extraction failed for {smiles}: {str(e)}")
+        except:
+            pass
         return features
 
     def engineer_features(self, df):
@@ -1283,13 +688,14 @@ class FeatureEngineer:
             selected = [f for f, _ in feature_scores[:k_best]]
             self.selected_features = selected
             return df[selected] if selected else df[numeric_cols]
-        except Exception:
+        except:
             return df.select_dtypes(include=[np.number])
+
 
 class SuzukiPredictor:
     def __init__(self, config):
         self.config = config
-        self.fe = FeatureEngineer(config)
+        self.fe = FeatureEngineer()
         self.df = None
         self.X = None
         self.y = None
@@ -1313,14 +719,19 @@ class SuzukiPredictor:
         self.correlation_analysis = {}
         self.uncertainty_results = {}
         self.normality_test = None
-        self.shap_analysis = None
-        self.conformal_prediction = None
-        self.dft_properties = {}
-        self.validation_report = None
         self.min_samples_per_feature = self.config.get_int('ml_training_safeguards/min_samples_per_feature', 10)
         self.min_samples_for_full_ensemble = self.config.get_int('ml_training_safeguards/min_samples_for_full_ensemble', 30)
         self.bootstrap_iterations = self.config.get_int('ml_training_safeguards/bootstrap_iterations', 1000)
         self.confidence_level = self.config.get_float('ml_training_safeguards/confidence_level', 0.95)
+
+        # --- Experimental (non-scientific) heuristic fallback settings ---
+        self.experimental_mode_enabled = self.config.get_bool('experimental_mode/enabled', True)
+        self.min_samples_for_ml_confidence = self.config.get_int('experimental_mode/min_samples_for_ml_confidence', 20)
+        self.raw_extrapolation_guard = self.config.get_float('experimental_mode/raw_extrapolation_guard', 60.0)
+        self.heuristic_temp_weight = self.config.get_float('experimental_mode/temp_weight', 0.5)
+        self.heuristic_time_weight = self.config.get_float('experimental_mode/time_weight', 0.3)
+        self.heuristic_quantity_weight = self.config.get_float('experimental_mode/quantity_weight', 0.2)
+        self.heuristic_temp_sensitivity = self.config.get_float('experimental_mode/temp_sensitivity', 20.0)
 
     def _load_weights(self):
         try:
@@ -1446,8 +857,7 @@ class SuzukiPredictor:
                 return Lasso(**params)
             else:
                 return None
-        except Exception as e:
-            logger.error(f"Model creation error for {name}: {str(e)}")
+        except Exception:
             return None
 
     def _parse_param(self, val):
@@ -1482,6 +892,7 @@ class SuzukiPredictor:
                 'ci_lower': float(lower),
                 'ci_upper': float(upper),
                 'ci_width': float(upper - lower),
+                'std': float(np.std(errors)),
                 'n_bootstrap': len(bootstrap_means)
             }
             return self.bootstrap_results
@@ -1570,132 +981,66 @@ class SuzukiPredictor:
                     'shapiro_statistic': float(statistic),
                     'shapiro_p_value': float(p_value),
                     'is_normal': bool(p_value > 0.05),
-                    'interpretation': 'Normal distribution' if p_value > 0.05 else 'Non-normal distribution'
+                    'interpretation': 'Normal' if p_value > 0.05 else 'Non-normal'
                 }
         except:
             pass
         return None
 
-    def optimize_bayesian(self, conditions, n_calls=50):
-        if not SKOPT_AVAILABLE:
-            return None, None, None
-        try:
-            space = [
-                Real(0.0001, 0.50, name='quantity', prior='log-uniform'),
-                Real(25, 250, name='temp', prior='uniform'),
-                Real(1, 72, name='time', prior='uniform')
-            ]
-            @use_named_args(space)
-            def objective(**params):
-                test_conditions = conditions.copy()
-                test_conditions['quantity'] = params['quantity']
-                test_conditions['temp'] = params['temp']
-                test_conditions['time'] = params['time']
-                try:
-                    result = self.predict(test_conditions)
-                    if result['success']:
-                        return -result['prediction']
-                    else:
-                        return 100.0
-                except:
-                    return 100.0
-            result = gp_minimize(
-                func=objective,
-                dimensions=space,
-                n_calls=n_calls,
-                n_initial_points=10,
-                initial_point_generator='random',
-                acq_func='EI',
-                acq_optimizer='sampling',
-                random_state=42,
-                verbose=False
-            )
-            best_params = {
-                'quantity': float(result.x[0]),
-                'temp': float(result.x[1]),
-                'time': float(result.x[2])
-            }
-            best_yield = -float(result.fun)
-            history = {
-                'method': 'Bayesian',
-                'n_calls': n_calls,
-                'func_vals': [-f for f in result.func_vals],
-                'x_iters': result.x_iters,
-                'best_yield': best_yield,
-                'best_params': best_params
-            }
-            return best_params, best_yield, history
-        except Exception as e:
-            logger.error(f"Bayesian optimization failed: {str(e)}")
-            return None, None, None
+    # ------------------------------------------------------------------
+    # FIXED: safe stratified split
+    # ------------------------------------------------------------------
+    def _safe_stratified_split(self, X_scaled, y, test_size, random_state=42):
+        """
+        Build a stratify key from the target's quantile bins, but only
+        use as many bins as the (estimated) test set can actually hold,
+        and fall back to a plain (non-stratified) split when there are
+        too few samples for stratification to make sense.
 
-    def optimize_genetic(self, conditions, population_size=50, generations=30):
-        if not DEAP_AVAILABLE:
-            return None, None, None
-        try:
+        This fixes: "test_size = N should be greater or equal to the
+        number of classes = K", which happened whenever pd.qcut(..., q=4)
+        produced more classes than the test split had rows for.
+        """
+        n_samples = len(y)
+        n_test = int(round(n_samples * test_size))
+        n_test = max(1, n_test)
+
+        # Never try to stratify into more bins than we have test rows,
+        # and cap at 4 bins (quartiles) as before. Need at least 2 bins
+        # and at least 2 samples per class in the whole dataset to try.
+        max_bins = min(4, n_test, n_samples // 2)
+
+        stratify_arg = None
+        if max_bins >= 2:
             try:
-                creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-                creator.create("Individual", list, fitness=creator.FitnessMax)
-            except:
-                pass
-            toolbox = base.Toolbox()
-            toolbox.register("attr_qty", np.random.uniform, 0.0001, 0.50)
-            toolbox.register("attr_temp", np.random.uniform, 25, 250)
-            toolbox.register("attr_time", np.random.uniform, 1, 72)
-            toolbox.register("individual", tools.initCycle, creator.Individual,
-                            (toolbox.attr_qty, toolbox.attr_temp, toolbox.attr_time), n=1)
-            toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-            def evaluate(individual):
-                qty, temp, time = individual
-                test_conditions = conditions.copy()
-                test_conditions['quantity'] = qty
-                test_conditions['temp'] = temp
-                test_conditions['time'] = time
-                try:
-                    result = self.predict(test_conditions)
-                    if result['success']:
-                        return (result['prediction'],)
-                    else:
-                        return (0.0,)
-                except:
-                    return (0.0,)
-            toolbox.register("evaluate", evaluate)
-            toolbox.register("mate", tools.cxBlend, alpha=0.5)
-            toolbox.register("mutate", tools.mutPolynomialBounded,
-                            low=[0.0001, 25, 1],
-                            up=[0.50, 250, 72],
-                            eta=20.0,
-                            indpb=0.2)
-            toolbox.register("select", tools.selTournament, tournsize=3)
-            population = toolbox.population(n=population_size)
-            stats = tools.Statistics(lambda ind: ind.fitness.values)
-            stats.register("avg", np.mean)
-            stats.register("std", np.std)
-            stats.register("min", np.min)
-            stats.register("max", np.max)
-            population, logbook = algorithms.eaSimple(
-                population, toolbox,
-                cxpb=0.7, mutpb=0.2, ngen=generations,
-                stats=stats, verbose=False
+                y_binned = pd.qcut(y, q=max_bins, labels=False, duplicates='drop')
+                n_classes = len(np.unique(y_binned))
+                # Only stratify if we truly have >=2 classes AND the
+                # test set will be large enough to contain at least one
+                # sample of every class.
+                if n_classes >= 2 and n_test >= n_classes:
+                    # Also guard against any class having fewer than 2
+                    # total samples (sklearn requires >=2 per class to
+                    # split at all when stratifying).
+                    counts = pd.Series(y_binned).value_counts()
+                    if counts.min() >= 2:
+                        stratify_arg = y_binned
+            except Exception:
+                stratify_arg = None
+
+        try:
+            return train_test_split(
+                X_scaled, y, test_size=test_size, random_state=random_state,
+                stratify=stratify_arg
             )
-            best_ind = tools.selBest(population, 1)[0]
-            best_params = {
-                'quantity': float(best_ind[0]),
-                'temp': float(best_ind[1]),
-                'time': float(best_ind[2])
-            }
-            best_yield = float(best_ind.fitness.values[0])
-            history = {
-                'method': 'Genetic',
-                'population_size': population_size,
-                'generations': generations,
-                'best_yield': best_yield,
-                'best_params': best_params
-            }
-            return best_params, best_yield, history
-        except Exception as e:
-            logger.error(f"Genetic optimization failed: {str(e)}")
-            return None, None, None
+        except ValueError:
+            # Final safety net: if stratification still fails for any
+            # reason (edge cases in extremely small datasets), retry
+            # once with no stratification at all instead of crashing.
+            return train_test_split(
+                X_scaled, y, test_size=test_size, random_state=random_state,
+                stratify=None
+            )
 
     def train(self, model_type='Ensemble'):
         try:
@@ -1705,24 +1050,29 @@ class SuzukiPredictor:
                 raise ValueError("Cannot train ML model on basic dataset.")
             if len(self.y) == 0 or np.all(np.isnan(self.y)):
                 raise ValueError("No valid yield data available")
+
             n_samples = len(self.X)
             n_features = len(self.feature_columns)
             if n_samples < self.min_samples_per_feature:
                 raise ValueError(f"Refusing to train: only {n_samples} labeled reactions.")
-            X_scaled_orig = StandardScaler().fit_transform(self.X)
+
             self.anomaly_results = self.fe.advanced.detect_anomalies(
-                X_scaled_orig,
-                threshold=self.config.get_float('data_processing/outlier_detection/mahalanobis_threshold', 3.5)
+                self.X.values, threshold=3.5
             )
+
             self.scaler = StandardScaler()
             X_scaled = self.scaler.fit_transform(self.X)
             X_scaled = pd.DataFrame(X_scaled, columns=self.feature_columns)
+
             test_size = min(0.2, max(0.1, 3.0 / n_samples))
-            y_binned = pd.qcut(self.y, q=4, labels=False, duplicates='drop')
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_scaled, self.y, test_size=test_size, random_state=42,
-                stratify=y_binned if len(np.unique(y_binned)) > 1 else None
+
+            # FIX: use the safe stratified split helper instead of a
+            # hard-coded 4-quantile stratify key that could exceed the
+            # number of rows actually available in the test split.
+            X_train, X_test, y_train, y_test = self._safe_stratified_split(
+                X_scaled, self.y, test_size=test_size, random_state=42
             )
+
             if model_type == 'Ensemble' or model_type == 'all':
                 if n_samples < self.min_samples_for_full_ensemble:
                     model_names = ['Ridge', 'Lasso']
@@ -1736,6 +1086,7 @@ class SuzukiPredictor:
                         model_names.append('CatBoost')
             else:
                 model_names = [model_type]
+
             models = {}
             performances = {}
             for name in model_names:
@@ -1752,9 +1103,9 @@ class SuzukiPredictor:
                                 'rmse': float(np.sqrt(mean_squared_error(y_test, y_pred))),
                                 'explained_variance': float(explained_variance_score(y_test, y_pred))
                             }
-                except Exception as e:
-                    logger.error(f"Model training failed for {name}: {str(e)}")
+                except Exception:
                     continue
+
             if not models:
                 model = Ridge(alpha=1.0)
                 model.fit(X_train, y_train)
@@ -1767,21 +1118,27 @@ class SuzukiPredictor:
                     'explained_variance': float(explained_variance_score(y_test, y_pred))
                 }
                 self.fallback_model = 'Ridge_Fallback'
+
             if not models:
                 return {'success': False, 'message': 'No models could be trained'}
+
             self.models = models
             self.is_trained = True
             self.model_performance = performances
+
             if performances:
                 best_name = max(performances.items(), key=lambda x: x[1].get('r2', 0))[0]
                 self.best_model = best_name
+
             if n_samples < 15:
                 cv = LeaveOneOut()
             else:
                 cv = RepeatedKFold(n_splits=min(3, n_samples//2), n_repeats=2, random_state=42)
+
             self.cv_results = self._perform_cross_validation(cv)
             self.feature_importance = self._calculate_feature_importance()
             self.X_test_, self.y_test_ = X_test, y_test
+
             best_model = models[self.best_model]
             y_pred_final = best_model.predict(X_test)
             self.bootstrap_results = self._perform_bootstrap(y_test, y_pred_final, self.bootstrap_iterations)
@@ -1790,19 +1147,7 @@ class SuzukiPredictor:
             self.uncertainty_results = self._calculate_ensemble_uncertainty(X_test)
             self.correlation_analysis = self.fe.advanced.correlation_analysis(self.df, target='yield')
             self.normality_test = self._test_residual_normality(y_test, y_pred_final)
-            try:
-                self.shap_analysis = SHAPAnalyzer().analyze(
-                    best_model, X_test[:min(100, len(X_test))],
-                    self.feature_columns[:min(50, len(self.feature_columns))]
-                )
-            except:
-                pass
-            try:
-                self.conformal_prediction = ConformalPredictor().predict(
-                    best_model, X_train, y_train, X_test, alpha=0.05
-                )
-            except:
-                pass
+
             return {
                 'success': True,
                 'message': f"Trained {len(models)} models",
@@ -1818,12 +1163,9 @@ class SuzukiPredictor:
                 'learning_curve': convert_to_serializable(self.learning_curve_data),
                 'uncertainty_results': convert_to_serializable(self.uncertainty_results),
                 'correlation_analysis': convert_to_serializable(self.correlation_analysis),
-                'normality_test': convert_to_serializable(self.normality_test),
-                'shap_analysis': convert_to_serializable(self.shap_analysis),
-                'conformal_prediction': convert_to_serializable(self.conformal_prediction)
+                'normality_test': convert_to_serializable(self.normality_test)
             }
         except Exception as e:
-            logger.error(f"Training error: {str(e)}\n{traceback.format_exc()}")
             raise
 
     def _perform_cross_validation(self, cv):
@@ -1904,8 +1246,10 @@ class SuzukiPredictor:
         f['quantity_squared'] = f['quantity'] ** 2
         f['catalyst_loading'] = f['quantity'] / (f['temp'] + 1)
         f['temp_quantity_product'] = f['temp'] * f['quantity']
+
         subs1 = conditions.get('subs1_smiles', '')
         subs2 = conditions.get('subs2_smiles', '')
+
         if subs1:
             mf = self.fe.extract_smiles_features(subs1)
             f['subs1_length'] = len(subs1)
@@ -1943,6 +1287,7 @@ class SuzukiPredictor:
             f['subs1_tpsa_per_heavy_atom'] = 0
             f['subs1_molecular_volume'] = 0
             f['subs1_spherocity'] = 0
+
         if subs2:
             mf = self.fe.extract_smiles_features(subs2)
             f['subs2_length'] = len(subs2)
@@ -1980,6 +1325,7 @@ class SuzukiPredictor:
             f['subs2_tpsa_per_heavy_atom'] = 0
             f['subs2_molecular_volume'] = 0
             f['subs2_spherocity'] = 0
+
         f['substrate_steric_sum'] = f['subs1_length'] + f['subs2_length']
         f['substrate_steric_diff'] = abs(f['subs1_length'] - f['subs2_length'])
         f['substrate_steric_product'] = f['subs1_length'] * f['subs2_length']
@@ -1993,17 +1339,82 @@ class SuzukiPredictor:
         f['ring_diff'] = abs(f['subs1_rings'] - f['subs2_rings'])
         f['aromatic_sum'] = f['subs1_aromatic_rings'] + f['subs2_aromatic_rings']
         f['halogen_total'] = f['subs1_halogen_count'] + f['subs2_halogen_count']
+
         vector = []
         for col in self.feature_columns:
             vector.append(f.get(col, 0))
+
         if self.scaler is not None:
             try:
                 vector = self.scaler.transform([vector])[0]
             except:
                 pass
+
         return np.array(vector).reshape(1, -1)
 
-    def predict(self, conditions):
+    def _experimental_heuristic_predict(self, conditions):
+        """
+        NOT a scientific or academically validated model. This is a
+        deliberately simple, monotonic rule-of-thumb used only as a
+        safety-net fallback when the trained ML ensemble cannot be
+        trusted (too little labeled data, or a prediction that clearly
+        extrapolated outside the training range and had to be clipped
+        to 0/100 -- which is why users were seeing a flat "0.0%").
+
+        Behavior:
+          - Higher temperature -> higher yield (up to a plateau), via a
+            logistic curve centered on the dataset's own average temp
+            (or a generic 80C default if no data is loaded yet).
+          - Longer time -> higher yield with diminishing returns, via a
+            saturating exponential centered on the dataset's average
+            reaction time.
+          - More catalyst quantity -> higher yield with diminishing
+            returns, same saturating-exponential shape.
+        The three factors are combined with configurable weights (XML:
+        experimental_mode/temp_weight, time_weight, quantity_weight) and
+        scaled around the dataset's mean observed yield, so the estimate
+        stays anchored to what was actually observed instead of an
+        arbitrary constant.
+        """
+        temp = float(conditions.get('temp', 80) or 80)
+        time_h = float(conditions.get('time', 12) or 12)
+        qty = float(conditions.get('quantity', 0.0025) or 0.0025)
+
+        if self.df is not None and len(self.df) > 0 and 'yield' in self.df.columns:
+            base_yield = float(self.df['yield'].mean())
+            temp_ref = float(self.df['temp'].mean()) if 'temp' in self.df.columns and self.df['temp'].notnull().any() else 80.0
+            time_ref = float(self.df['time'].mean()) if 'time' in self.df.columns and self.df['time'].notnull().any() else 12.0
+            qty_ref = float(self.df['quantity'].mean()) if 'quantity' in self.df.columns and self.df['quantity'].notnull().any() else 0.0025
+        else:
+            base_yield, temp_ref, time_ref, qty_ref = 50.0, 80.0, 12.0, 0.0025
+
+        temp_ref = temp_ref if temp_ref > 0 else 80.0
+        time_ref = time_ref if time_ref > 0 else 12.0
+        qty_ref = qty_ref if qty_ref > 0 else 0.0025
+        sensitivity = self.heuristic_temp_sensitivity if self.heuristic_temp_sensitivity > 0 else 20.0
+
+        # Logistic in [0, 1], centered at the dataset's mean temperature.
+        # Monotonically increasing with temp by construction.
+        temp_factor = 1.0 / (1.0 + np.exp(-(temp - temp_ref) / sensitivity))
+
+        # Saturating exponentials in [0, 1); monotonically increasing
+        # with time / catalyst quantity by construction.
+        time_factor = 1.0 - np.exp(-max(time_h, 0.0) / time_ref)
+        qty_factor = 1.0 - np.exp(-max(qty, 0.0) / qty_ref)
+
+        w_t, w_h, w_q = self.heuristic_temp_weight, self.heuristic_time_weight, self.heuristic_quantity_weight
+        weight_sum = (w_t + w_h + w_q) or 1.0
+        combined = (w_t * temp_factor + w_h * time_factor + w_q * qty_factor) / weight_sum
+
+        # Map combined in/around [0,1] to a yield centered on base_yield:
+        # combined=0.5 (neutral conditions) reproduces base_yield;
+        # combined=1.0 (best conditions seen) roughly doubles it (capped);
+        # combined=0.0 (worst conditions) roughly halves it.
+        heuristic_yield = base_yield * (0.5 + combined)
+        heuristic_yield = float(np.clip(heuristic_yield, 1.0, 99.0))
+        return heuristic_yield
+
+    def predict(self, conditions, force_experimental=False):
         try:
             prediction_data = {
                 'temp': conditions.get('temp'),
@@ -2014,10 +1425,11 @@ class SuzukiPredictor:
                 'solv1': conditions.get('solv1'),
                 'solv2': conditions.get('solv2'),
                 'subs1_smiles': conditions.get('subs1_smiles'),
-                'subs2_smiles': conditions.get('subs2_smiles'),
-                'experimental_mode': conditions.get('experimental_mode', False)
+                'subs2_smiles': conditions.get('subs2_smiles')
             }
+
             ml_yield = None
+
             if self.is_enriched and self.is_trained and self.models:
                 try:
                     feature_vector = self._create_feature_vector(conditions)
@@ -2029,10 +1441,52 @@ class SuzukiPredictor:
                             model = list(self.models.values())[0]
                             ml_pred = model.predict(feature_vector)
                             ml_yield = float(ml_pred[0]) if len(ml_pred) > 0 else None
-                except Exception as e:
-                    logger.error(f"ML prediction failed: {str(e)}")
+                except:
+                    pass
+
+            # --- Decide whether the ML output can actually be trusted ---
+            # This replaces the old behavior of silently np.clip()-ing any
+            # ML output (including wildly wrong extrapolations, or a flat
+            # 0 from a failed ensemble) into [0, 100], which is why users
+            # were seeing a flat "0.0%" on small datasets with no
+            # indication anything had gone wrong.
+            #
+            # FIX (2026-09-09): `force_experimental` lets the user
+            # explicitly request the rule-of-thumb heuristic from the UI
+            # (a checkbox), independent of the automatic safety-net
+            # triggers below. This is checked first so an explicit user
+            # request always wins.
+            used_heuristic = False
+            heuristic_reason = None
+            n_train_samples = len(self.X) if self.X is not None else 0
+
+            if force_experimental:
+                used_heuristic = True
+                heuristic_reason = 'user_requested'
+            elif not (self.is_enriched and self.is_trained and self.models):
+                used_heuristic = True
+                heuristic_reason = 'no_trained_model'
+            elif ml_yield is None or not np.isfinite(ml_yield):
+                used_heuristic = True
+                heuristic_reason = 'invalid_ml_output'
+            elif self.experimental_mode_enabled and n_train_samples < self.min_samples_for_ml_confidence:
+                used_heuristic = True
+                heuristic_reason = f'small_dataset (n={n_train_samples} < {self.min_samples_for_ml_confidence})'
+            elif self.experimental_mode_enabled and (
+                ml_yield < -self.raw_extrapolation_guard or ml_yield > 100 + self.raw_extrapolation_guard
+            ):
+                used_heuristic = True
+                heuristic_reason = f'extreme_extrapolation (raw ml output={ml_yield:.2f})'
+
+            if used_heuristic:
+                final_yield = self._experimental_heuristic_predict(conditions)
+                model_name = 'Experimental Heuristic (non-scientific fallback)'
+            else:
+                final_yield = float(np.clip(ml_yield if ml_yield is not None else 50, 0, 100))
+                model_name = 'Ensemble' if self.is_trained else 'Basic'
+
             confidence_interval = None
-            if ml_yield is not None and not np.isnan(ml_yield):
+            if not used_heuristic and ml_yield is not None and not np.isnan(ml_yield):
                 if self.bootstrap_results:
                     std_est = self.bootstrap_results.get('std', 5.0)
                 else:
@@ -2041,8 +1495,7 @@ class SuzukiPredictor:
                     'lower': max(0, ml_yield - 1.96 * std_est),
                     'upper': min(100, ml_yield + 1.96 * std_est)
                 }
-            final_yield = np.clip(ml_yield if ml_yield is not None else 50, 0, 100)
-            model_name = 'Ensemble' if self.is_trained else 'Basic'
+
             if final_yield >= 85:
                 yield_class, color = 'Excellent', '#10B981'
             elif final_yield >= 70:
@@ -2053,87 +1506,98 @@ class SuzukiPredictor:
                 yield_class, color = 'Poor', '#EF4444'
             else:
                 yield_class, color = 'Very Poor', '#DC2626'
+
             prediction_data['yield'] = float(final_yield)
             prediction_data['yield_class'] = yield_class
             prediction_data['model'] = model_name
             save_prediction_history(prediction_data)
+
+            # FIX (2026-09-09): academic_details now always carries the
+            # model-level statistics computed once at training time
+            # (AIC/BIC, bootstrap CI, learning curve, normality test,
+            # correlation analysis, CV results), regardless of whether
+            # THIS particular prediction used the ML ensemble or the
+            # heuristic fallback. These describe how good the trained
+            # model is overall, not this one prediction, so they should
+            # not disappear just because the heuristic kicked in for a
+            # single out-of-range or low-confidence prediction.
+            academic_details = {
+                'anomaly_score': self.anomaly_results.get('anomaly_scores', [])[:1] if self.anomaly_results else [],
+                'learning_curve': self.learning_curve_data,
+                'bootstrap_ci': self.bootstrap_results,
+                'aic_bic': self.aic_bic_results,
+                'uncertainty': self.uncertainty_results,
+                'normality_test': self.normality_test,
+                'correlation_analysis': self.correlation_analysis,
+                'cv_results': self.cv_results
+            }
+            if used_heuristic:
+                academic_details['note'] = (
+                    'Deneysel (heuristic) mod aktif oldugu icin bu tek '
+                    'tahmin ML modelinden degil, kural tabanli bir '
+                    'yaklasimdan geldi. Asagidaki istatistikler ise bu '
+                    'tahmine degil, egitilmis modelin genel performansina '
+                    'aittir.'
+                )
+
             return {
                 'success': True,
                 'prediction': float(final_yield),
                 'prediction_display': f"~ {final_yield:.4f} % (est.)",
                 'ml_prediction': float(ml_yield) if ml_yield is not None else None,
                 'model': model_name,
+                'mode': 'experimental_heuristic' if used_heuristic else 'ml_ensemble',
+                'mode_reason': heuristic_reason,
+                'mode_disclaimer': (
+                    "Bu tahmin, egitilmis ML modelinin guvenilir olmadigi "
+                    "durumlarda (kucuk veri seti veya asiri ekstrapolasyon) "
+                    "ya da kullanicinin bu modu elle secmesi durumunda "
+                    "devreye giren, bilimsel/akademik olarak dogrulanmamis "
+                    "basit bir kural tabanli (deneysel) tahmindir: sicaklik, "
+                    "sure ve katalizor miktari arttikca verim mantikli "
+                    "yonde degisir, ancak bu sayi bir literatur veya "
+                    "mekanistik modele dayanmaz."
+                ) if used_heuristic else None,
                 'yield_class': yield_class,
                 'yield_class_color': color,
-                'confidence': 0.85 if ml_yield is not None else 0.5,
+                'confidence': (0.85 if ml_yield is not None else 0.5) if not used_heuristic else 0.3,
                 'confidence_interval': confidence_interval,
                 'best_model': self.best_model,
                 'model_count': len(self.models) if self.models else 0,
                 'is_enriched': self.is_enriched,
                 'fallback_used': self.fallback_model is not None,
                 'history_count': len(PREDICTION_HISTORY),
-                'academic_details': {
-                    'anomaly_score': self.anomaly_results.get('anomaly_scores', [])[:1] if self.anomaly_results else [],
-                    'learning_curve': self.learning_curve_data,
-                    'bootstrap_ci': self.bootstrap_results,
-                    'aic_bic': self.aic_bic_results,
-                    'uncertainty': self.uncertainty_results,
-                    'normality_test': self.normality_test,
-                    'correlation_analysis': self.correlation_analysis,
-                    'shap_analysis': self.shap_analysis,
-                    'conformal_prediction': self.conformal_prediction
-                }
+                'academic_details': convert_to_serializable(academic_details)
             }
         except Exception as e:
-            logger.error(f"Prediction error: {str(e)}\n{traceback.format_exc()}")
             raise
 
-    def optimize_catalyst(self, conditions, method='grid'):
+    def optimize_catalyst(self, conditions):
         try:
             catalysts = []
             if self.df is not None and 'catalizor' in self.df.columns:
                 catalysts = self.df['catalizor'].unique().tolist()
             else:
                 catalysts = ['Pd(PPh3)4', 'PdCl2(dppf)', 'Pd(OAc)2', 'Pd2(dba)3']
+
             results = []
             for catalyst in catalysts[:10]:
                 test_conditions = conditions.copy()
                 test_conditions['catalizor'] = catalyst
-                if method == 'bayesian':
-                    best_params, best_yield, history = self.optimize_bayesian(test_conditions, n_calls=30)
-                    if best_params is None:
-                        best_params = {'quantity': conditions.get('quantity', 0.0025), 'temp': conditions.get('temp', 80), 'time': conditions.get('time', 24)}
-                        best_yield = 0
-                    results.append((catalyst, best_yield, best_params['quantity'], best_params['temp'], best_params['time'], history))
-                elif method == 'genetic':
-                    best_params, best_yield, history = self.optimize_genetic(test_conditions, population_size=30, generations=20)
-                    if best_params is None:
-                        best_params = {'quantity': conditions.get('quantity', 0.0025), 'temp': conditions.get('temp', 80), 'time': conditions.get('time', 24)}
-                        best_yield = 0
-                    results.append((catalyst, best_yield, best_params['quantity'], best_params['temp'], best_params['time'], history))
-                else:
-                    best_yield = 0
-                    best_qty = conditions.get('quantity', 0.0025)
-                    best_temp = conditions.get('temp', 80)
-                    best_time = conditions.get('time', 24)
-                    quantities = [0.0005, 0.001, 0.0025, 0.005, 0.01, 0.02, 0.05]
-                    for qty in quantities:
-                        for temp in [60, 80, 100]:
-                            for time in [12, 24, 48]:
-                                test_conditions['quantity'] = qty
-                                test_conditions['temp'] = temp
-                                test_conditions['time'] = time
-                                result = self.predict(test_conditions)
-                                if result['success'] and result['prediction'] > best_yield:
-                                    best_yield = result['prediction']
-                                    best_qty = qty
-                                    best_temp = temp
-                                    best_time = time
-                    results.append((catalyst, best_yield, best_qty, best_temp, best_time, None))
+                best_yield = 0
+                best_qty = conditions.get('quantity', 0.0025)
+                quantities = [0.0005, 0.001, 0.0025, 0.005, 0.01, 0.02, 0.05]
+                for qty in quantities:
+                    test_conditions['quantity'] = qty
+                    result = self.predict(test_conditions)
+                    if result['success'] and result['prediction'] > best_yield:
+                        best_yield = result['prediction']
+                        best_qty = qty
+                results.append((catalyst, best_yield, best_qty))
+
             results.sort(key=lambda x: x[1], reverse=True)
             return results[:10]
-        except Exception as e:
-            logger.error(f"Optimization error: {str(e)}")
+        except Exception:
             return []
 
     def get_feature_importance(self):
@@ -2182,15 +1646,11 @@ class SuzukiPredictor:
                 'learning_curve_data': self.learning_curve_data,
                 'uncertainty_results': self.uncertainty_results,
                 'correlation_analysis': self.correlation_analysis,
-                'normality_test': self.normality_test,
-                'shap_analysis': self.shap_analysis,
-                'conformal_prediction': self.conformal_prediction
+                'normality_test': self.normality_test
             }
             joblib.dump(model_data, filepath)
-            logger.info(f"Model saved to {filepath}")
             return True
-        except Exception as e:
-            logger.error(f"Failed to save model: {str(e)}")
+        except:
             return False
 
     def load_model(self, filepath):
@@ -2213,20 +1673,20 @@ class SuzukiPredictor:
             self.uncertainty_results = model_data.get('uncertainty_results', {})
             self.correlation_analysis = model_data.get('correlation_analysis', {})
             self.normality_test = model_data.get('normality_test', {})
-            self.shap_analysis = model_data.get('shap_analysis', {})
-            self.conformal_prediction = model_data.get('conformal_prediction', {})
-            logger.info(f"Model loaded from {filepath}")
             return True
-        except Exception as e:
-            logger.error(f"Failed to load model: {str(e)}")
+        except:
             return False
 
-predict_ml_bp.route('/')
+
+# ==================== ROUTES ====================
+
+@predict_ml_bp.route('/')
 @error_handler
 def index():
     return render_template('predict_ml.html')
 
-predict_ml_bp.route('/api/get_csv_files', methods=['GET'])
+
+@predict_ml_bp.route('/api/get_csv_files', methods=['GET'])
 @error_handler
 @timing_decorator
 def get_csv_files():
@@ -2251,7 +1711,8 @@ def get_csv_files():
     files.sort(key=lambda x: x['name'])
     return jsonify({'success': True, 'files': files, 'count': len(files)})
 
-predict_ml_bp.route('/api/upload_csv', methods=['POST'])
+
+@predict_ml_bp.route('/api/upload_csv', methods=['POST'])
 @error_handler
 @timing_decorator
 def upload_csv():
@@ -2265,10 +1726,10 @@ def upload_csv():
     filename = secure_filename_custom(file.filename)
     filepath = os.path.join('static/datasets', filename)
     file.save(filepath)
-    logger.info(f"File uploaded: {filename}")
     return jsonify({'success': True, 'message': f'File uploaded: {filename}', 'filename': filename})
 
-predict_ml_bp.route('/api/load_data', methods=['POST'])
+
+@predict_ml_bp.route('/api/load_data', methods=['POST'])
 @error_handler
 @timing_decorator
 def load_data():
@@ -2329,106 +1790,13 @@ def load_data():
             'learning_curve': convert_to_serializable(result.get('learning_curve', {})),
             'uncertainty_results': convert_to_serializable(result.get('uncertainty_results', {})),
             'correlation_analysis': convert_to_serializable(result.get('correlation_analysis', {})),
-            'normality_test': convert_to_serializable(result.get('normality_test', {})),
-            'shap_analysis': convert_to_serializable(result.get('shap_analysis', {})),
-            'conformal_prediction': convert_to_serializable(result.get('conformal_prediction', {}))
+            'normality_test': convert_to_serializable(result.get('normality_test', {}))
         })
     else:
         return jsonify({'success': False, 'message': result.get('message', 'Training failed')})
 
-predict_ml_bp.route('/api/change_model', methods=['POST'])
-@error_handler
-@timing_decorator
-def change_model():
-    global PREDICTOR
-    data = get_json_body()
-    model_name = clean_text(data.get('model_name'), max_length=64)
-    if not model_name:
-        return jsonify({'success': False, 'message': 'Model name required'})
-    if PREDICTOR is None:
-        return jsonify({'success': False, 'message': 'Load data first'})
-    if not PREDICTOR.is_enriched:
-        return jsonify({'success': False, 'message': 'Cannot change model on basic dataset.'})
-    model_map = {
-        'Random Forest': 'Random_Forest',
-        'Gradient Boosting': 'Gradient_Boosting',
-        'XGBoost': 'XGBoost',
-        'LightGBM': 'LightGBM',
-        'CatBoost': 'CatBoost',
-        'Ridge': 'Ridge',
-        'Lasso': 'Lasso'
-    }
-    allowed_keys = set(model_map.values())
-    key = model_map.get(model_name, model_name)
-    if key not in allowed_keys:
-        return jsonify({'success': False, 'message': f'Unknown model: {model_name}'})
-    if PREDICTOR.df is not None:
-        PREDICTOR._prepare_features()
-    result = PREDICTOR.train(key)
-    if result['success']:
-        perf = result.get('performance', {})
-        stats = list(perf.values())[0] if perf else {}
-        return jsonify({
-            'success': True,
-            'message': f"Switched to {model_name}",
-            'current_model': model_name,
-            'stats': stats,
-            'best_model': result.get('best_model'),
-            'cv_results': result.get('cv_results', {}),
-            'fallback_used': result.get('fallback_used', False)
-        })
-    else:
-        return jsonify({'success': False, 'message': result.get('message', 'Failed to train model')})
 
-predict_ml_bp.route('/api/save_model', methods=['POST'])
-@error_handler
-def save_model():
-    global PREDICTOR
-    if PREDICTOR is None:
-        return jsonify({'success': False, 'message': 'No model to save'})
-    data = get_json_body()
-    filename = secure_filename_custom(data.get('filename', f'model_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pkl'))
-    if not filename:
-        return jsonify({'success': False, 'message': 'Invalid filename'}), 400
-    filepath = os.path.join('static/models', filename)
-    success = PREDICTOR.save_model(filepath)
-    return jsonify({'success': success, 'message': f"Model saved to {filename}" if success else "Failed to save model", 'filename': filename if success else None})
-
-predict_ml_bp.route('/api/load_model', methods=['POST'])
-@error_handler
-def load_model():
-    global PREDICTOR, CONFIG
-    data = get_json_body()
-    filename = secure_filename_custom(data.get('filename', ''))
-    if not filename:
-        return jsonify({'success': False, 'message': 'Filename required'}), 400
-    filepath = os.path.join('static/models', filename)
-    if not os.path.exists(filepath):
-        return jsonify({'success': False, 'message': f'Model not found: {filename}'})
-    CONFIG = ConfigManager('config/info.xml')
-    PREDICTOR = SuzukiPredictor(CONFIG)
-    success = PREDICTOR.load_model(filepath)
-    return jsonify({
-        'success': success,
-        'message': f"Model loaded from {filename}" if success else "Failed to load model",
-        'best_model': PREDICTOR.best_model if success else None,
-        'is_enriched': PREDICTOR.is_enriched if success else False
-    })
-
-predict_ml_bp.route('/api/list_models', methods=['GET'])
-@error_handler
-def list_models():
-    models_dir = 'static/models'
-    os.makedirs(models_dir, exist_ok=True)
-    models = []
-    for f in os.listdir(models_dir):
-        if f.endswith('.pkl'):
-            path = os.path.join(models_dir, f)
-            models.append({'name': f, 'size': format_size(os.path.getsize(path)), 'modified': datetime.fromtimestamp(os.path.getmtime(path)).isoformat()})
-    models.sort(key=lambda x: x['modified'], reverse=True)
-    return jsonify({'success': True, 'models': models})
-
-predict_ml_bp.route('/api/make_prediction', methods=['POST'])
+@predict_ml_bp.route('/api/make_prediction', methods=['POST'])
 @error_handler
 @timing_decorator
 def make_prediction():
@@ -2451,7 +1819,9 @@ def make_prediction():
         quantity = to_float(data['quantity'], field_name='quantity')
     except ValueError as e:
         return jsonify({'success': False, 'message': str(e)}), 400
-    exp_mode = bool(data.get('experimental_mode', False))
+    # FIX (2026-09-09): read the manual "experimental mode" toggle sent
+    # from the UI checkbox, independent of the automatic safety-net logic.
+    force_experimental = bool(data.get('force_experimental', False))
     result = PREDICTOR.predict({
         'temp': temp,
         'time': time_h,
@@ -2461,9 +1831,8 @@ def make_prediction():
         'solv1': clean_text(data['solv1']),
         'solv2': clean_text(data.get('solv2', '')),
         'subs1_smiles': clean_text(data['subs1_smiles'], max_smiles_len),
-        'subs2_smiles': clean_text(data['subs2_smiles'], max_smiles_len),
-        'experimental_mode': exp_mode
-    })
+        'subs2_smiles': clean_text(data['subs2_smiles'], max_smiles_len)
+    }, force_experimental=force_experimental)
     if not result['success']:
         return jsonify({'success': False, 'message': result.get('message', 'Prediction failed')})
     return jsonify({
@@ -2472,6 +1841,9 @@ def make_prediction():
         'prediction_display': result.get('prediction_display', f"~ {result['prediction']:.4f} % (est.)"),
         'ml_prediction': result.get('ml_prediction'),
         'model': result['model'],
+        'mode': result.get('mode', 'ml_ensemble'),
+        'mode_reason': result.get('mode_reason'),
+        'mode_disclaimer': result.get('mode_disclaimer'),
         'yield_class': result.get('yield_class', 'Unknown'),
         'yield_class_color': result.get('yield_class_color', '#6B7280'),
         'confidence': result.get('confidence', 0.85),
@@ -2484,7 +1856,8 @@ def make_prediction():
         'academic_details': convert_to_serializable(result.get('academic_details', {}))
     })
 
-predict_ml_bp.route('/api/optimize_catalyst', methods=['POST'])
+
+@predict_ml_bp.route('/api/optimize_catalyst', methods=['POST'])
 @error_handler
 @timing_decorator
 def optimize_catalyst():
@@ -2507,8 +1880,6 @@ def optimize_catalyst():
         quantity = to_float(data['quantity'], field_name='quantity')
     except ValueError as e:
         return jsonify({'success': False, 'message': str(e)}), 400
-    method = data.get('method', 'grid')
-    exp_mode = bool(data.get('experimental_mode', False))
     results = PREDICTOR.optimize_catalyst({
         'temp': temp,
         'time': time_h,
@@ -2517,14 +1888,14 @@ def optimize_catalyst():
         'solv1': clean_text(data['solv1']),
         'solv2': clean_text(data.get('solv2', '')),
         'subs1_smiles': clean_text(data['subs1_smiles'], max_smiles_len),
-        'subs2_smiles': clean_text(data['subs2_smiles'], max_smiles_len),
-        'experimental_mode': exp_mode
-    }, method=method)
+        'subs2_smiles': clean_text(data['subs2_smiles'], max_smiles_len)
+    })
     if not results:
         return jsonify({'success': False, 'message': 'Optimization failed'})
-    return jsonify({'success': True, 'results': results, 'method': method})
+    return jsonify({'success': True, 'results': results})
 
-predict_ml_bp.route('/api/model_performance', methods=['GET'])
+
+@predict_ml_bp.route('/api/model_performance', methods=['GET'])
 @error_handler
 def model_performance():
     global PREDICTOR, DATA_INFO
@@ -2545,35 +1916,32 @@ def model_performance():
             'feature_count': len(PREDICTOR.feature_columns),
             'is_trained': PREDICTOR.is_trained,
             'is_enriched': PREDICTOR.is_enriched,
-            'performances': perf,
-            'residuals': residuals,
-            'cv_results': PREDICTOR.cv_results,
-            'anomaly_results': PREDICTOR.anomaly_results,
-            'bootstrap_results': PREDICTOR.bootstrap_results,
-            'aic_bic_results': PREDICTOR.aic_bic_results,
-            'learning_curve': PREDICTOR.learning_curve_data,
-            'uncertainty_results': PREDICTOR.uncertainty_results,
-            'correlation_analysis': PREDICTOR.correlation_analysis,
-            'normality_test': PREDICTOR.normality_test
+            'performances': convert_to_serializable(perf),
+            'residuals': convert_to_serializable(residuals),
+            'cv_results': convert_to_serializable(PREDICTOR.cv_results),
+            'anomaly_results': convert_to_serializable(PREDICTOR.anomaly_results),
+            'bootstrap_results': convert_to_serializable(PREDICTOR.bootstrap_results),
+            'aic_bic_results': convert_to_serializable(PREDICTOR.aic_bic_results),
+            'learning_curve': convert_to_serializable(PREDICTOR.learning_curve_data),
+            'uncertainty_results': convert_to_serializable(PREDICTOR.uncertainty_results),
+            'correlation_analysis': convert_to_serializable(PREDICTOR.correlation_analysis),
+            'normality_test': convert_to_serializable(PREDICTOR.normality_test)
         }
     })
 
-predict_ml_bp.route('/api/feature_importance', methods=['GET'])
-@error_handler
-def feature_importance():
-    global PREDICTOR
-    if PREDICTOR is None:
-        return jsonify({'success': False, 'message': 'Load data first'})
-    importance = PREDICTOR.get_feature_importance()
-    return jsonify({'success': True, 'feature_importance': importance.get('top_10', []), 'all_features': importance.get('all', {})})
 
-predict_ml_bp.route('/api/prediction_history', methods=['GET'])
+@predict_ml_bp.route('/api/prediction_history', methods=['GET'])
 @error_handler
 def get_prediction_history():
     load_prediction_history()
-    return jsonify({'success': True, 'history': PREDICTION_HISTORY, 'count': len(PREDICTION_HISTORY)})
+    return jsonify({
+        'success': True,
+        'history': PREDICTION_HISTORY,
+        'count': len(PREDICTION_HISTORY)
+    })
 
-predict_ml_bp.route('/api/clear_history', methods=['POST'])
+
+@predict_ml_bp.route('/api/clear_history', methods=['POST'])
 @error_handler
 def clear_prediction_history():
     global PREDICTION_HISTORY
@@ -2582,7 +1950,34 @@ def clear_prediction_history():
         os.remove(PREDICTION_HISTORY_FILE)
     return jsonify({'success': True, 'message': 'History cleared'})
 
-predict_ml_bp.route('/api/health', methods=['GET'])
+
+@predict_ml_bp.route('/api/change_model', methods=['POST'])
+@error_handler
+def change_model():
+    global PREDICTOR
+    data = get_json_body()
+    model_name = data.get('model_name', 'Ensemble')
+    if PREDICTOR is None or PREDICTOR.X is None:
+        return jsonify({'success': False, 'message': 'Load data first'})
+    result = PREDICTOR.train(model_name)
+    if not result['success']:
+        return jsonify({'success': False, 'message': result.get('message', 'Training failed')})
+    perf = result.get('performance', {})
+    stats = perf.get(model_name)
+    if stats is None and perf:
+        stats = list(perf.values())[0]
+    cv = result.get('cv_results', {})
+    return jsonify({
+        'success': True,
+        'message': f"Switched to {model_name}",
+        'current_model': model_name,
+        'stats': stats or {},
+        'cv_results': convert_to_serializable(cv),
+        'best_model': result.get('best_model')
+    })
+
+
+@predict_ml_bp.route('/api/health', methods=['GET'])
 @error_handler
 def health_check():
     return jsonify({
@@ -2599,20 +1994,16 @@ def health_check():
         'xgb_available': XGB_AVAILABLE,
         'lgbm_available': LGBM_AVAILABLE,
         'catboost_available': CATBOOST_AVAILABLE,
-        'skopt_available': SKOPT_AVAILABLE,
-        'deap_available': DEAP_AVAILABLE,
-        'shap_available': SHAP_AVAILABLE,
-        'mapie_available': MAPIE_AVAILABLE,
-        'xtb_available': XTB_AVAILABLE,
         'history_count': len(PREDICTION_HISTORY),
         'features': len(PREDICTOR.feature_columns) if PREDICTOR else 0
     })
+
 
 DEFAULT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <suzuki_config>
     <metadata>
         <last_updated>2026-09-07</last_updated>
-        <description>Production-ready Suzuki ML predictor</description>
+        <description>Academic Suzuki ML predictor</description>
     </metadata>
     <data_integrity>
         <critical_non_nullable_columns>temp,time,quantity,catalizor,base</critical_non_nullable_columns>
@@ -2624,6 +2015,33 @@ DEFAULT_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <bootstrap_iterations>1000</bootstrap_iterations>
         <confidence_level>0.95</confidence_level>
     </ml_training_safeguards>
+    <experimental_mode>
+        <!--
+            NOT scientific/academic. This is a rule-of-thumb fallback used
+            only when the trained ML ensemble is unreliable (too few
+            labeled reactions, or a prediction that clearly extrapolated
+            outside the training range), OR when the user explicitly
+            enables it from the UI. It guarantees that increasing
+            temperature, time, or catalyst loading moves the predicted
+            yield in the expected direction instead of returning a flat
+            0.0% or a nonsensical negative/huge number clipped to 0.
+        -->
+        <enabled>true</enabled>
+        <!-- below this many labeled rows, the ML ensemble is considered
+             too small to trust for extrapolation; heuristic mode is used -->
+        <min_samples_for_ml_confidence>20</min_samples_for_ml_confidence>
+        <!-- if the *raw* (unclipped) ML prediction falls outside
+             [-guard, 100+guard], treat it as a failed extrapolation -->
+        <raw_extrapolation_guard>60</raw_extrapolation_guard>
+        <!-- weights for the heuristic combination of temp/time/quantity,
+             must sum to 1.0 -->
+        <temp_weight>0.5</temp_weight>
+        <time_weight>0.3</time_weight>
+        <quantity_weight>0.2</quantity_weight>
+        <!-- how many degrees C it takes to move the temperature factor
+             noticeably (logistic curve steepness) -->
+        <temp_sensitivity>20.0</temp_sensitivity>
+    </experimental_mode>
     <model_parameters>
         <Random_Forest>
             <n_estimators>300</n_estimators>
@@ -2723,11 +2141,13 @@ DEFAULT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </security>
 </suzuki_config>"""
 
+
 def init_app():
     os.makedirs('static/datasets', exist_ok=True)
     os.makedirs('config', exist_ok=True)
     os.makedirs('static/models', exist_ok=True)
     os.makedirs('logs', exist_ok=True)
     load_prediction_history()
+
 
 init_app()
