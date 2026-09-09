@@ -43,6 +43,9 @@
             --radius-xl: 100px;
             --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             --font: 'Inter', -apple-system, system-ui, sans-serif;
+            --info-bg: #e8f4fd;
+            --info-border: #b8d8f0;
+            --info-text: #1a4b6d;
         }
 
         [data-theme="dark"] {
@@ -68,6 +71,9 @@
             --footer-text: #888888;
             --clock-bg: #282828;
             --clock-text: #c0c0c0;
+            --info-bg: #1a2a3a;
+            --info-border: #2a4a6a;
+            --info-text: #a0c8e8;
         }
 
         body {
@@ -226,6 +232,59 @@
             color: var(--text-secondary);
             font-weight: 400;
             transition: color var(--transition);
+        }
+
+        /* INFO BANNER - Sayfanın modifiye edilebilir olduğunu belirten mesaj */
+        .info-banner {
+            background: var(--info-bg);
+            border: 1px solid var(--info-border);
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            animation: fadeUp 0.7s ease 0.1s forwards;
+            opacity: 0;
+            transition: all var(--transition);
+        }
+        .info-banner i {
+            font-size: 1.3rem;
+            color: var(--info-text);
+            flex-shrink: 0;
+        }
+        .info-banner .info-content {
+            flex: 1;
+            color: var(--info-text);
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+        .info-banner .info-content strong {
+            font-weight: 600;
+        }
+        .info-banner .info-content code {
+            background: rgba(0,0,0,0.08);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: var(--info-text);
+        }
+        [data-theme="dark"] .info-banner .info-content code {
+            background: rgba(255,255,255,0.08);
+        }
+        .info-banner .info-close {
+            background: none;
+            border: none;
+            color: var(--info-text);
+            cursor: pointer;
+            font-size: 1.1rem;
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+            padding: 4px;
+        }
+        .info-banner .info-close:hover {
+            opacity: 1;
         }
 
         .controls {
@@ -562,6 +621,8 @@
             main { padding: 0 16px; margin: 20px auto; }
             .page-header h2 { font-size: 1.5rem; }
             .page-header p { font-size: 0.9rem; }
+            .info-banner { flex-wrap: wrap; padding: 12px 16px; }
+            .info-banner .info-content { font-size: 0.82rem; }
             .controls { padding: 16px; flex-direction: column; }
             .controls select { width: 100%; min-width: unset; }
             .controls .btn { width: 100%; justify-content: center; }
@@ -587,6 +648,8 @@
             .card-body { min-height: 140px; }
             .card-footer .btn { font-size: 0.7rem; padding: 4px 8px; }
             .placeholder-icon { font-size: 2rem; }
+            .info-banner { padding: 10px 12px; }
+            .info-banner .info-content { font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -610,6 +673,20 @@
     <div class="page-header">
         <h2 id="pageTitle">Görselleştirme Dashboard</h2>
         <p id="pageDesc">Süreç görselleştirmelerini inceleyin ve analiz edin</p>
+    </div>
+
+    <!-- INFO BANNER - Modifiye edilebilir sayfa mesajı -->
+    <div class="info-banner" id="infoBanner">
+        <i class="fas fa-code"></i>
+        <div class="info-content">
+            <strong>📐 Bu sayfa modifiye edilebilir!</strong>
+            İstediğiniz görsel çıktıları <code>predict_ml_routes</code> ve <code>visual_routes</code>
+            Python dosyalarında düzenleyerek özelleştirebilirsiniz. Görselleştirme
+            süreçlerini kendi ihtiyaçlarınıza göre şekillendirin.
+        </div>
+        <button class="info-close" id="infoClose" aria-label="Close info banner">
+            <i class="fas fa-times"></i>
+        </button>
     </div>
 
     <div class="controls" id="controls">
@@ -679,7 +756,9 @@
             pageDesc: $('pageDesc'),
             contactLabel: $('contactLabel'),
             contactInfo: $('contactInfo'),
-            copyright: $('copyright')
+            copyright: $('copyright'),
+            infoBanner: $('infoBanner'),
+            infoClose: $('infoClose')
         };
 
         var translations = {
@@ -701,7 +780,8 @@
                 refreshed: 'Görselleştirmeler yenilendi',
                 updated: 'Görselleştirmeler güncellendi',
                 downloading: 'İndiriliyor...',
-                loading: 'Yükleniyor...'
+                loading: 'Yükleniyor...',
+                infoBanner: 'Bu sayfa modifiye edilebilir! İstediğiniz görsel çıktıları predict_ml_routes ve visual_routes Python dosyalarında düzenleyerek özelleştirebilirsiniz.'
             },
             en: {
                 headerTitle: 'Visualization',
@@ -721,7 +801,8 @@
                 refreshed: 'Visualizations refreshed',
                 updated: 'Visualizations updated',
                 downloading: 'Downloading...',
-                loading: 'Loading...'
+                loading: 'Loading...',
+                infoBanner: 'This page is customizable! You can modify the visual outputs by editing the predict_ml_routes and visual_routes Python files.'
             }
         };
 
@@ -765,6 +846,29 @@
 
             if (els.langSwitch) {
                 els.langSwitch.textContent = lang.toUpperCase();
+            }
+
+            // Info banner içeriğini güncelle
+            var infoContent = document.querySelector('.info-banner .info-content');
+            if (infoContent) {
+                var strong = infoContent.querySelector('strong');
+                var textNode = infoContent.childNodes[infoContent.childNodes.length - 1];
+                if (strong && textNode) {
+                    // Bu kısmı daha temiz bir şekilde yapalım
+                    var bannerText = t.infoBanner;
+                    var parts = bannerText.split('!');
+                    if (parts.length > 1) {
+                        strong.textContent = parts[0] + '!';
+                        // Kalan metni güncelle
+                        var remainingText = parts.slice(1).join('!').trim();
+                        var codeElements = infoContent.querySelectorAll('code');
+                        if (codeElements.length > 0) {
+                            // Mevcut code elementlerini koruyarak güncelle
+                            var newHtml = '<strong>' + parts[0] + '!</strong> ' + remainingText.replace(/predict_ml_routes/g, '<code>predict_ml_routes</code>').replace(/visual_routes/g, '<code>visual_routes</code>');
+                            infoContent.innerHTML = newHtml;
+                        }
+                    }
+                }
             }
         }
 
@@ -1082,6 +1186,22 @@
                     els.visualizeBtn.click();
                 }
             });
+        }
+
+        // Info banner kapatma
+        if (els.infoClose) {
+            els.infoClose.addEventListener('click', function() {
+                if (els.infoBanner) {
+                    els.infoBanner.style.display = 'none';
+                    localStorage.setItem('molytica-info-banner-hidden', 'true');
+                }
+            });
+        }
+
+        // Info banner'ı daha önce kapatılmışsa gösterme
+        var isInfoHidden = localStorage.getItem('molytica-info-banner-hidden') === 'true';
+        if (isInfoHidden && els.infoBanner) {
+            els.infoBanner.style.display = 'none';
         }
 
         function init() {
