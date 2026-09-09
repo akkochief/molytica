@@ -163,7 +163,7 @@ Generates plots after training, including:
 | `/api/save_model` | POST | Save trained model with joblib |
 | `/api/load_model` | POST | Load a saved model |
 | `/api/list_models` | GET | List saved models |
-| `/api/make_prediction` | POST | Predict yield for a single reaction, with the full factor breakdown (electronic proxy / physicochemical proxy / HSAB / mechanistic / etc.) |
+| `/api/make_prediction` | POST | Predict yield for a single reaction. Accepts an optional `force_experimental` flag to manually enable the rule-based fallback mode. Returns full academic statistics (AIC/BIC, bootstrap CI, learning curve, etc.) regardless of whether the ML ensemble or the heuristic fallback was used for that specific prediction. |
 | `/api/optimize_catalyst` | POST | Suggest optimal catalyst for given conditions |
 | `/api/model_performance` | GET | Get R²/MAE/RMSE plus `honest_cv_performance` and other statistical analyses (CV, ANOVA, CIs) |
 | `/api/model_comparison` | POST | Compare all trained model performances |
@@ -252,8 +252,8 @@ The app runs at `http://127.0.0.1:5000`.
 - **HSAB theory** (Pearson, 1963): hardness, chemical potential, electrophilicity — framework is real; the specific numeric scale used is an illustrative placeholder, not a tabulated reference
 - **Eyring transition-state kinetics**: ΔH‡, ΔS‡, reaction rates
 - **Kamlet-Taft solvent parameters**: α, β, π*
-- **A conceptual-DFT-*inspired* electronic proxy**: HOMO-LUMO-style, chemical-potential/hardness/electrophilicity definitions (Parr & Pearson, 1983) applied to a Hammett-σ-derived proxy — **not an actual DFT calculation**
-- **A continuous physicochemical proxy**: real RDKit MW/LogP/TPSA/rotatable-bond descriptors, no borrowed drug-likeness rule set
+- A **conceptual-DFT-*inspired* electronic proxy**: HOMO-LUMO-style, chemical-potential/hardness/electrophilicity definitions (Parr & Pearson, 1983) applied to a Hammett-σ-derived proxy — **not an actual DFT calculation**
+- A **continuous physicochemical proxy**: real RDKit MW/LogP/TPSA/rotatable-bond descriptors, no borrowed drug-likeness rule set
 - **ML Ensemble**: Random Forest, XGBoost, LightGBM, CatBoost, Hist-GB, SVR, KNN, Ridge, Lasso, ElasticNet, MLP, Gaussian Process — restricted to linear models automatically at low sample counts (see §4)
 
 ## What changed in v7.4.0
@@ -281,6 +281,10 @@ implied a computational technique that isn't actually performed:
   for every constant in `info.xml`.
 - **Low-data ML safeguards** (minimum sample thresholds, restricted
   ensemble at low N, nested-CV `honest_cv_performance` metric) — see §4.
+- **Fixed `train_test_split` stratification bug** to prevent crashes on small datasets.
+- **Fixed JSON serialization of Python floats** to resolve frontend `.toFixed()` errors.
+- **Added user-controlled `force_experimental` flag** in the prediction endpoint for manual override of the ML ensemble.
+- **Academic statistics (AIC/BIC, bootstrap CI, learning curve, etc.) are now always returned** in the prediction response, regardless of whether the ML or heuristic mode was used.
 
 None of this changes the numeric output of the electronic-proxy or
 mechanistic-barrier calculations; it changes what they're honestly called
