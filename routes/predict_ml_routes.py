@@ -1,29 +1,3 @@
-"""
-Molytica - Suzuki-Miyaura Academic Predictor
-Professional, Scientific, Production-Ready Code
-
-FIX (2026-09-09): train_test_split stratify bug fixed.
-Previously the code always split target 'yield' into 4 quartile bins
-(pd.qcut(..., q=4)) and used that as the stratify key, regardless of
-dataset size or test-set size. sklearn requires the test set to contain
-at least as many samples as there are stratification classes, so any
-small dataset (e.g. 15 rows -> test_size 0.2 -> 3 test rows) crashed
-with: "test_size = 3 should be greater or equal to the number of
-classes = 4". The fix below dynamically picks the number of bins based
-on how many samples will actually land in the test set, and disables
-stratification entirely when there aren't enough test samples to
-support it.
-
-FIX (2026-09-09, second pass): experimental/heuristic fallback mode is
-now a mode the user can toggle explicitly from the UI (force_experimental),
-in addition to the automatic safety-net triggers. Academic statistics
-(AIC/BIC, bootstrap CI, learning curve, normality test, correlation
-analysis, CV results) are computed once at training time and are now
-always returned from predict(), regardless of whether that particular
-prediction used the ML ensemble or the heuristic fallback -- they
-describe the trained model's overall quality, not a single prediction.
-"""
-
 from flask import Blueprint, render_template, request, jsonify
 import os
 import json
