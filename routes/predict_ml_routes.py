@@ -103,26 +103,12 @@ def classify_and_filter_rows(df):
 
 
 def convert_to_serializable(obj):
-    # FIX (2026-09-09): native Python float/int/bool/str/None used to fall
-    # through to the final `else: return str(obj)` branch below, silently
-    # turning numbers into strings (e.g. yield_stats.mean == 45.67 became
-    # the string "45.67"). That broke every frontend call to .toFixed()
-    # on these fields ("... .toFixed is not a function"), since only
-    # numpy scalar types were ever explicitly handled. These checks must
-    # come first so plain Python scalars pass through untouched.
-    # NOTE: np.float32/np.float64 are actual subclasses of Python's
-    # built-in `float` (and np.bool_ can behave like `bool` in some
-    # numpy versions), so numpy-specific checks MUST run before the
-    # generic (int, float, str) passthrough below, or they'd never be
-    # reached and NaN/Infinity would slip through unconverted.
     if obj is None:
         return None
     elif isinstance(obj, np.ndarray):
         return [convert_to_serializable(x) for x in obj.tolist()]
     elif isinstance(obj, (np.floating,)):
         val = float(obj)
-        # NaN/Infinity are not valid JSON; jsonify would otherwise emit
-        # non-standard tokens that some JS JSON parsers reject/mis-handle.
         return val if np.isfinite(val) else None
     elif isinstance(obj, (np.integer,)):
         return int(obj)
@@ -698,7 +684,6 @@ class SuzukiPredictor:
         self.bootstrap_iterations = self.config.get_int('ml_training_safeguards/bootstrap_iterations', 1000)
         self.confidence_level = self.config.get_float('ml_training_safeguards/confidence_level', 0.95)
 
-        # --- Experimental (non-scientific) heuristic fallback settings ---
         self.experimental_mode_enabled = self.config.get_bool('experimental_mode/enabled', True)
         self.min_samples_for_ml_confidence = self.config.get_int('experimental_mode/min_samples_for_ml_confidence', 20)
         self.raw_extrapolation_guard = self.config.get_float('experimental_mode/raw_extrapolation_guard', 60.0)
@@ -961,27 +946,10 @@ class SuzukiPredictor:
             pass
         return None
 
-    # ------------------------------------------------------------------
-    # FIXED: safe stratified split
-    # ------------------------------------------------------------------
     def _safe_stratified_split(self, X_scaled, y, test_size, random_state=42):
-        """
-        Build a stratify key from the target's quantile bins, but only
-        use as many bins as the (estimated) test set can actually hold,
-        and fall back to a plain (non-stratified) split when there are
-        too few samples for stratification to make sense.
-
-        This fixes: "test_size = N should be greater or equal to the
-        number of classes = K", which happened whenever pd.qcut(..., q=4)
-        produced more classes than the test split had rows for.
-        """
         n_samples = len(y)
         n_test = int(round(n_samples * test_size))
         n_test = max(1, n_test)
-
-        # Never try to stratify into more bins than we have test rows,
-        # and cap at 4 bins (quartiles) as before. Need at least 2 bins
-        # and at least 2 samples per class in the whole dataset to try.
         max_bins = min(4, n_test, n_samples // 2)
 
         stratify_arg = None
@@ -989,13 +957,7 @@ class SuzukiPredictor:
             try:
                 y_binned = pd.qcut(y, q=max_bins, labels=False, duplicates='drop')
                 n_classes = len(np.unique(y_binned))
-                # Only stratify if we truly have >=2 classes AND the
-                # test set will be large enough to contain at least one
-                # sample of every class.
                 if n_classes >= 2 and n_test >= n_classes:
-                    # Also guard against any class having fewer than 2
-                    # total samples (sklearn requires >=2 per class to
-                    # split at all when stratifying).
                     counts = pd.Series(y_binned).value_counts()
                     if counts.min() >= 2:
                         stratify_arg = y_binned
@@ -1008,9 +970,6 @@ class SuzukiPredictor:
                 stratify=stratify_arg
             )
         except ValueError:
-            # Final safety net: if stratification still fails for any
-            # reason (edge cases in extremely small datasets), retry
-            # once with no stratification at all instead of crashing.
             return train_test_split(
                 X_scaled, y, test_size=test_size, random_state=random_state,
                 stratify=None
@@ -1040,9 +999,6 @@ class SuzukiPredictor:
 
             test_size = min(0.2, max(0.1, 3.0 / n_samples))
 
-            # FIX: use the safe stratified split helper instead of a
-            # hard-coded 4-quantile stratify key that could exceed the
-            # number of rows actually available in the test split.
             X_train, X_test, y_train, y_test = self._safe_stratified_split(
                 X_scaled, self.y, test_size=test_size, random_state=42
             )
@@ -1327,29 +1283,6 @@ class SuzukiPredictor:
         return np.array(vector).reshape(1, -1)
 
     def _experimental_heuristic_predict(self, conditions):
-        """
-        NOT a scientific or academically validated model. This is a
-        deliberately simple, monotonic rule-of-thumb used only as a
-        safety-net fallback when the trained ML ensemble cannot be
-        trusted (too little labeled data, or a prediction that clearly
-        extrapolated outside the training range and had to be clipped
-        to 0/100 -- which is why users were seeing a flat "0.0%").
-
-        Behavior:
-          - Higher temperature -> higher yield (up to a plateau), via a
-            logistic curve centered on the dataset's own average temp
-            (or a generic 80C default if no data is loaded yet).
-          - Longer time -> higher yield with diminishing returns, via a
-            saturating exponential centered on the dataset's average
-            reaction time.
-          - More catalyst quantity -> higher yield with diminishing
-            returns, same saturating-exponential shape.
-        The three factors are combined with configurable weights (XML:
-        experimental_mode/temp_weight, time_weight, quantity_weight) and
-        scaled around the dataset's mean observed yield, so the estimate
-        stays anchored to what was actually observed instead of an
-        arbitrary constant.
-        """
         temp = float(conditions.get('temp', 80) or 80)
         time_h = float(conditions.get('time', 12) or 12)
         qty = float(conditions.get('quantity', 0.0025) or 0.0025)
@@ -1366,13 +1299,8 @@ class SuzukiPredictor:
         time_ref = time_ref if time_ref > 0 else 12.0
         qty_ref = qty_ref if qty_ref > 0 else 0.0025
         sensitivity = self.heuristic_temp_sensitivity if self.heuristic_temp_sensitivity > 0 else 20.0
-
-        # Logistic in [0, 1], centered at the dataset's mean temperature.
-        # Monotonically increasing with temp by construction.
         temp_factor = 1.0 / (1.0 + np.exp(-(temp - temp_ref) / sensitivity))
 
-        # Saturating exponentials in [0, 1); monotonically increasing
-        # with time / catalyst quantity by construction.
         time_factor = 1.0 - np.exp(-max(time_h, 0.0) / time_ref)
         qty_factor = 1.0 - np.exp(-max(qty, 0.0) / qty_ref)
 
@@ -1380,10 +1308,6 @@ class SuzukiPredictor:
         weight_sum = (w_t + w_h + w_q) or 1.0
         combined = (w_t * temp_factor + w_h * time_factor + w_q * qty_factor) / weight_sum
 
-        # Map combined in/around [0,1] to a yield centered on base_yield:
-        # combined=0.5 (neutral conditions) reproduces base_yield;
-        # combined=1.0 (best conditions seen) roughly doubles it (capped);
-        # combined=0.0 (worst conditions) roughly halves it.
         heuristic_yield = base_yield * (0.5 + combined)
         heuristic_yield = float(np.clip(heuristic_yield, 1.0, 99.0))
         return heuristic_yield
@@ -1418,18 +1342,6 @@ class SuzukiPredictor:
                 except:
                     pass
 
-            # --- Decide whether the ML output can actually be trusted ---
-            # This replaces the old behavior of silently np.clip()-ing any
-            # ML output (including wildly wrong extrapolations, or a flat
-            # 0 from a failed ensemble) into [0, 100], which is why users
-            # were seeing a flat "0.0%" on small datasets with no
-            # indication anything had gone wrong.
-            #
-            # FIX (2026-09-09): `force_experimental` lets the user
-            # explicitly request the rule-of-thumb heuristic from the UI
-            # (a checkbox), independent of the automatic safety-net
-            # triggers below. This is checked first so an explicit user
-            # request always wins.
             used_heuristic = False
             heuristic_reason = None
             n_train_samples = len(self.X) if self.X is not None else 0
@@ -1486,15 +1398,6 @@ class SuzukiPredictor:
             prediction_data['model'] = model_name
             save_prediction_history(prediction_data)
 
-            # FIX (2026-09-09): academic_details now always carries the
-            # model-level statistics computed once at training time
-            # (AIC/BIC, bootstrap CI, learning curve, normality test,
-            # correlation analysis, CV results), regardless of whether
-            # THIS particular prediction used the ML ensemble or the
-            # heuristic fallback. These describe how good the trained
-            # model is overall, not this one prediction, so they should
-            # not disappear just because the heuristic kicked in for a
-            # single out-of-range or low-confidence prediction.
             academic_details = {
                 'anomaly_score': self.anomaly_results.get('anomaly_scores', [])[:1] if self.anomaly_results else [],
                 'learning_curve': self.learning_curve_data,
@@ -1651,9 +1554,6 @@ class SuzukiPredictor:
         except:
             return False
 
-
-# ==================== ROUTES ====================
-
 @predict_ml_bp.route('/')
 @error_handler
 def index():
@@ -1793,8 +1693,7 @@ def make_prediction():
         quantity = to_float(data['quantity'], field_name='quantity')
     except ValueError as e:
         return jsonify({'success': False, 'message': str(e)}), 400
-    # FIX (2026-09-09): read the manual "experimental mode" toggle sent
-    # from the UI checkbox, independent of the automatic safety-net logic.
+
     force_experimental = bool(data.get('force_experimental', False))
     result = PREDICTOR.predict({
         'temp': temp,
@@ -1990,30 +1889,12 @@ DEFAULT_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <confidence_level>0.95</confidence_level>
     </ml_training_safeguards>
     <experimental_mode>
-        <!--
-            NOT scientific/academic. This is a rule-of-thumb fallback used
-            only when the trained ML ensemble is unreliable (too few
-            labeled reactions, or a prediction that clearly extrapolated
-            outside the training range), OR when the user explicitly
-            enables it from the UI. It guarantees that increasing
-            temperature, time, or catalyst loading moves the predicted
-            yield in the expected direction instead of returning a flat
-            0.0% or a nonsensical negative/huge number clipped to 0.
-        -->
         <enabled>true</enabled>
-        <!-- below this many labeled rows, the ML ensemble is considered
-             too small to trust for extrapolation; heuristic mode is used -->
         <min_samples_for_ml_confidence>20</min_samples_for_ml_confidence>
-        <!-- if the *raw* (unclipped) ML prediction falls outside
-             [-guard, 100+guard], treat it as a failed extrapolation -->
         <raw_extrapolation_guard>60</raw_extrapolation_guard>
-        <!-- weights for the heuristic combination of temp/time/quantity,
-             must sum to 1.0 -->
         <temp_weight>0.5</temp_weight>
         <time_weight>0.3</time_weight>
         <quantity_weight>0.2</quantity_weight>
-        <!-- how many degrees C it takes to move the temperature factor
-             noticeably (logistic curve steepness) -->
         <temp_sensitivity>20.0</temp_sensitivity>
     </experimental_mode>
     <model_parameters>
